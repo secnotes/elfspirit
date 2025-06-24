@@ -4,15 +4,22 @@ SRCS = $(wildcard *.c cJSON/cJSON.c)
 OBJS = $(SRCS:.c=.o)
 CFLAGS = -w -c
 
-ifeq ($(debug), true)
-	CXXFLAGS=-g -fsanitize=address
-	CXXFLAGS+=-Ddebug
+# 静态链接控制开关
+ifeq ($(static),true)
+    LDFLAGS += -static
+endif
+
+# 调试模式控制
+ifeq ($(debug),true)
+    CXXFLAGS=-g -fsanitize=address
+    CXXFLAGS+=-Ddebug
 else
-	CXXFLAGS=-O3
+    CXXFLAGS=-O3
 endif
 
 $(TARGET) : $(OBJS)
-	$(CC) $(CXXFLAGS) $(OBJS) -o $(TARGET)
+	$(CC) $(CXXFLAGS) $(LDFLAGS) $(OBJS) -o $(TARGET)
+
 %.o: %.c
 	$(CC) $(CFLAGS) $(CXXFLAGS) $< -o $@
 

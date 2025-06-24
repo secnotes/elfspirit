@@ -3513,6 +3513,39 @@ static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
                 type = "R_X86_64_NUM";
                 break;
             
+            /* 动态链接重定位 */
+            case R_AARCH64_P32_COPY:
+                type = "R_AARCH64_P32_COPY";
+                break;
+            case R_AARCH64_P32_GLOB_DAT:
+                type = "R_AARCH64_P32_GLOB_DAT";
+                break;
+            case R_AARCH64_P32_JUMP_SLOT:
+                type = "R_AARCH64_P32_JUMP_SLOT";
+                break;
+            case R_AARCH64_P32_RELATIVE:
+                type = "R_AARCH64_P32_RELATIVE";
+                break;
+            
+            /* TLS相关重定位 */
+            case R_AARCH64_P32_TLS_DTPMOD:
+                type = "R_AARCH64_P32_TLS_DTPMOD";
+                break;
+            case R_AARCH64_P32_TLS_DTPREL:
+                type = "R_AARCH64_P32_TLS_DTPREL";
+                break;
+            case R_AARCH64_P32_TLS_TPREL:
+                type = "R_AARCH64_P32_TLS_TPREL";
+                break;
+            case R_AARCH64_P32_TLSDESC:
+                type = "R_AARCH64_P32_TLSDESC";
+                break;
+            
+            /* 间接函数重定位 */
+            case R_AARCH64_P32_IRELATIVE:
+                type = "R_AARCH64_P32_IRELATIVE";
+                break;
+            
             default:
                 break;
         }
@@ -3751,6 +3784,380 @@ static int display_rel64(handle_t64 *h, char *section_name) {
             case R_X86_64_NUM:
                 type = "R_X86_64_NUM";
                 break;
+
+            /* LP64 AArch64 relocs.  */
+            case R_AARCH64_ABS64:
+                type = "R_AARCH64_ABS64";
+                break;
+            case R_AARCH64_ABS32:
+                type = "R_AARCH64_ABS32";
+                break;
+            case R_AARCH64_ABS16:
+                type = "R_AARCH64_ABS16";
+                break;
+            case R_AARCH64_PREL64:
+                type = "R_AARCH64_PREL64";
+                break;
+            case R_AARCH64_PREL32:
+                type = "R_AARCH64_PREL32";
+                break;
+            case R_AARCH64_PREL16:
+                type = "R_AARCH64_PREL16";
+                break;
+            case R_AARCH64_MOVW_UABS_G0:
+                type = "R_AARCH64_MOVW_UABS_G0";
+                break;
+            case R_AARCH64_MOVW_UABS_G0_NC:
+                type = "R_AARCH64_MOVW_UABS_G0_NC";
+                break;
+            case R_AARCH64_MOVW_UABS_G1:
+                type = "R_AARCH64_MOVW_UABS_G1";
+                break;
+            case R_AARCH64_MOVW_UABS_G1_NC:
+                type = "R_AARCH64_MOVW_UABS_G1_NC";
+                break;
+            case R_AARCH64_MOVW_UABS_G2:
+                type = "R_AARCH64_MOVW_UABS_G2";
+                break;
+            case R_AARCH64_MOVW_UABS_G2_NC:
+                type = "R_AARCH64_MOVW_UABS_G2_NC";
+                break;
+            case R_AARCH64_MOVW_UABS_G3:
+                type = "R_AARCH64_MOVW_UABS_G3";
+                break;
+            case R_AARCH64_MOVW_SABS_G0:
+                type = "R_AARCH64_MOVW_SABS_G0";
+                break;
+            case R_AARCH64_MOVW_SABS_G1:
+                type = "R_AARCH64_MOVW_SABS_G1";
+                break;
+            case R_AARCH64_MOVW_SABS_G2:
+                type = "R_AARCH64_MOVW_SABS_G2";
+                break;
+            case R_AARCH64_LD_PREL_LO19:
+                type = "R_AARCH64_LD_PREL_LO19";
+                break;
+            case R_AARCH64_ADR_PREL_LO21:
+                type = "R_AARCH64_ADR_PREL_LO21";
+                break;
+            case R_AARCH64_ADR_PREL_PG_HI21:
+                type = "R_AARCH64_ADR_PREL_PG_HI21";
+                break;
+            case R_AARCH64_ADR_PREL_PG_HI21_NC:
+                type = "R_AARCH64_ADR_PREL_PG_HI21_NC";
+                break;
+            case R_AARCH64_ADD_ABS_LO12_NC:
+                type = "R_AARCH64_ADD_ABS_LO12_NC";
+                break;
+            case R_AARCH64_LDST8_ABS_LO12_NC:
+                type = "R_AARCH64_LDST8_ABS_LO12_NC";
+                break;
+            case R_AARCH64_TSTBR14:
+                type = "R_AARCH64_TSTBR14";
+                break;
+            case R_AARCH64_CONDBR19:
+                type = "R_AARCH64_CONDBR19";
+                break;
+            case R_AARCH64_JUMP26:
+                type = "R_AARCH64_JUMP26";
+                break;
+            case R_AARCH64_CALL26:
+                type = "R_AARCH64_CALL26";
+                break;
+            case R_AARCH64_LDST16_ABS_LO12_NC:
+                type = "R_AARCH64_LDST16_ABS_LO12_NC";
+                break;
+            case R_AARCH64_LDST32_ABS_LO12_NC:
+                type = "R_AARCH64_LDST32_ABS_LO12_NC";
+                break;
+            case R_AARCH64_LDST64_ABS_LO12_NC:
+                type = "R_AARCH64_LDST64_ABS_LO12_NC";
+                break;
+            case R_AARCH64_MOVW_PREL_G0:
+                type = "R_AARCH64_MOVW_PREL_G0";
+                break;
+            case R_AARCH64_MOVW_PREL_G0_NC:
+                type = "R_AARCH64_MOVW_PREL_G0_NC";
+                break;
+            case R_AARCH64_MOVW_PREL_G1:
+                type = "R_AARCH64_MOVW_PREL_G1";
+                break;
+            case R_AARCH64_MOVW_PREL_G1_NC:
+                type = "R_AARCH64_MOVW_PREL_G1_NC";
+                break;
+            case R_AARCH64_MOVW_PREL_G2:
+                type = "R_AARCH64_MOVW_PREL_G2";
+                break;
+            case R_AARCH64_MOVW_PREL_G2_NC:
+                type = "R_AARCH64_MOVW_PREL_G2_NC";
+                break;
+            case R_AARCH64_MOVW_PREL_G3:
+                type = "R_AARCH64_MOVW_PREL_G3";
+                break;
+            case R_AARCH64_LDST128_ABS_LO12_NC:
+                type = "R_AARCH64_LDST128_ABS_LO12_NC";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G0:
+                type = "R_AARCH64_MOVW_GOTOFF_G0";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G0_NC:
+                type = "R_AARCH64_MOVW_GOTOFF_G0_NC";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G1:
+                type = "R_AARCH64_MOVW_GOTOFF_G1";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G1_NC:
+                type = "R_AARCH64_MOVW_GOTOFF_G1_NC";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G2:
+                type = "R_AARCH64_MOVW_GOTOFF_G2";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G2_NC:
+                type = "R_AARCH64_MOVW_GOTOFF_G2_NC";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G3:
+                type = "R_AARCH64_MOVW_GOTOFF_G3";
+                break;
+            case R_AARCH64_GOTREL64:
+                type = "R_AARCH64_GOTREL64";
+                break;
+            case R_AARCH64_GOTREL32:
+                type = "R_AARCH64_GOTREL32";
+                break;
+            case R_AARCH64_GOT_LD_PREL19:
+                type = "R_AARCH64_GOT_LD_PREL19";
+                break;
+            case R_AARCH64_LD64_GOTOFF_LO15:
+                type = "R_AARCH64_LD64_GOTOFF_LO15";
+                break;
+            case R_AARCH64_ADR_GOT_PAGE:
+                type = "R_AARCH64_ADR_GOT_PAGE";
+                break;
+            case R_AARCH64_LD64_GOT_LO12_NC:
+                type = "R_AARCH64_LD64_GOT_LO12_NC";
+                break;
+            case R_AARCH64_LD64_GOTPAGE_LO15:
+                type = "R_AARCH64_LD64_GOTPAGE_LO15";
+                break;
+            case R_AARCH64_TLSGD_ADR_PREL21:
+                type = "R_AARCH64_TLSGD_ADR_PREL21";
+                break;
+            case R_AARCH64_TLSGD_ADR_PAGE21:
+                type = "R_AARCH64_TLSGD_ADR_PAGE21";
+                break;
+            case R_AARCH64_TLSGD_ADD_LO12_NC:
+                type = "R_AARCH64_TLSGD_ADD_LO12_NC";
+                break;
+            case R_AARCH64_TLSGD_MOVW_G1:
+                type = "R_AARCH64_TLSGD_MOVW_G1";
+                break;
+            case R_AARCH64_TLSGD_MOVW_G0_NC:
+                type = "R_AARCH64_TLSGD_MOVW_G0_NC";
+                break;
+            case R_AARCH64_TLSLD_ADR_PREL21:
+                type = "R_AARCH64_TLSLD_ADR_PREL21";
+                break;
+            case R_AARCH64_TLSLD_ADR_PAGE21:
+                type = "R_AARCH64_TLSLD_ADR_PAGE21";
+                break;
+            case R_AARCH64_TLSLD_ADD_LO12_NC:
+                type = "R_AARCH64_TLSLD_ADD_LO12_NC";
+                break;
+            case R_AARCH64_TLSLD_MOVW_G1:
+                type = "R_AARCH64_TLSLD_MOVW_G1";
+                break;
+            case R_AARCH64_TLSLD_MOVW_G0_NC:
+                type = "R_AARCH64_TLSLD_MOVW_G0_NC";
+                break;
+            case R_AARCH64_TLSLD_LD_PREL19:
+                type = "R_AARCH64_TLSLD_LD_PREL19";
+                break;
+            case R_AARCH64_TLSLD_MOVW_DTPREL_G2:
+                type = "R_AARCH64_TLSLD_MOVW_DTPREL_G2";
+                break;
+            case R_AARCH64_TLSLD_MOVW_DTPREL_G1:
+                type = "R_AARCH64_TLSLD_MOVW_DTPREL_G1";
+                break;
+            /* TLS Local Dynamic (TLSLD) relocations */
+            case R_AARCH64_TLSLD_MOVW_DTPREL_G1_NC:
+                type = "R_AARCH64_TLSLD_MOVW_DTPREL_G1_NC";
+                break;
+            case R_AARCH64_TLSLD_MOVW_DTPREL_G0:
+                type = "R_AARCH64_TLSLD_MOVW_DTPREL_G0";
+                break;
+            case R_AARCH64_TLSLD_MOVW_DTPREL_G0_NC:
+                type = "R_AARCH64_TLSLD_MOVW_DTPREL_G0_NC";
+                break;
+            case R_AARCH64_TLSLD_ADD_DTPREL_HI12:
+                type = "R_AARCH64_TLSLD_ADD_DTPREL_HI12";
+                break;
+            case R_AARCH64_TLSLD_ADD_DTPREL_LO12:
+                type = "R_AARCH64_TLSLD_ADD_DTPREL_LO12";
+                break;
+            case R_AARCH64_TLSLD_ADD_DTPREL_LO12_NC:
+                type = "R_AARCH64_TLSLD_ADD_DTPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLD_LDST8_DTPREL_LO12:
+                type = "R_AARCH64_TLSLD_LDST8_DTPREL_LO12";
+                break;
+            case R_AARCH64_TLSLD_LDST8_DTPREL_LO12_NC:
+                type = "R_AARCH64_TLSLD_LDST8_DTPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLD_LDST16_DTPREL_LO12:
+                type = "R_AARCH64_TLSLD_LDST16_DTPREL_LO12";
+                break;
+            case R_AARCH64_TLSLD_LDST16_DTPREL_LO12_NC:
+                type = "R_AARCH64_TLSLD_LDST16_DTPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLD_LDST32_DTPREL_LO12:
+                type = "R_AARCH64_TLSLD_LDST32_DTPREL_LO12";
+                break;
+            case R_AARCH64_TLSLD_LDST32_DTPREL_LO12_NC:
+                type = "R_AARCH64_TLSLD_LDST32_DTPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLD_LDST64_DTPREL_LO12:
+                type = "R_AARCH64_TLSLD_LDST64_DTPREL_LO12";
+                break;
+            case R_AARCH64_TLSLD_LDST64_DTPREL_LO12_NC:
+                type = "R_AARCH64_TLSLD_LDST64_DTPREL_LO12_NC";
+                break;
+            /* TLS Initial Exec (TLSIE) relocations */
+            case R_AARCH64_TLSIE_MOVW_GOTTPREL_G1:
+                type = "R_AARCH64_TLSIE_MOVW_GOTTPREL_G1";
+                break;
+            case R_AARCH64_TLSIE_MOVW_GOTTPREL_G0_NC:
+                type = "R_AARCH64_TLSIE_MOVW_GOTTPREL_G0_NC";
+                break;
+            case R_AARCH64_TLSIE_ADR_GOTTPREL_PAGE21:
+                type = "R_AARCH64_TLSIE_ADR_GOTTPREL_PAGE21";
+                break;
+            case R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC:
+                type = "R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSIE_LD_GOTTPREL_PREL19:
+                type = "R_AARCH64_TLSIE_LD_GOTTPREL_PREL19";
+                break;
+            /* TLS Local Exec (TLSLE) relocations */
+            case R_AARCH64_TLSLE_MOVW_TPREL_G2:
+                type = "R_AARCH64_TLSLE_MOVW_TPREL_G2";
+                break;
+            case R_AARCH64_TLSLE_MOVW_TPREL_G1:
+                type = "R_AARCH64_TLSLE_MOVW_TPREL_G1";
+                break;
+            case R_AARCH64_TLSLE_MOVW_TPREL_G1_NC:
+                type = "R_AARCH64_TLSLE_MOVW_TPREL_G1_NC";
+                break;
+            case R_AARCH64_TLSLE_MOVW_TPREL_G0:
+                type = "R_AARCH64_TLSLE_MOVW_TPREL_G0";
+                break;
+            case R_AARCH64_TLSLE_MOVW_TPREL_G0_NC:
+                type = "R_AARCH64_TLSLE_MOVW_TPREL_G0_NC";
+                break;
+            case R_AARCH64_TLSLE_ADD_TPREL_HI12:
+                type = "R_AARCH64_TLSLE_ADD_TPREL_HI12";
+                break;
+            case R_AARCH64_TLSLE_ADD_TPREL_LO12:
+                type = "R_AARCH64_TLSLE_ADD_TPREL_LO12";
+                break;
+            case R_AARCH64_TLSLE_ADD_TPREL_LO12_NC:
+                type = "R_AARCH64_TLSLE_ADD_TPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLE_LDST8_TPREL_LO12:
+                type = "R_AARCH64_TLSLE_LDST8_TPREL_LO12";
+                break;
+            case R_AARCH64_TLSLE_LDST8_TPREL_LO12_NC:
+                type = "R_AARCH64_TLSLE_LDST8_TPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLE_LDST16_TPREL_LO12:
+                type = "R_AARCH64_TLSLE_LDST16_TPREL_LO12";
+                break;
+            case R_AARCH64_TLSLE_LDST16_TPREL_LO12_NC:
+                type = "R_AARCH64_TLSLE_LDST16_TPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLE_LDST32_TPREL_LO12:
+                type = "R_AARCH64_TLSLE_LDST32_TPREL_LO12";
+                break;
+            case R_AARCH64_TLSLE_LDST32_TPREL_LO12_NC:
+                type = "R_AARCH64_TLSLE_LDST32_TPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLE_LDST64_TPREL_LO12:
+                type = "R_AARCH64_TLSLE_LDST64_TPREL_LO12";
+                break;
+            case R_AARCH64_TLSLE_LDST64_TPREL_LO12_NC:
+                type = "R_AARCH64_TLSLE_LDST64_TPREL_LO12_NC";
+                break;
+            /* TLSDESC relocations */
+            case R_AARCH64_TLSDESC_LD_PREL19:
+                type = "R_AARCH64_TLSDESC_LD_PREL19";
+                break;
+            case R_AARCH64_TLSDESC_ADR_PREL21:
+                type = "R_AARCH64_TLSDESC_ADR_PREL21";
+                break;
+            case R_AARCH64_TLSDESC_ADR_PAGE21:
+                type = "R_AARCH64_TLSDESC_ADR_PAGE21";
+                break;
+            case R_AARCH64_TLSDESC_LD64_LO12:
+                type = "R_AARCH64_TLSDESC_LD64_LO12";
+                break;
+            case R_AARCH64_TLSDESC_ADD_LO12:
+                type = "R_AARCH64_TLSDESC_ADD_LO12";
+                break;
+            case R_AARCH64_TLSDESC_OFF_G1:
+                type = "R_AARCH64_TLSDESC_OFF_G1";
+                break;
+            case R_AARCH64_TLSDESC_OFF_G0_NC:
+                type = "R_AARCH64_TLSDESC_OFF_G0_NC";
+                break;
+            case R_AARCH64_TLSDESC_LDR:
+                type = "R_AARCH64_TLSDESC_LDR";
+                break;
+            case R_AARCH64_TLSDESC_ADD:
+                type = "R_AARCH64_TLSDESC_ADD";
+                break;
+            case R_AARCH64_TLSDESC_CALL:
+                type = "R_AARCH64_TLSDESC_CALL";
+                break;
+            /* 128-bit TLS relocations */
+            case R_AARCH64_TLSLE_LDST128_TPREL_LO12:
+                type = "R_AARCH64_TLSLE_LDST128_TPREL_LO12";
+                break;
+            case R_AARCH64_TLSLE_LDST128_TPREL_LO12_NC:
+                type = "R_AARCH64_TLSLE_LDST128_TPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLD_LDST128_DTPREL_LO12:
+                type = "R_AARCH64_TLSLD_LDST128_DTPREL_LO12";
+                break;
+            case R_AARCH64_TLSLD_LDST128_DTPREL_LO12_NC:
+                type = "R_AARCH64_TLSLD_LDST128_DTPREL_LO12_NC";
+                break;
+            /* Dynamic relocations */
+            case R_AARCH64_COPY:
+                type = "R_AARCH64_COPY";
+                break;
+            case R_AARCH64_GLOB_DAT:
+                type = "R_AARCH64_GLOB_DAT";
+                break;
+            case R_AARCH64_JUMP_SLOT:
+                type = "R_AARCH64_JUMP_SLOT";
+                break;
+            case R_AARCH64_RELATIVE:
+                type = "R_AARCH64_RELATIVE";
+                break;
+            case R_AARCH64_TLS_DTPMOD:
+                type = "R_AARCH64_TLS_DTPMOD";
+                break;
+            case R_AARCH64_TLS_DTPREL:
+                type = "R_AARCH64_TLS_DTPREL";
+                break;
+            case R_AARCH64_TLS_TPREL:
+                type = "R_AARCH64_TLS_TPREL";
+                break;
+            case R_AARCH64_TLSDESC:
+                type = "R_AARCH64_TLSDESC";
+                break;
+            case R_AARCH64_IRELATIVE:
+                type = "R_AARCH64_IRELATIVE";
+                break;
             
             default:
                 break;
@@ -3982,6 +4389,39 @@ static int display_rela32(handle_t32 *h, char *section_name) {
 
             case R_X86_64_NUM:
                 type = "R_X86_64_NUM";
+                break;
+            
+            /* 动态链接重定位 */
+            case R_AARCH64_P32_COPY:
+                type = "R_AARCH64_P32_COPY";
+                break;
+            case R_AARCH64_P32_GLOB_DAT:
+                type = "R_AARCH64_P32_GLOB_DAT";
+                break;
+            case R_AARCH64_P32_JUMP_SLOT:
+                type = "R_AARCH64_P32_JUMP_SLOT";
+                break;
+            case R_AARCH64_P32_RELATIVE:
+                type = "R_AARCH64_P32_RELATIVE";
+                break;
+            
+            /* TLS相关重定位 */
+            case R_AARCH64_P32_TLS_DTPMOD:
+                type = "R_AARCH64_P32_TLS_DTPMOD";
+                break;
+            case R_AARCH64_P32_TLS_DTPREL:
+                type = "R_AARCH64_P32_TLS_DTPREL";
+                break;
+            case R_AARCH64_P32_TLS_TPREL:
+                type = "R_AARCH64_P32_TLS_TPREL";
+                break;
+            case R_AARCH64_P32_TLSDESC:
+                type = "R_AARCH64_P32_TLSDESC";
+                break;
+            
+            /* 间接函数重定位 */
+            case R_AARCH64_P32_IRELATIVE:
+                type = "R_AARCH64_P32_IRELATIVE";
                 break;
             
             default:
@@ -4228,6 +4668,380 @@ static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
 
             case R_X86_64_NUM:
                 type = "R_X86_64_NUM";
+                break;
+
+            /* LP64 AArch64 relocs.  */
+            case R_AARCH64_ABS64:
+                type = "R_AARCH64_ABS64";
+                break;
+            case R_AARCH64_ABS32:
+                type = "R_AARCH64_ABS32";
+                break;
+            case R_AARCH64_ABS16:
+                type = "R_AARCH64_ABS16";
+                break;
+            case R_AARCH64_PREL64:
+                type = "R_AARCH64_PREL64";
+                break;
+            case R_AARCH64_PREL32:
+                type = "R_AARCH64_PREL32";
+                break;
+            case R_AARCH64_PREL16:
+                type = "R_AARCH64_PREL16";
+                break;
+            case R_AARCH64_MOVW_UABS_G0:
+                type = "R_AARCH64_MOVW_UABS_G0";
+                break;
+            case R_AARCH64_MOVW_UABS_G0_NC:
+                type = "R_AARCH64_MOVW_UABS_G0_NC";
+                break;
+            case R_AARCH64_MOVW_UABS_G1:
+                type = "R_AARCH64_MOVW_UABS_G1";
+                break;
+            case R_AARCH64_MOVW_UABS_G1_NC:
+                type = "R_AARCH64_MOVW_UABS_G1_NC";
+                break;
+            case R_AARCH64_MOVW_UABS_G2:
+                type = "R_AARCH64_MOVW_UABS_G2";
+                break;
+            case R_AARCH64_MOVW_UABS_G2_NC:
+                type = "R_AARCH64_MOVW_UABS_G2_NC";
+                break;
+            case R_AARCH64_MOVW_UABS_G3:
+                type = "R_AARCH64_MOVW_UABS_G3";
+                break;
+            case R_AARCH64_MOVW_SABS_G0:
+                type = "R_AARCH64_MOVW_SABS_G0";
+                break;
+            case R_AARCH64_MOVW_SABS_G1:
+                type = "R_AARCH64_MOVW_SABS_G1";
+                break;
+            case R_AARCH64_MOVW_SABS_G2:
+                type = "R_AARCH64_MOVW_SABS_G2";
+                break;
+            case R_AARCH64_LD_PREL_LO19:
+                type = "R_AARCH64_LD_PREL_LO19";
+                break;
+            case R_AARCH64_ADR_PREL_LO21:
+                type = "R_AARCH64_ADR_PREL_LO21";
+                break;
+            case R_AARCH64_ADR_PREL_PG_HI21:
+                type = "R_AARCH64_ADR_PREL_PG_HI21";
+                break;
+            case R_AARCH64_ADR_PREL_PG_HI21_NC:
+                type = "R_AARCH64_ADR_PREL_PG_HI21_NC";
+                break;
+            case R_AARCH64_ADD_ABS_LO12_NC:
+                type = "R_AARCH64_ADD_ABS_LO12_NC";
+                break;
+            case R_AARCH64_LDST8_ABS_LO12_NC:
+                type = "R_AARCH64_LDST8_ABS_LO12_NC";
+                break;
+            case R_AARCH64_TSTBR14:
+                type = "R_AARCH64_TSTBR14";
+                break;
+            case R_AARCH64_CONDBR19:
+                type = "R_AARCH64_CONDBR19";
+                break;
+            case R_AARCH64_JUMP26:
+                type = "R_AARCH64_JUMP26";
+                break;
+            case R_AARCH64_CALL26:
+                type = "R_AARCH64_CALL26";
+                break;
+            case R_AARCH64_LDST16_ABS_LO12_NC:
+                type = "R_AARCH64_LDST16_ABS_LO12_NC";
+                break;
+            case R_AARCH64_LDST32_ABS_LO12_NC:
+                type = "R_AARCH64_LDST32_ABS_LO12_NC";
+                break;
+            case R_AARCH64_LDST64_ABS_LO12_NC:
+                type = "R_AARCH64_LDST64_ABS_LO12_NC";
+                break;
+            case R_AARCH64_MOVW_PREL_G0:
+                type = "R_AARCH64_MOVW_PREL_G0";
+                break;
+            case R_AARCH64_MOVW_PREL_G0_NC:
+                type = "R_AARCH64_MOVW_PREL_G0_NC";
+                break;
+            case R_AARCH64_MOVW_PREL_G1:
+                type = "R_AARCH64_MOVW_PREL_G1";
+                break;
+            case R_AARCH64_MOVW_PREL_G1_NC:
+                type = "R_AARCH64_MOVW_PREL_G1_NC";
+                break;
+            case R_AARCH64_MOVW_PREL_G2:
+                type = "R_AARCH64_MOVW_PREL_G2";
+                break;
+            case R_AARCH64_MOVW_PREL_G2_NC:
+                type = "R_AARCH64_MOVW_PREL_G2_NC";
+                break;
+            case R_AARCH64_MOVW_PREL_G3:
+                type = "R_AARCH64_MOVW_PREL_G3";
+                break;
+            case R_AARCH64_LDST128_ABS_LO12_NC:
+                type = "R_AARCH64_LDST128_ABS_LO12_NC";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G0:
+                type = "R_AARCH64_MOVW_GOTOFF_G0";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G0_NC:
+                type = "R_AARCH64_MOVW_GOTOFF_G0_NC";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G1:
+                type = "R_AARCH64_MOVW_GOTOFF_G1";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G1_NC:
+                type = "R_AARCH64_MOVW_GOTOFF_G1_NC";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G2:
+                type = "R_AARCH64_MOVW_GOTOFF_G2";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G2_NC:
+                type = "R_AARCH64_MOVW_GOTOFF_G2_NC";
+                break;
+            case R_AARCH64_MOVW_GOTOFF_G3:
+                type = "R_AARCH64_MOVW_GOTOFF_G3";
+                break;
+            case R_AARCH64_GOTREL64:
+                type = "R_AARCH64_GOTREL64";
+                break;
+            case R_AARCH64_GOTREL32:
+                type = "R_AARCH64_GOTREL32";
+                break;
+            case R_AARCH64_GOT_LD_PREL19:
+                type = "R_AARCH64_GOT_LD_PREL19";
+                break;
+            case R_AARCH64_LD64_GOTOFF_LO15:
+                type = "R_AARCH64_LD64_GOTOFF_LO15";
+                break;
+            case R_AARCH64_ADR_GOT_PAGE:
+                type = "R_AARCH64_ADR_GOT_PAGE";
+                break;
+            case R_AARCH64_LD64_GOT_LO12_NC:
+                type = "R_AARCH64_LD64_GOT_LO12_NC";
+                break;
+            case R_AARCH64_LD64_GOTPAGE_LO15:
+                type = "R_AARCH64_LD64_GOTPAGE_LO15";
+                break;
+            case R_AARCH64_TLSGD_ADR_PREL21:
+                type = "R_AARCH64_TLSGD_ADR_PREL21";
+                break;
+            case R_AARCH64_TLSGD_ADR_PAGE21:
+                type = "R_AARCH64_TLSGD_ADR_PAGE21";
+                break;
+            case R_AARCH64_TLSGD_ADD_LO12_NC:
+                type = "R_AARCH64_TLSGD_ADD_LO12_NC";
+                break;
+            case R_AARCH64_TLSGD_MOVW_G1:
+                type = "R_AARCH64_TLSGD_MOVW_G1";
+                break;
+            case R_AARCH64_TLSGD_MOVW_G0_NC:
+                type = "R_AARCH64_TLSGD_MOVW_G0_NC";
+                break;
+            case R_AARCH64_TLSLD_ADR_PREL21:
+                type = "R_AARCH64_TLSLD_ADR_PREL21";
+                break;
+            case R_AARCH64_TLSLD_ADR_PAGE21:
+                type = "R_AARCH64_TLSLD_ADR_PAGE21";
+                break;
+            case R_AARCH64_TLSLD_ADD_LO12_NC:
+                type = "R_AARCH64_TLSLD_ADD_LO12_NC";
+                break;
+            case R_AARCH64_TLSLD_MOVW_G1:
+                type = "R_AARCH64_TLSLD_MOVW_G1";
+                break;
+            case R_AARCH64_TLSLD_MOVW_G0_NC:
+                type = "R_AARCH64_TLSLD_MOVW_G0_NC";
+                break;
+            case R_AARCH64_TLSLD_LD_PREL19:
+                type = "R_AARCH64_TLSLD_LD_PREL19";
+                break;
+            case R_AARCH64_TLSLD_MOVW_DTPREL_G2:
+                type = "R_AARCH64_TLSLD_MOVW_DTPREL_G2";
+                break;
+            case R_AARCH64_TLSLD_MOVW_DTPREL_G1:
+                type = "R_AARCH64_TLSLD_MOVW_DTPREL_G1";
+                break;
+            /* TLS Local Dynamic (TLSLD) relocations */
+            case R_AARCH64_TLSLD_MOVW_DTPREL_G1_NC:
+                type = "R_AARCH64_TLSLD_MOVW_DTPREL_G1_NC";
+                break;
+            case R_AARCH64_TLSLD_MOVW_DTPREL_G0:
+                type = "R_AARCH64_TLSLD_MOVW_DTPREL_G0";
+                break;
+            case R_AARCH64_TLSLD_MOVW_DTPREL_G0_NC:
+                type = "R_AARCH64_TLSLD_MOVW_DTPREL_G0_NC";
+                break;
+            case R_AARCH64_TLSLD_ADD_DTPREL_HI12:
+                type = "R_AARCH64_TLSLD_ADD_DTPREL_HI12";
+                break;
+            case R_AARCH64_TLSLD_ADD_DTPREL_LO12:
+                type = "R_AARCH64_TLSLD_ADD_DTPREL_LO12";
+                break;
+            case R_AARCH64_TLSLD_ADD_DTPREL_LO12_NC:
+                type = "R_AARCH64_TLSLD_ADD_DTPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLD_LDST8_DTPREL_LO12:
+                type = "R_AARCH64_TLSLD_LDST8_DTPREL_LO12";
+                break;
+            case R_AARCH64_TLSLD_LDST8_DTPREL_LO12_NC:
+                type = "R_AARCH64_TLSLD_LDST8_DTPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLD_LDST16_DTPREL_LO12:
+                type = "R_AARCH64_TLSLD_LDST16_DTPREL_LO12";
+                break;
+            case R_AARCH64_TLSLD_LDST16_DTPREL_LO12_NC:
+                type = "R_AARCH64_TLSLD_LDST16_DTPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLD_LDST32_DTPREL_LO12:
+                type = "R_AARCH64_TLSLD_LDST32_DTPREL_LO12";
+                break;
+            case R_AARCH64_TLSLD_LDST32_DTPREL_LO12_NC:
+                type = "R_AARCH64_TLSLD_LDST32_DTPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLD_LDST64_DTPREL_LO12:
+                type = "R_AARCH64_TLSLD_LDST64_DTPREL_LO12";
+                break;
+            case R_AARCH64_TLSLD_LDST64_DTPREL_LO12_NC:
+                type = "R_AARCH64_TLSLD_LDST64_DTPREL_LO12_NC";
+                break;
+            /* TLS Initial Exec (TLSIE) relocations */
+            case R_AARCH64_TLSIE_MOVW_GOTTPREL_G1:
+                type = "R_AARCH64_TLSIE_MOVW_GOTTPREL_G1";
+                break;
+            case R_AARCH64_TLSIE_MOVW_GOTTPREL_G0_NC:
+                type = "R_AARCH64_TLSIE_MOVW_GOTTPREL_G0_NC";
+                break;
+            case R_AARCH64_TLSIE_ADR_GOTTPREL_PAGE21:
+                type = "R_AARCH64_TLSIE_ADR_GOTTPREL_PAGE21";
+                break;
+            case R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC:
+                type = "R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSIE_LD_GOTTPREL_PREL19:
+                type = "R_AARCH64_TLSIE_LD_GOTTPREL_PREL19";
+                break;
+            /* TLS Local Exec (TLSLE) relocations */
+            case R_AARCH64_TLSLE_MOVW_TPREL_G2:
+                type = "R_AARCH64_TLSLE_MOVW_TPREL_G2";
+                break;
+            case R_AARCH64_TLSLE_MOVW_TPREL_G1:
+                type = "R_AARCH64_TLSLE_MOVW_TPREL_G1";
+                break;
+            case R_AARCH64_TLSLE_MOVW_TPREL_G1_NC:
+                type = "R_AARCH64_TLSLE_MOVW_TPREL_G1_NC";
+                break;
+            case R_AARCH64_TLSLE_MOVW_TPREL_G0:
+                type = "R_AARCH64_TLSLE_MOVW_TPREL_G0";
+                break;
+            case R_AARCH64_TLSLE_MOVW_TPREL_G0_NC:
+                type = "R_AARCH64_TLSLE_MOVW_TPREL_G0_NC";
+                break;
+            case R_AARCH64_TLSLE_ADD_TPREL_HI12:
+                type = "R_AARCH64_TLSLE_ADD_TPREL_HI12";
+                break;
+            case R_AARCH64_TLSLE_ADD_TPREL_LO12:
+                type = "R_AARCH64_TLSLE_ADD_TPREL_LO12";
+                break;
+            case R_AARCH64_TLSLE_ADD_TPREL_LO12_NC:
+                type = "R_AARCH64_TLSLE_ADD_TPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLE_LDST8_TPREL_LO12:
+                type = "R_AARCH64_TLSLE_LDST8_TPREL_LO12";
+                break;
+            case R_AARCH64_TLSLE_LDST8_TPREL_LO12_NC:
+                type = "R_AARCH64_TLSLE_LDST8_TPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLE_LDST16_TPREL_LO12:
+                type = "R_AARCH64_TLSLE_LDST16_TPREL_LO12";
+                break;
+            case R_AARCH64_TLSLE_LDST16_TPREL_LO12_NC:
+                type = "R_AARCH64_TLSLE_LDST16_TPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLE_LDST32_TPREL_LO12:
+                type = "R_AARCH64_TLSLE_LDST32_TPREL_LO12";
+                break;
+            case R_AARCH64_TLSLE_LDST32_TPREL_LO12_NC:
+                type = "R_AARCH64_TLSLE_LDST32_TPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLE_LDST64_TPREL_LO12:
+                type = "R_AARCH64_TLSLE_LDST64_TPREL_LO12";
+                break;
+            case R_AARCH64_TLSLE_LDST64_TPREL_LO12_NC:
+                type = "R_AARCH64_TLSLE_LDST64_TPREL_LO12_NC";
+                break;
+            /* TLSDESC relocations */
+            case R_AARCH64_TLSDESC_LD_PREL19:
+                type = "R_AARCH64_TLSDESC_LD_PREL19";
+                break;
+            case R_AARCH64_TLSDESC_ADR_PREL21:
+                type = "R_AARCH64_TLSDESC_ADR_PREL21";
+                break;
+            case R_AARCH64_TLSDESC_ADR_PAGE21:
+                type = "R_AARCH64_TLSDESC_ADR_PAGE21";
+                break;
+            case R_AARCH64_TLSDESC_LD64_LO12:
+                type = "R_AARCH64_TLSDESC_LD64_LO12";
+                break;
+            case R_AARCH64_TLSDESC_ADD_LO12:
+                type = "R_AARCH64_TLSDESC_ADD_LO12";
+                break;
+            case R_AARCH64_TLSDESC_OFF_G1:
+                type = "R_AARCH64_TLSDESC_OFF_G1";
+                break;
+            case R_AARCH64_TLSDESC_OFF_G0_NC:
+                type = "R_AARCH64_TLSDESC_OFF_G0_NC";
+                break;
+            case R_AARCH64_TLSDESC_LDR:
+                type = "R_AARCH64_TLSDESC_LDR";
+                break;
+            case R_AARCH64_TLSDESC_ADD:
+                type = "R_AARCH64_TLSDESC_ADD";
+                break;
+            case R_AARCH64_TLSDESC_CALL:
+                type = "R_AARCH64_TLSDESC_CALL";
+                break;
+            /* 128-bit TLS relocations */
+            case R_AARCH64_TLSLE_LDST128_TPREL_LO12:
+                type = "R_AARCH64_TLSLE_LDST128_TPREL_LO12";
+                break;
+            case R_AARCH64_TLSLE_LDST128_TPREL_LO12_NC:
+                type = "R_AARCH64_TLSLE_LDST128_TPREL_LO12_NC";
+                break;
+            case R_AARCH64_TLSLD_LDST128_DTPREL_LO12:
+                type = "R_AARCH64_TLSLD_LDST128_DTPREL_LO12";
+                break;
+            case R_AARCH64_TLSLD_LDST128_DTPREL_LO12_NC:
+                type = "R_AARCH64_TLSLD_LDST128_DTPREL_LO12_NC";
+                break;
+            /* Dynamic relocations */
+            case R_AARCH64_COPY:
+                type = "R_AARCH64_COPY";
+                break;
+            case R_AARCH64_GLOB_DAT:
+                type = "R_AARCH64_GLOB_DAT";
+                break;
+            case R_AARCH64_JUMP_SLOT:
+                type = "R_AARCH64_JUMP_SLOT";
+                break;
+            case R_AARCH64_RELATIVE:
+                type = "R_AARCH64_RELATIVE";
+                break;
+            case R_AARCH64_TLS_DTPMOD:
+                type = "R_AARCH64_TLS_DTPMOD";
+                break;
+            case R_AARCH64_TLS_DTPREL:
+                type = "R_AARCH64_TLS_DTPREL";
+                break;
+            case R_AARCH64_TLS_TPREL:
+                type = "R_AARCH64_TLS_TPREL";
+                break;
+            case R_AARCH64_TLSDESC:
+                type = "R_AARCH64_TLSDESC";
+                break;
+            case R_AARCH64_IRELATIVE:
+                type = "R_AARCH64_IRELATIVE";
                 break;
             
             default:
