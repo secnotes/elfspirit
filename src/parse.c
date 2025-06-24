@@ -3304,10 +3304,10 @@ static void display_dyninfo64(handle_t64 *h) {
  */
 static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
     char *name = NULL;
-    char *type;
-    char *bind;
-    char *other;
-    int str_index;
+    char *type = NULL;
+    char *bind = NULL;
+    char *other = NULL;
+    size_t str_index = 0;
     int rela_dyn_index;
     size_t count;
     Elf32_Rel *rel_section;
@@ -3518,6 +3518,10 @@ static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
         }
         
         str_index = ELF32_R_SYM(rel_section[i].r_info);
+        if (str_index >= STR_NUM) {
+            WARNING("Unknown file format or too many strings\n");
+            break;
+        }
         if (is_display) {
             if (strlen(g_dynsym.name[str_index]) == 0) {
                 /* .o file .rel.text */
@@ -3542,10 +3546,10 @@ static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
  */
 static int display_rel64(handle_t64 *h, char *section_name) {
     char *name = NULL;
-    char *type;
-    char *bind;
-    char *other;
-    int str_index;
+    char *type = NULL;
+    char *bind = NULL;
+    char *other = NULL;
+    size_t str_index = 0;
     int rela_dyn_index;
     size_t count;
     Elf64_Rel *rel_section;
@@ -3753,6 +3757,10 @@ static int display_rel64(handle_t64 *h, char *section_name) {
         }
         
         str_index = ELF64_R_SYM(rel_section[i].r_info);
+        if (str_index >= STR_NUM) {
+            WARNING("Unknown file format or too many strings\n");
+            break;
+        }
         if (strlen(g_dynsym.name[str_index]) == 0) {
             /* .o file .rel.text */
             PRINT_RELA(i, rel_section[i].r_offset, rel_section[i].r_info, type, str_index, g_symtab.name[str_index]);
@@ -3770,10 +3778,10 @@ static int display_rel64(handle_t64 *h, char *section_name) {
  */
 static int display_rela32(handle_t32 *h, char *section_name) {
     char *name = NULL;
-    char *type;
-    char *bind;
-    char *other;
-    int str_index;
+    char *type = NULL;
+    char *bind = NULL;
+    char *other = NULL;
+    size_t str_index = 0;
     int rela_dyn_index;
     size_t count;
     Elf32_Rela *rela_dyn;
@@ -3981,6 +3989,10 @@ static int display_rela32(handle_t32 *h, char *section_name) {
         }
         
         str_index = ELF32_R_SYM(rela_dyn[i].r_info);
+        if (str_index >= STR_NUM) {
+            WARNING("Unknown file format or too many strings\n");
+            break;
+        }
         if (strlen(g_dynsym.name[str_index]) == 0) {
             /* .rela.dyn */
             if (str_index == 0) {
@@ -4009,10 +4021,10 @@ static int display_rela32(handle_t32 *h, char *section_name) {
  */
 static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
     char *name = NULL;
-    char *type;
-    char *bind;
-    char *other;
-    int str_index;
+    char *type = NULL;
+    char *bind = NULL;
+    char *other = NULL;
+    size_t str_index = 0;
     int rela_dyn_index;
     size_t count;
     Elf64_Rela *rela_dyn;
@@ -4223,6 +4235,10 @@ static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
         }
         
         str_index = ELF64_R_SYM(rela_dyn[i].r_info);
+        if (str_index >= STR_NUM) {
+            WARNING("Unknown file format or too many strings\n");
+            break;
+        }
         if (strlen(g_dynsym.name[str_index]) == 0) {
             /* .rela.dyn */
             if (str_index == 0) {
