@@ -61,19 +61,19 @@ char *delete_data_from_mem(char *elf_map, uint32_t file_size, uint32_t offset, u
  * @param size fragment size
  * @return int error code {-1:error,0:sucess}
  */
-char *delete_data_from_file(char *file_name, uint64_t offset, size_t size) {
+int delete_data_from_file(char *file_name, uint64_t offset, size_t size) {
     FILE *file = fopen(file_name, "r+b");
 
     if (!file) {
         fprintf(stderr, "Error opening file\n");
-        return;
+        return -1;
     }
 
     // 移动文件指针到删除位置
     if (fseek(file, offset + size, SEEK_SET) != 0) {
         fprintf(stderr, "Error seeking in file\n");
         fclose(file);
-        return;
+        return -1;
     }
 
     // 读取后续数据位置
@@ -86,7 +86,7 @@ char *delete_data_from_file(char *file_name, uint64_t offset, size_t size) {
     if (!buffer) {
         fprintf(stderr, "Error allocating memory\n");
         fclose(file);
-        return;
+        return -1;
     }
 
     // 移动文件指针到后续数据位置
@@ -94,7 +94,7 @@ char *delete_data_from_file(char *file_name, uint64_t offset, size_t size) {
         fprintf(stderr, "Error seeking in file\n");
         free(buffer);
         fclose(file);
-        return;
+        return -1;
     }
 
     // 读取后续数据

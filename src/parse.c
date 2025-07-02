@@ -2093,9 +2093,9 @@ static void display_segment64(handle_t64 *h) {
 /**
  * @description: .dynsym information
  * @param {handle_t32} h
- * @return {void}
+ * @return int error code {-1:error,0:sucess}
  */
-void display_dynsym32(handle_t32 *h, char *section_name, char *str_tab, int is_display) {
+static int display_dynsym32(handle_t32 *h, char *section_name, char *str_tab, int is_display) {
     char *name = NULL;
     char *type;
     char *bind;
@@ -2287,14 +2287,15 @@ void display_dynsym32(handle_t32 *h, char *section_name, char *str_tab, int is_d
                 other, sym[i].st_shndx, name);
         }
     }
+    return 0;
 }
 
 /**
  * @description: .dynsym information
  * @param {handle_t64} h
- * @return {void}
+ * @return int error code {-1:error,0:sucess}
  */
-void display_dynsym64(handle_t64 *h, char *section_name, char *str_tab, int is_display) {
+static int display_dynsym64(handle_t64 *h, char *section_name, char *str_tab, int is_display) {
     char *name = NULL;
     char *type;
     char *bind;
@@ -2486,14 +2487,15 @@ void display_dynsym64(handle_t64 *h, char *section_name, char *str_tab, int is_d
                 other, sym[i].st_shndx, name);
         }
     }
+    return 0;
 }
 
 /**
  * @description: Dynamic link information
  * @param {handle_t32} h
- * @return {void}
+ * @return int error code {-1:error,0:sucess}
  */
-static void display_dyninfo32(handle_t32 *h) {
+static int display_dyninfo32(handle_t32 *h) {
     char *name;
     int count;
     char *tmp;
@@ -2893,9 +2895,11 @@ static void display_dyninfo32(handle_t32 *h) {
         }
         PRINT_DYN(i, dyn[i].d_tag, tmp, value);
     }
+
+    return 0;
 }
 
-static void display_dyninfo64(handle_t64 *h) {
+static int display_dyninfo64(handle_t64 *h) {
     char *name;
     int count;
     char *tmp;
@@ -3293,6 +3297,7 @@ static void display_dyninfo64(handle_t64 *h) {
         }
         PRINT_DYN(i, dyn[i].d_tag, tmp, value);
     }
+    return 0;
 }
 
 /** 

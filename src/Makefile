@@ -1,3 +1,6 @@
+# 获取GCC主版本号
+GCC_VERSION := $(shell gcc -dumpversion | cut -d. -f1)
+
 TARGET=elfspirit
 OUT=/usr/local/bin/
 SRCS = $(wildcard *.c cJSON/cJSON.c)
@@ -15,6 +18,12 @@ ifeq ($(debug),true)
     CXXFLAGS+=-Ddebug
 else
     CXXFLAGS=-O3
+endif
+
+# 如果GCC版本>=14，添加额外警告抑制选项
+ifeq ($(shell test $(GCC_VERSION) -ge 14; echo $$?),0)
+    CFLAGS += -Wno-int-conversion -Wno-incompatible-pointer-types \
+                -Wno-int-conversion -Wno-implicit-function-declaration
 endif
 
 $(TARGET) : $(OBJS)

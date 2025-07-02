@@ -43,7 +43,7 @@ int add_data(uint8_t *elf, uint32_t elf_size, uint32_t offset, uint32_t data_siz
     char *tmp;
     tmp = malloc(elf_size + data_size);
     if (tmp < 0) {
-        return NULL;
+        return 0;
     }
 
     memset(tmp, 0, elf_size + data_size);

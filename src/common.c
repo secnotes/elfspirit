@@ -1108,14 +1108,14 @@ int confuse_string(char *file_name, uint64_t offset, size_t size) {
 
     if (!file) {
         fprintf(stderr, "Error opening file\n");
-        return;
+        return -1;
     }
 
     // 移动文件指针到字符串表的偏移位置(+1)
     if (fseek(file, offset + 1, SEEK_SET) != 0) {
         fprintf(stderr, "Error seeking in file\n");
         fclose(file);
-        return;
+        return -1;
     }
 
     // 读取字符串表的内容到缓冲区

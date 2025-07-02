@@ -48,7 +48,7 @@ static int conv_arch(uint8_t *arch, uint32_t class) {
     } 
     
     else
-        return NULL;
+        return 0;
 }
 
 /**
@@ -65,7 +65,7 @@ int add_elf_info(uint8_t *bin, uint8_t *arch, uint32_t class, uint8_t *endian, u
     struct stat st;
     uint8_t *bin_map;
     uint8_t *new_bin_map;
-    uint32_t *new_size;
+    uint32_t new_size;
 
     fd = open(bin, O_RDONLY);
     if (fd < 0) {

@@ -41,7 +41,7 @@ char *delete_data_from_mem(char *elf_map, uint32_t file_size, uint32_t offset, u
  * @param size fragment size
  * @return int error code {-1:error,0:sucess}
  */
-char *delete_data_from_file(char *file_name, uint64_t offset, size_t size);
+int delete_data_from_file(char *file_name, uint64_t offset, size_t size);
 
 /**
  * @brief 清理节的内容，但是并没有改变节的大小
