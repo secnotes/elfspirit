@@ -35,6 +35,9 @@
 #include "parse.h"
 #include "cJSON/cJSON.h"
 
+#define MAX_LINE_LEN 256  // 每行最大字符数
+#define READ_CHUNK 128    // 每次读取128字节(对应256字符)
+
 int MODE;
 int ARCH;
 char *g_out_name = "/tmp/elfspirit_out.bin";
@@ -1169,4 +1172,164 @@ int confuse_symbol(char *elf_name, char *strtab) {
     size_t size = get_section_size(elf_name, strtab);
     DEBUG("string table offset: 0x%x, size: 0x%x\n", offset, size);
     return confuse_string(elf_name, offset, size);
+}
+
+/**
+ * @description: get basename from path. (获取带扩展名的文件名)
+ * @param {char} *path
+ * @param {char} *result
+ * @return {*}
+ */
+void get_filename_with_ext(const char* path, char* result) {
+    const char* p = strrchr(path, '/');
+    if (p == NULL) p = strrchr(path, '\\');
+    if (p == NULL) p = path - 1;
+    strcpy(result, p + 1);
+}
+
+/**
+ * @description: get basename from path. (提取不带扩展名的文件名)
+ * @param {char} *path
+ * @param {char} *result
+ * @return {*}
+ */
+void get_filename_without_ext(const char* path, char* result) {
+    char with_ext[256];
+    get_filename_with_ext(path, with_ext);
+    
+    char* dot = strrchr(with_ext, '.');
+    if (dot != NULL) {
+        strncpy(result, with_ext, dot - with_ext);
+        result[dot - with_ext] = '\0';
+    } else {
+        strcpy(result, with_ext);
+    }
+}
+
+/**
+ * @description: convert binary file to Windows cmd script. (将二进制文件转换为Windows cmd脚本)
+ * @param {char} *input_path
+ * @return {*}
+ */
+void bin_to_cmd(const char* input_path) {
+    char basename[MAX_LINE_LEN];
+    char filename[MAX_LINE_LEN];
+    char output[MAX_LINE_LEN + 10];
+    
+    get_filename_with_ext(input_path, filename);
+    get_filename_without_ext(input_path, basename);
+    sprintf(output, "%s.cmd", basename);
+    
+    FILE *bin_file = fopen(input_path, "rb");
+    FILE *txt_file = fopen(output, "w");
+    
+    if (!bin_file || !txt_file) {
+        ERROR("open failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // create null file
+    fprintf(txt_file, "echo|set /p=\"\">%s.%s\n", basename, "hex");
+
+    unsigned char buffer[READ_CHUNK];
+    char hex_str[MAX_LINE_LEN + 1] = {0};
+    int hex_pos = 0;
+
+    while (1) {
+        size_t bytes_read = fread(buffer, 1, READ_CHUNK, bin_file);
+        if (bytes_read == 0) break;
+
+        for (size_t i = 0; i < bytes_read; i++) {
+            // 每个字节转为2个十六进制字符
+            int written = snprintf(hex_str + hex_pos, 3, "%02x", buffer[i]);
+            hex_pos += written;
+
+            // 达到行长度限制时换行
+            if (hex_pos >= MAX_LINE_LEN) {
+                fprintf(txt_file, "echo|set /p=\"%.*s\">>%s.%s\n", MAX_LINE_LEN + 20, hex_str, basename, "hex");
+                hex_pos = 0;
+            }
+        }
+    }
+
+    // write the remaining characterw 
+    // 写入剩余内容
+    if (hex_pos > 0) {
+        fprintf(txt_file, "echo|set /p=\"%.*s\">>%s.%s\n", hex_pos, hex_str, basename, "hex");
+    }
+
+    // write powershell cmd
+    char s1[MAX_LINE_LEN];
+    sprintf(s1, "powershell -Command \"$h=Get-Content -readcount 0 -path './%s.%s';", basename, "hex");
+    char s2[MAX_LINE_LEN] = "$l=$h[0].length;$b=New-Object byte[] ($l/2);$x=0;for ($i=0;$i -le $l-1;$i+=2){$b[$x]=[byte]::Parse($h[0].Substring($i,2),[System.Globalization.NumberStyles]::HexNumber);$x+=1};";
+    char s3[MAX_LINE_LEN];
+    sprintf(s3, "set-content -encoding byte '%s' -value $b;", filename);
+    char s4[MAX_LINE_LEN] = "Remove-Item -force test.hex;\"";
+    char s[1024];
+    strcat(s, s1);
+    strcat(s, s2);
+    strcat(s, s3);
+    strcat(s, s4);
+    fprintf(txt_file, s);
+    INFO("write to %s\n", output);
+    fclose(bin_file);
+    fclose(txt_file);
+}
+
+/**
+ * @description: convert binary file to Linux shell script. (将二进制文件转换为Linux shell脚本)
+ * @param {char} *input_path
+ * @param {char} *output_path
+ * @return {*}
+ */
+void bin_to_sh(const char* input_path, const char* output_path) {
+    char basename[MAX_LINE_LEN];
+    char filename[MAX_LINE_LEN];
+    char output[MAX_LINE_LEN + 10];
+    
+    get_filename_with_ext(input_path, filename);
+    get_filename_without_ext(input_path, basename);
+    sprintf(output, "%s.sh", basename);
+    
+    FILE *bin_file = fopen(input_path, "rb");
+    FILE *txt_file = fopen(output, "w");
+    
+    if (!bin_file || !txt_file) {
+        ERROR("open failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // create null file
+    fprintf(txt_file, "echo \"\"| xxd -r -p > %s\n", filename);
+
+    unsigned char buffer[READ_CHUNK];
+    char hex_str[MAX_LINE_LEN + 1] = {0};
+    int hex_pos = 0;
+
+    while (1) {
+        size_t bytes_read = fread(buffer, 1, READ_CHUNK, bin_file);
+        if (bytes_read == 0) break;
+
+        for (size_t i = 0; i < bytes_read; i++) {
+            // 每个字节转为2个十六进制字符
+            int written = snprintf(hex_str + hex_pos, 3, "%02x", buffer[i]);
+            hex_pos += written;
+
+            // 达到行长度限制时换行
+            if (hex_pos >= MAX_LINE_LEN) {
+                fprintf(txt_file, "echo \"%.*s\" | xxd -r -p >>%s\n", MAX_LINE_LEN + 40, hex_str, filename);
+                hex_pos = 0;
+            }
+        }
+    }
+
+    // write the remaining characterw 
+    // 写入剩余内容
+    if (hex_pos > 0) {
+        fprintf(txt_file, "echo \"%.*s\" | xxd -r -p >>%s\n", hex_pos, hex_str, filename);
+    }
+
+    INFO("write to %s\n", output);
+    fclose(bin_file);
+    fclose(txt_file);
 }

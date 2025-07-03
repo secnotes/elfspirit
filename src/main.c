@@ -672,7 +672,13 @@ static void readcmdline(int argc, char *argv[]) {
         add_dynsym_entry(elf_name, string, value, size);
     }
 
-    /* change bin to so */
+    /* convert file to script */
+    if (!strcmp(function, "bin2script")) {
+        bin_to_cmd(elf_name);
+        bin_to_sh(elf_name);
+    }
+
+    /* forensics */
     if (!strcmp(function, "checksec")) {
         checksec(elf_name);
     }
