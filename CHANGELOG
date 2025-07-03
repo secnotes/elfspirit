@@ -1,3 +1,11 @@
+[2025-07-03]
+    elfspirit 1.10.1
+        - Support more ELF machine in parsing module
+        - Support AArch64 relocs
+        - Add the ability to edit ELF hexstring
+        - Add the ability to set pointer at a specific offset in the ELF file
+        - Fix some issues
+
 [2025-02-11]
     elfspirit 1.10.0
         - Add the ELF forensic analysis
