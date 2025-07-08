@@ -2496,12 +2496,12 @@ static int display_dynsym64(handle_t64 *h, char *section_name, char *str_tab, in
  * @return int error code {-1:error,0:sucess}
  */
 static int display_dyninfo32(handle_t32 *h) {
-    char *name;
-    int count;
-    char *tmp;
     INFO("Dynamic link information\n");
-    int dynstr;
-    int dynamic;
+    char *name = NULL;
+    char *tmp = NULL;
+    int count = 0;
+    int dynstr = 0;
+    int dynamic = 0;
     Elf32_Dyn *dyn;
     for (int i = 0; i < h->ehdr->e_shnum; i++) {
         name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
@@ -2900,12 +2900,12 @@ static int display_dyninfo32(handle_t32 *h) {
 }
 
 static int display_dyninfo64(handle_t64 *h) {
-    char *name;
-    int count;
-    char *tmp;
     INFO("Dynamic link information\n");
-    int dynstr;
-    int dynamic;
+    char *name = NULL;
+    char *tmp = NULL;
+    int count = 0;
+    int dynstr = 0;
+    int dynamic = 0;
     Elf64_Dyn *dyn;
     for (int i = 0; i < h->ehdr->e_shnum; i++) {
         name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
@@ -3313,8 +3313,8 @@ static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
     char *bind = NULL;
     char *other = NULL;
     size_t str_index = 0;
-    int rela_dyn_index;
-    size_t count;
+    int rela_dyn_index = 0;
+    size_t count = 0;
     Elf32_Rel *rel_section;
     int has_component = 0;
     for (int i = 0; i < h->ehdr->e_shnum; i++) {
@@ -3588,8 +3588,8 @@ static int display_rel64(handle_t64 *h, char *section_name) {
     char *bind = NULL;
     char *other = NULL;
     size_t str_index = 0;
-    int rela_dyn_index;
-    size_t count;
+    int rela_dyn_index = 0;
+    size_t count = 0;
     Elf64_Rel *rel_section;
     int has_component = 0;
     for (int i = 0; i < h->ehdr->e_shnum; i++) {
@@ -4194,8 +4194,8 @@ static int display_rela32(handle_t32 *h, char *section_name) {
     char *bind = NULL;
     char *other = NULL;
     size_t str_index = 0;
-    int rela_dyn_index;
-    size_t count;
+    int rela_dyn_index = 0;
+    size_t count = 0;
     Elf32_Rela *rela_dyn;
     int has_component = 0;
     for (int i = 0; i < h->ehdr->e_shnum; i++) {
@@ -4470,8 +4470,8 @@ static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
     char *bind = NULL;
     char *other = NULL;
     size_t str_index = 0;
-    int rela_dyn_index;
-    size_t count;
+    int rela_dyn_index = 0;
+    size_t count = 0;
     Elf64_Rela *rela_dyn;
     int has_component = 0;
     for (int i = 0; i < h->ehdr->e_shnum; i++) {
