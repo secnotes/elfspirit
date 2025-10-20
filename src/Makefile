@@ -26,6 +26,11 @@ ifeq ($(shell test $(GCC_VERSION) -ge 14; echo $$?),0)
                 -Wno-int-conversion -Wno-implicit-function-declaration
 endif
 
+# 断是否为aarch64-linux-ohos
+ifeq ($(findstring aarch64-linux-ohos,$(CC)),aarch64-linux-ohos)
+CFLAGS += -DOHOS
+endif
+
 $(TARGET) : $(OBJS)
 	$(CC) $(CXXFLAGS) $(LDFLAGS) $(OBJS) -o $(TARGET)
 

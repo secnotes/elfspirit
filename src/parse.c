@@ -258,11 +258,11 @@ static void display_header32(handle_t32 *h) {
         case EM_S390:
             tmp = "IBM S/390";
             break;
-
+#ifndef OHOS
         case EM_SPU:
             tmp = "IBM SPU/SPC";
             break;
-        
+#endif
         case EM_V800:
             tmp = "NEC V800 series";
             break;
@@ -374,7 +374,7 @@ static void display_header32(handle_t32 *h) {
         case EM_PDSP:
             tmp = "Sony DSP Processor";
             break;
-        
+#ifndef OHOS        
         case EM_PDP10:
             tmp = "Digital PDP-10";
             break;
@@ -382,7 +382,7 @@ static void display_header32(handle_t32 *h) {
         case EM_PDP11:
             tmp = "Digital PDP-11";
             break;
-
+#endif
         case EM_FX66:
             tmp = "Siemens FX66 microcontroller";
             break;
@@ -790,11 +790,11 @@ static void display_header32(handle_t32 *h) {
         case EM_COREA_2ND:
             tmp = "KIPO-KAIST Core-A 2nd gen";
             break;
-
+#ifndef OHOS
         case EM_ARCV2:
             tmp = "Synopsys ARCv2 ISA";
             break;
-
+#endif
         case EM_OPEN8:
             tmp = "Open8 RISC";
             break;
@@ -830,11 +830,11 @@ static void display_header32(handle_t32 *h) {
         case EM_MCHP_PIC:
             tmp = "Microchip 8-bit PIC(r)";
             break;
-
+#ifndef OHOS
         case EM_INTELGT:
             tmp = "Intel Graphics Technology";
             break;
-
+#endif
         case EM_KM32:
             tmp = "KM211 KM32";
             break;
@@ -1045,11 +1045,11 @@ static void display_header64(handle_t64 *h) {
         case EM_S390:
             tmp = "IBM S/390";
             break;
-
+#ifndef OHOS
         case EM_SPU:
             tmp = "IBM SPU/SPC";
             break;
-        
+#endif        
         case EM_V800:
             tmp = "NEC V800 series";
             break;
@@ -1161,7 +1161,7 @@ static void display_header64(handle_t64 *h) {
         case EM_PDSP:
             tmp = "Sony DSP Processor";
             break;
-        
+#ifndef OHOS        
         case EM_PDP10:
             tmp = "Digital PDP-10";
             break;
@@ -1169,7 +1169,7 @@ static void display_header64(handle_t64 *h) {
         case EM_PDP11:
             tmp = "Digital PDP-11";
             break;
-
+#endif
         case EM_FX66:
             tmp = "Siemens FX66 microcontroller";
             break;
@@ -1577,11 +1577,11 @@ static void display_header64(handle_t64 *h) {
         case EM_COREA_2ND:
             tmp = "KIPO-KAIST Core-A 2nd gen";
             break;
-
+#ifndef OHOS
         case EM_ARCV2:
             tmp = "Synopsys ARCv2 ISA";
             break;
-
+#endif
         case EM_OPEN8:
             tmp = "Open8 RISC";
             break;
@@ -1617,11 +1617,11 @@ static void display_header64(handle_t64 *h) {
         case EM_MCHP_PIC:
             tmp = "Microchip 8-bit PIC(r)";
             break;
-
+#ifndef OHOS
         case EM_INTELGT:
             tmp = "Intel Graphics Technology";
             break;
-
+#endif
         case EM_KM32:
             tmp = "KM211 KM32";
             break;
@@ -4160,10 +4160,11 @@ static int display_rel64(handle_t64 *h, char *section_name) {
             case R_AARCH64_TLSDESC:
                 type = "R_AARCH64_TLSDESC";
                 break;
+#ifndef OHOS
             case R_AARCH64_IRELATIVE:
                 type = "R_AARCH64_IRELATIVE";
                 break;
-            
+#endif            
             default:
                 break;
         }
@@ -5045,10 +5046,11 @@ static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
             case R_AARCH64_TLSDESC:
                 type = "R_AARCH64_TLSDESC";
                 break;
+#ifndef OHOS
             case R_AARCH64_IRELATIVE:
                 type = "R_AARCH64_IRELATIVE";
                 break;
-            
+#endif            
             default:
                 break;
         }

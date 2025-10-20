@@ -15,11 +15,24 @@ You might be familiar with popular open-source tools like [LIEF](https://github.
 
 ## Building
 
-**elfspirit** can be installed easily:
+**elfspirit** can be installed easily on Unix
 
+**Linux**
 ```shell
 git clone --recursive https://github.com/secnotes/elfspirit.git
 make
+```
+
+**Cross build with HarmonyOS NDK**
+```shell
+git clone --recursive https://github.com/secnotes/elfspirit.git
+make CC="$NDK/llvm/bin/clang --target=aarch64-linux-ohos" AR=$NDK/llvm/bin/llvm-ar RANLIB=$NDK/llvm/bin/llvm-ranlib 
+```
+
+**Cross build with aarch64-linux-gnu-gcc**
+```shell
+git clone --recursive https://github.com/secnotes/elfspirit.git
+CC=aarch64-linux-gnu-gcc make
 ```
 
 ## Usage
