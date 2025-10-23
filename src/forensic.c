@@ -364,6 +364,7 @@ int check_dynstr(handle_t32 *h32, handle_t64 *h64) {
                 ret = 1;
                 break;
             }
+            ret = 0;
         }
     }
     else if (MODE == ELFCLASS64) {
@@ -389,6 +390,7 @@ int check_dynstr(handle_t32 *h32, handle_t64 *h64) {
                 ret = 1;
                 break;
             }
+            ret = 0;
         }
     }
 
@@ -419,14 +421,15 @@ int check_interpreter(handle_t32 *h32, handle_t64 *h64) {
         }
         name = h32->mem + h32->shdr[interp_i].sh_offset;
         /* check index */
+        /*
         if (interp_i == -1) {
             ret = -1;
         }
         else if (interp_i > 2) {
             ret = 1;
-        }
+        }*/
         /* check if the string length is less than original one */
-        else if (strlen(name) != h32->shdr[interp_i].sh_size - 1) {
+        if (strlen(name) != h32->shdr[interp_i].sh_size - 1) {
             ret = 1;
         }
     }
@@ -441,14 +444,15 @@ int check_interpreter(handle_t32 *h32, handle_t64 *h64) {
         }
         name = h64->mem + h64->shdr[interp_i].sh_offset;
         /* check index */
+        /*
         if (interp_i == -1) {
             ret = -1;
         }
         else if (interp_i > 2) {
             ret = 1;
-        }
+        }*/
         /* check if the string length is less than original one */
-        else if (strlen(name) != h64->shdr[interp_i].sh_size - 1) {
+        if (strlen(name) != h64->shdr[interp_i].sh_size - 1) {
             ret = 1;
         }
     }
