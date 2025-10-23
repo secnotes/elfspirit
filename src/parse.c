@@ -32,6 +32,11 @@
 #include "common.h"
 #include "parse.h"
 
+#ifdef ANDROID
+#define ELF32_ST_VISIBILITY(o)	((o) & 0x03)
+#define ELF64_ST_VISIBILITY(o)	ELF32_ST_VISIBILITY (o)
+#endif
+
 #define PRINT_HEADER_EXP(Nr, key, value, explain) printf ("    [%2d] %-20s %10p (%s)\n", Nr, key, value, explain)
 #define PRINT_HEADER(Nr, key, value) printf ("    [%2d] %-20s %10p\n", Nr, key, value)
 /* print section header table */
@@ -282,11 +287,11 @@ static void display_header32(handle_t32 *h) {
         case EM_ARM:
             tmp = "ARM";
             break;
-        
+#ifndef ANDROID        
         case EM_FAKE_ALPHA:
             tmp = "Digital Alpha";
             break;
-
+#endif
         case EM_SH:
             tmp = "Hitachi SH";
             break;
@@ -374,7 +379,7 @@ static void display_header32(handle_t32 *h) {
         case EM_PDSP:
             tmp = "Sony DSP Processor";
             break;
-#ifndef OHOS        
+#if !defined(OHOS) && !defined(ANDROID)        
         case EM_PDP10:
             tmp = "Digital PDP-10";
             break;
@@ -490,11 +495,11 @@ static void display_header32(handle_t32 *h) {
         case EM_OPENRISC:
             tmp = "OpenRISC 32-bit embedded processor";
             break;
-
+#ifndef ANDROID
         case EM_ARC_COMPACT:
             tmp = "ARC International ARCompact";
             break;
-
+#endif
         case EM_XTENSA:
             tmp = "Tensilica Xtensa Architecture";
             break;
@@ -562,7 +567,7 @@ static void display_header32(handle_t32 *h) {
         case EM_UNICORE:
             tmp = "PKU-Unity & MPRC Peking Uni. mc series";
             break;
-
+#ifndef ANDROID
         case EM_EXCESS:
             tmp = "eXcess configurable cpu";
             break;
@@ -570,11 +575,11 @@ static void display_header32(handle_t32 *h) {
         case EM_DXP:
             tmp = "Icera Semi. Deep Execution Processor";
             break;
-
+#endif
         case EM_ALTERA_NIOS2:
             tmp = "Altera Nios II";
             break;
-
+#ifndef ANDROID
         case EM_CRX:
             tmp = "National Semi. CompactRISC CRX";
             break;
@@ -894,7 +899,7 @@ static void display_header32(handle_t32 *h) {
         case EM_AMDGPU:
             tmp = "AMD GPU";
             break;
-
+#endif
         case EM_RISCV:
             tmp = "RISC-V";
             break;
@@ -1069,11 +1074,11 @@ static void display_header64(handle_t64 *h) {
         case EM_ARM:
             tmp = "ARM";
             break;
-        
+#ifndef ANDROID        
         case EM_FAKE_ALPHA:
             tmp = "Digital Alpha";
             break;
-
+#endif
         case EM_SH:
             tmp = "Hitachi SH";
             break;
@@ -1161,7 +1166,7 @@ static void display_header64(handle_t64 *h) {
         case EM_PDSP:
             tmp = "Sony DSP Processor";
             break;
-#ifndef OHOS        
+#if !defined(OHOS) && !defined(ANDROID)        
         case EM_PDP10:
             tmp = "Digital PDP-10";
             break;
@@ -1277,11 +1282,11 @@ static void display_header64(handle_t64 *h) {
         case EM_OPENRISC:
             tmp = "OpenRISC 32-bit embedded processor";
             break;
-
+#ifndef ANDROID
         case EM_ARC_COMPACT:
             tmp = "ARC International ARCompact";
             break;
-
+#endif
         case EM_XTENSA:
             tmp = "Tensilica Xtensa Architecture";
             break;
@@ -1349,7 +1354,7 @@ static void display_header64(handle_t64 *h) {
         case EM_UNICORE:
             tmp = "PKU-Unity & MPRC Peking Uni. mc series";
             break;
-
+#ifndef ANDROID
         case EM_EXCESS:
             tmp = "eXcess configurable cpu";
             break;
@@ -1357,11 +1362,11 @@ static void display_header64(handle_t64 *h) {
         case EM_DXP:
             tmp = "Icera Semi. Deep Execution Processor";
             break;
-
+#endif
         case EM_ALTERA_NIOS2:
             tmp = "Altera Nios II";
             break;
-
+#ifndef ANDROID
         case EM_CRX:
             tmp = "National Semi. CompactRISC CRX";
             break;
@@ -1693,7 +1698,7 @@ static void display_header64(handle_t64 *h) {
         case EM_CSKY:
             tmp = "C-SKY";
             break;
-
+#endif
         default:
             tmp = UNKOWN;
             break;
@@ -2218,11 +2223,11 @@ static int display_dynsym32(handle_t32 *h, char *section_name, char *str_tab, in
                 case STB_WEAK:
                     bind = "WEAK";
                     break; 
-                
+#ifndef ANDROID                
                 case STB_NUM:
                     bind = "NUM";
                     break;
-                
+#endif               
                 case STB_LOOS:
                     bind = "LOOS|GNU_UNIQUE";
                     break;
@@ -2418,11 +2423,11 @@ static int display_dynsym64(handle_t64 *h, char *section_name, char *str_tab, in
                 case STB_WEAK:
                     bind = "WEAK";
                     break; 
-                
+#ifndef ANDROID                 
                 case STB_NUM:
                     bind = "NUM";
                     break;
-                
+#endif                
                 case STB_LOOS:
                     bind = "LOOS|GNU_UNIQUE";
                     break;
@@ -2709,15 +2714,15 @@ static int display_dyninfo32(handle_t32 *h) {
             case DT_PREINIT_ARRAYSZ:
                 tmp = "DT_PREINIT_ARRAYSZ";
                 break;
-
+#ifndef ANDROID
             case DT_SYMTAB_SHNDX:
                 tmp = "DT_SYMTAB_SHNDX";
                 break;
-            
+           
             case DT_NUM:
                 tmp = "DT_NUM";
                 break;
-
+#endif
             case DT_LOOS:
                 tmp = "DT_LOOS";
                 break;
@@ -2733,11 +2738,11 @@ static int display_dyninfo32(handle_t32 *h) {
             case DT_HIPROC:
                 tmp = "DT_HIPROC";
                 break;
-
+#ifndef ANDROID
             case DT_PROCNUM:
                 tmp = "DT_LOPROC";
                 break;
-
+#endif
             /* DT_* entries which fall between DT_VALRNGHI & DT_VALRNGLO use the
                 * Dyn.d_un.d_val field of the Elf*_Dyn structure.  This follows Sun's
                 * approach. */
@@ -3111,15 +3116,15 @@ static int display_dyninfo64(handle_t64 *h) {
             case DT_PREINIT_ARRAYSZ:
                 tmp = "DT_PREINIT_ARRAYSZ";
                 break;
-
+#ifndef ANDROID
             case DT_SYMTAB_SHNDX:
                 tmp = "DT_SYMTAB_SHNDX";
                 break;
-            
+          
             case DT_NUM:
                 tmp = "DT_NUM";
                 break;
-
+#endif
             case DT_LOOS:
                 tmp = "DT_LOOS";
                 break;
@@ -3135,11 +3140,11 @@ static int display_dyninfo64(handle_t64 *h) {
             case DT_HIPROC:
                 tmp = "DT_HIPROC";
                 break;
-
+#ifndef ANDROID
             case DT_PROCNUM:
                 tmp = "DT_LOPROC";
                 break;
-
+#endif
             /* DT_* entries which fall between DT_VALRNGHI & DT_VALRNGLO use the
                 * Dyn.d_un.d_val field of the Elf*_Dyn structure.  This follows Sun's
                 * approach. */
@@ -3513,11 +3518,11 @@ static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
             case R_X86_64_REX_GOTPCRELX:
                 type = "R_X86_64_REX_GOTPCRELX";
                 break;
-
+#ifndef ANDROID
             case R_X86_64_NUM:
                 type = "R_X86_64_NUM";
                 break;
-            
+         
             /* 动态链接重定位 */
             case R_AARCH64_P32_COPY:
                 type = "R_AARCH64_P32_COPY";
@@ -3550,7 +3555,7 @@ static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
             case R_AARCH64_P32_IRELATIVE:
                 type = "R_AARCH64_P32_IRELATIVE";
                 break;
-            
+#endif            
             default:
                 break;
         }
@@ -3785,7 +3790,7 @@ static int display_rel64(handle_t64 *h, char *section_name) {
             case R_X86_64_REX_GOTPCRELX:
                 type = "R_X86_64_REX_GOTPCRELX";
                 break;
-
+#ifndef ANDROID
             case R_X86_64_NUM:
                 type = "R_X86_64_NUM";
                 break;
@@ -3857,6 +3862,7 @@ static int display_rel64(handle_t64 *h, char *section_name) {
             case R_AARCH64_LDST8_ABS_LO12_NC:
                 type = "R_AARCH64_LDST8_ABS_LO12_NC";
                 break;
+#endif
             case R_AARCH64_TSTBR14:
                 type = "R_AARCH64_TSTBR14";
                 break;
@@ -3866,6 +3872,7 @@ static int display_rel64(handle_t64 *h, char *section_name) {
             case R_AARCH64_JUMP26:
                 type = "R_AARCH64_JUMP26";
                 break;
+#ifndef ANDROID
             case R_AARCH64_CALL26:
                 type = "R_AARCH64_CALL26";
                 break;
@@ -4135,6 +4142,7 @@ static int display_rel64(handle_t64 *h, char *section_name) {
             case R_AARCH64_TLSLD_LDST128_DTPREL_LO12_NC:
                 type = "R_AARCH64_TLSLD_LDST128_DTPREL_LO12_NC";
                 break;
+#endif
             /* Dynamic relocations */
             case R_AARCH64_COPY:
                 type = "R_AARCH64_COPY";
@@ -4392,7 +4400,7 @@ static int display_rela32(handle_t32 *h, char *section_name) {
             case R_X86_64_REX_GOTPCRELX:
                 type = "R_X86_64_REX_GOTPCRELX";
                 break;
-
+#ifndef ANDROID
             case R_X86_64_NUM:
                 type = "R_X86_64_NUM";
                 break;
@@ -4429,7 +4437,7 @@ static int display_rela32(handle_t32 *h, char *section_name) {
             case R_AARCH64_P32_IRELATIVE:
                 type = "R_AARCH64_P32_IRELATIVE";
                 break;
-            
+#endif            
             default:
                 break;
         }
@@ -4671,7 +4679,7 @@ static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
             case R_X86_64_REX_GOTPCRELX:
                 type = "R_X86_64_REX_GOTPCRELX";
                 break;
-
+#ifndef ANDROID
             case R_X86_64_NUM:
                 type = "R_X86_64_NUM";
                 break;
@@ -4743,6 +4751,7 @@ static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
             case R_AARCH64_LDST8_ABS_LO12_NC:
                 type = "R_AARCH64_LDST8_ABS_LO12_NC";
                 break;
+#endif
             case R_AARCH64_TSTBR14:
                 type = "R_AARCH64_TSTBR14";
                 break;
@@ -4752,6 +4761,7 @@ static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
             case R_AARCH64_JUMP26:
                 type = "R_AARCH64_JUMP26";
                 break;
+#ifndef ANDROID
             case R_AARCH64_CALL26:
                 type = "R_AARCH64_CALL26";
                 break;
@@ -5021,6 +5031,7 @@ static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
             case R_AARCH64_TLSLD_LDST128_DTPREL_LO12_NC:
                 type = "R_AARCH64_TLSLD_LDST128_DTPREL_LO12_NC";
                 break;
+#endif
             /* Dynamic relocations */
             case R_AARCH64_COPY:
                 type = "R_AARCH64_COPY";

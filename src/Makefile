@@ -31,6 +31,11 @@ ifeq ($(findstring aarch64-linux-ohos,$(CC)),aarch64-linux-ohos)
 CFLAGS += -DOHOS
 endif
 
+# 断是否为aarch64-linux-android
+ifeq ($(findstring aarch64-linux-android,$(CC)),aarch64-linux-android)
+CFLAGS += -DANDROID
+endif
+
 $(TARGET) : $(OBJS)
 	$(CC) $(CXXFLAGS) $(LDFLAGS) $(OBJS) -o $(TARGET)
 

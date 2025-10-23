@@ -23,16 +23,19 @@ git clone --recursive https://github.com/secnotes/elfspirit.git
 make
 ```
 
-**Cross build with HarmonyOS NDK**
-```shell
-git clone --recursive https://github.com/secnotes/elfspirit.git
-make CC="$NDK/llvm/bin/clang --target=aarch64-linux-ohos" AR=$NDK/llvm/bin/llvm-ar RANLIB=$NDK/llvm/bin/llvm-ranlib 
-```
-
 **Cross build with aarch64-linux-gnu-gcc**
 ```shell
-git clone --recursive https://github.com/secnotes/elfspirit.git
 CC=aarch64-linux-gnu-gcc make
+```
+
+**Cross build with Android NDK**
+```shell
+make CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --target=aarch64-linux-android29" AR=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin//llvm-ar RANLIB=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin//llvm-ranlib
+```
+
+**Cross build with HarmonyOS NDK**
+```shell
+make CC="$NDK/llvm/bin/clang --target=aarch64-linux-ohos" AR=$NDK/llvm/bin/llvm-ar RANLIB=$NDK/llvm/bin/llvm-ranlib 
 ```
 
 ## Usage
