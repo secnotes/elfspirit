@@ -45,12 +45,13 @@ typedef struct parser_opt {
 } parser_opt_t;
 #endif
 
-#define STR_NUM 0x4096
-#define STR_LENGTH 0x1024
+#define STR_NUM_MAX 1024 * 10
+#define STR_LEN_MAX 4096
+#define SECTION_NUM_MAX 4096
 struct ElfData {
     size_t count;
-    uint64_t value[STR_NUM];
-    char name[STR_NUM][STR_LENGTH];
+    uint64_t value[STR_NUM_MAX];
+    char name[STR_NUM_MAX][STR_LEN_MAX];
 };
 
 int parse(char *elf, parser_opt_t *po, uint32_t length);

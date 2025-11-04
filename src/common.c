@@ -1333,3 +1333,135 @@ void bin_to_sh(const char* input_path, const char* output_path) {
     fclose(bin_file);
     fclose(txt_file);
 }
+
+
+// Non repetitive data structures
+// 不重复的数据结构
+UniqueSequence* sequence_create(int initial_capacity) {
+    if (initial_capacity <= 0) initial_capacity = 10;
+    
+    UniqueSequence *seq = (UniqueSequence*)malloc(sizeof(UniqueSequence));
+    if (!seq) return NULL;
+    
+    seq->data = (int*)malloc(initial_capacity * sizeof(int));
+    if (!seq->data) {
+        free(seq);
+        return NULL;
+    }
+    
+    seq->size = 0;
+    seq->capacity = initial_capacity;
+    return seq;
+}
+
+// free sequence
+void sequence_destroy(UniqueSequence *seq) {
+    if (seq) {
+        free(seq->data);
+        free(seq);
+    }
+}
+
+static int sequence_resize(UniqueSequence *seq, int new_capacity) {
+    if (new_capacity <= seq->size) return false;
+    
+    int *new_data = (int*)realloc(seq->data, new_capacity * sizeof(int));
+    if (!new_data) return false;
+    
+    seq->data = new_data;
+    seq->capacity = new_capacity;
+    return true;
+}
+
+int sequence_insert(UniqueSequence *seq, int value) {
+    if (!seq || sequence_contains(seq, value)) return false;
+    
+    if (seq->size >= seq->capacity) {
+        if (!sequence_resize(seq, seq->capacity * 2)) return false;
+    }
+    
+    seq->data[seq->size++] = value;
+    return true;
+}
+
+int sequence_remove(UniqueSequence *seq, int value) {
+    if (!seq || sequence_is_empty(seq)) return false;
+    
+    for (int i = 0; i < seq->size; i++) {
+        if (seq->data[i] == value) {
+            seq->data[i] = seq->data[seq->size - 1];
+            seq->size--;
+            return true;
+        }
+    }
+    return false;
+}
+
+int sequence_contains(const UniqueSequence *seq, int value) {
+    if (!seq) return false;
+    for (int i = 0; i < seq->size; i++) {
+        if (seq->data[i] == value) return true;
+    }
+    return false;
+}
+
+int sequence_size(const UniqueSequence *seq) {
+    return seq ? seq->size : 0;
+}
+
+int sequence_is_empty(const UniqueSequence *seq) {
+    return !seq || seq->size == 0;
+}
+
+void sequence_clear(UniqueSequence *seq) {
+    if (seq) seq->size = 0;
+}
+
+void sequence_print(const UniqueSequence *seq) {
+    if (!seq) {
+        printf("Sequence is NULL\n");
+        return;
+    }
+    
+    printf("Sequence [size=%d, capacity=%d]: ", seq->size, seq->capacity);
+    if (sequence_is_empty(seq)) {
+        printf("Empty\n");
+        return;
+    }
+    
+    for (int i = 0; i < seq->size; i++) {
+        printf("%d", seq->data[i]);
+        if (i < seq->size - 1) printf(", ");
+    }
+    printf("\n");
+}
+
+int sequence_get(const UniqueSequence *seq, int index) {
+    if (!seq || index < 0 || index >= seq->size) return -1;
+    return seq->data[index];
+}
+
+int sequence_union(UniqueSequence *result, const UniqueSequence *seq1, const UniqueSequence *seq2) {
+    if (!result || !seq1 || !seq2) return false;
+    
+    sequence_clear(result);
+    for (int i = 0; i < seq1->size; i++) {
+        if (!sequence_insert(result, seq1->data[i])) return false;
+    }
+    for (int i = 0; i < seq2->size; i++) {
+        sequence_insert(result, seq2->data[i]);
+    }
+    return true;
+}
+
+int sequence_intersection(UniqueSequence *result, const UniqueSequence *seq1, const UniqueSequence *seq2) {
+    if (!result || !seq1 || !seq2) return false;
+    
+    sequence_clear(result);
+    for (int i = 0; i < seq1->size; i++) {
+        if (sequence_contains(seq2, seq1->data[i])) {
+            if (!sequence_insert(result, seq1->data[i])) return false;
+        }
+    }
+    return true;
+}

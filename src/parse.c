@@ -1752,7 +1752,7 @@ static void display_section32(handle_t32 *h, int is_display) {
             exit(-1);
         }
         /* store section name */
-        if (i < STR_NUM && strlen(name) < STR_LENGTH){
+        if (i < SECTION_NUM_MAX && strlen(name) < STR_LEN_MAX){
             g_secname.count++;
             strcpy(g_secname.name[i], name);
         }
@@ -1854,7 +1854,7 @@ static void display_section64(handle_t64 *h, int is_display) {
             exit(-1);
         }
         /* store section name */
-        if (i < STR_NUM && strlen(name) < STR_LENGTH){
+        if (i < SECTION_NUM_MAX && strlen(name) < STR_LEN_MAX){
             g_secname.count++;
             strcpy(g_secname.name[i], name);
         }
@@ -2004,6 +2004,7 @@ static void display_segment32(handle_t32 *h) {
     }
 
     INFO("Section to segment mapping\n");
+    UniqueSequence *seq_section_index = sequence_create(SECTION_NUM_MAX);
     for (int i = 0; i < h->ehdr->e_phnum; i++) {
         printf("    [%2d]", i);
         for (int j = 0; j < h->ehdr->e_shnum; j++) {
@@ -2011,6 +2012,7 @@ static void display_segment32(handle_t32 *h) {
             if (h->shdr[j].sh_addr >= h->phdr[i].p_vaddr && h->shdr[j].sh_addr + h->shdr[j].sh_size <= h->phdr[i].p_vaddr + h->phdr[i].p_memsz && h->shdr[j].sh_type != SHT_NULL) {
                 if (h->shdr[j].sh_flags >> 1 & 0x1) {
                     if (name != NULL) {
+                        sequence_insert(seq_section_index, j);
                         printf(" %s", name);
                     }
                 }
@@ -2018,6 +2020,15 @@ static void display_segment32(handle_t32 *h) {
         }
         printf("\n");
     }
+    
+    INFO("Unmapped sections\n");
+    printf("   ");
+    for (int j = 0; j < h->ehdr->e_shnum; j++) {
+        name = h->mem + h->shstrtab->sh_offset + h->shdr[j].sh_name;
+        sequence_contains(seq_section_index, j) ? "Yes" : printf(" [%d]%s", j, name);
+    }
+    printf("\n");
+    sequence_destroy(seq_section_index);
 }
 
 static void display_segment64(handle_t64 *h) {
@@ -2079,6 +2090,7 @@ static void display_segment64(handle_t64 *h) {
     }
 
     INFO("Section to segment mapping\n");
+    UniqueSequence *seq_section_index = sequence_create(SECTION_NUM_MAX);
     for (int i = 0; i < h->ehdr->e_phnum; i++) {
         printf("    [%2d]", i);
         for (int j = 0; j < h->ehdr->e_shnum; j++) {
@@ -2086,13 +2098,23 @@ static void display_segment64(handle_t64 *h) {
             if (h->shdr[j].sh_addr >= h->phdr[i].p_vaddr && h->shdr[j].sh_addr + h->shdr[j].sh_size <= h->phdr[i].p_vaddr + h->phdr[i].p_memsz && h->shdr[j].sh_type != SHT_NULL) {
                 if (h->shdr[j].sh_flags >> 1 & 0x1) {
                     if (name != NULL) {
+                        sequence_insert(seq_section_index, j);
                         printf(" %s", name);
                     }                    
                 }
             }    
         }
         printf("\n");
-    }    
+    }
+
+    INFO("Unmapped sections\n");
+    printf("   ");
+    for (int j = 0; j < h->ehdr->e_shnum; j++) {
+        name = h->mem + h->shstrtab->sh_offset + h->shdr[j].sh_name;
+        sequence_contains(seq_section_index, j) ? "Yes" : printf(" [%d]%s", j, name);
+    }
+    printf("\n");
+    sequence_destroy(seq_section_index);
 }
 
 /**
@@ -2273,12 +2295,12 @@ static int display_dynsym32(handle_t32 *h, char *section_name, char *str_tab, in
             }
             name = h->mem + h->shdr[dynstr_index].sh_offset + sym[i].st_name;
             /* store */
-            if (!strcmp(".symtab", section_name) && i < STR_NUM && strlen(name) < STR_LENGTH) {
+            if (!strcmp(".symtab", section_name) && i < SECTION_NUM_MAX && strlen(name) < STR_LEN_MAX) {
                 g_symtab.count++;
                 g_symtab.value[i] = sym[i].st_value;
                 strcpy(g_symtab.name[i], name);
             } 
-            else if (!strcmp(".dynsym", section_name) &&  i < STR_NUM && strlen(name) < STR_LENGTH){
+            else if (!strcmp(".dynsym", section_name) &&  i < SECTION_NUM_MAX && strlen(name) < STR_LEN_MAX){
                 g_dynsym.count++;
                 g_dynsym.value[i] = sym[i].st_value;
                 strcpy(g_dynsym.name[i], name);
@@ -2473,12 +2495,12 @@ static int display_dynsym64(handle_t64 *h, char *section_name, char *str_tab, in
             }
             name = h->mem + h->shdr[dynstr_index].sh_offset + sym[i].st_name;
             /* store */
-            if (!strcmp(".symtab", section_name) && i < STR_NUM && strlen(name) < STR_LENGTH) {
+            if (!strcmp(".symtab", section_name) && i < SECTION_NUM_MAX && strlen(name) < STR_LEN_MAX) {
                 g_symtab.count++;
                 g_symtab.value[i] = sym[i].st_value;
                 strcpy(g_symtab.name[i], name);
             } 
-            else if (!strcmp(".dynsym", section_name) &&  i < STR_NUM && strlen(name) < STR_LENGTH){
+            else if (!strcmp(".dynsym", section_name) &&  i < SECTION_NUM_MAX && strlen(name) < STR_LEN_MAX){
                 g_dynsym.count++;
                 g_dynsym.value[i] = sym[i].st_value;
                 strcpy(g_dynsym.name[i], name);
@@ -3561,7 +3583,7 @@ static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
         }
         
         str_index = ELF32_R_SYM(rel_section[i].r_info);
-        if (str_index >= STR_NUM) {
+        if (str_index >= STR_NUM_MAX) {
             WARNING("Unknown file format or too many strings\n");
             break;
         }
@@ -3573,7 +3595,7 @@ static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
                 PRINT_RELA(i, rel_section[i].r_offset, rel_section[i].r_info, type, str_index, g_dynsym.name[str_index]); 
         }
 
-        if (i < STR_NUM && !strcmp(section_name, ".rel.plt")){
+        if (i < SECTION_NUM_MAX && !strcmp(section_name, ".rel.plt")){
             g_relplt.count++;
             g_relplt.value[i] = rel_section[i].r_offset;
         }
@@ -4178,7 +4200,7 @@ static int display_rel64(handle_t64 *h, char *section_name) {
         }
         
         str_index = ELF64_R_SYM(rel_section[i].r_info);
-        if (str_index >= STR_NUM) {
+        if (str_index >= STR_NUM_MAX) {
             WARNING("Unknown file format or too many strings\n");
             break;
         }
@@ -4443,25 +4465,25 @@ static int display_rela32(handle_t32 *h, char *section_name) {
         }
         
         str_index = ELF32_R_SYM(rela_dyn[i].r_info);
-        if (str_index >= STR_NUM) {
+        if (str_index >= STR_NUM_MAX) {
             WARNING("Unknown file format or too many strings\n");
             break;
         }
         if (strlen(g_dynsym.name[str_index]) == 0) {
             /* .rela.dyn */
             if (str_index == 0) {
-                snprintf(name, STR_LENGTH, "%x", rela_dyn[i].r_addend);
+                snprintf(name, STR_LEN_MAX, "%x", rela_dyn[i].r_addend);
             } 
             /* .o file .rela.text */
             else {
-                snprintf(name, STR_LENGTH, "%s %d", g_symtab.name[str_index], rela_dyn[i].r_addend);
+                snprintf(name, STR_LEN_MAX, "%s %d", g_symtab.name[str_index], rela_dyn[i].r_addend);
             }
         }
         /* .rela.plt */
         else if (rela_dyn[i].r_addend >= 0)
-            snprintf(name, STR_LENGTH, "%s + %d", g_dynsym.name[str_index], rela_dyn[i].r_addend);
+            snprintf(name, STR_LEN_MAX, "%s + %d", g_dynsym.name[str_index], rela_dyn[i].r_addend);
         else
-            snprintf(name, STR_LENGTH, "%s %d", g_dynsym.name[str_index], rela_dyn[i].r_addend);
+            snprintf(name, STR_LEN_MAX, "%s %d", g_dynsym.name[str_index], rela_dyn[i].r_addend);
         PRINT_RELA(i, rela_dyn[i].r_offset, rela_dyn[i].r_info, type, str_index, name);
     }
 }
@@ -5067,29 +5089,29 @@ static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
         }
         
         str_index = ELF64_R_SYM(rela_dyn[i].r_info);
-        if (str_index >= STR_NUM) {
+        if (str_index >= STR_NUM_MAX) {
             WARNING("Unknown file format or too many strings\n");
             break;
         }
         if (strlen(g_dynsym.name[str_index]) == 0) {
             /* .rela.dyn */
             if (str_index == 0) {
-                snprintf(name, STR_LENGTH, "%x", rela_dyn[i].r_addend);
+                snprintf(name, STR_LEN_MAX, "%x", rela_dyn[i].r_addend);
             } 
             /* .o file .rela.text */
             else {
-                snprintf(name, STR_LENGTH, "%s %d", g_symtab.name[str_index], rela_dyn[i].r_addend);
+                snprintf(name, STR_LEN_MAX, "%s %d", g_symtab.name[str_index], rela_dyn[i].r_addend);
             }
         }
         /* .rela.plt */
         else if (rela_dyn[i].r_addend >= 0)
-            snprintf(name, STR_LENGTH, "%s + %d", g_dynsym.name[str_index], rela_dyn[i].r_addend);
+            snprintf(name, STR_LEN_MAX, "%s + %d", g_dynsym.name[str_index], rela_dyn[i].r_addend);
         else
-            snprintf(name, STR_LENGTH, "%s %d", g_dynsym.name[str_index], rela_dyn[i].r_addend);
+            snprintf(name, STR_LEN_MAX, "%s %d", g_dynsym.name[str_index], rela_dyn[i].r_addend);
         if (is_display)
             PRINT_RELA(i, rela_dyn[i].r_offset, rela_dyn[i].r_info, type, str_index, name);
     
-        if (i < STR_NUM && !strcmp(section_name, ".rela.plt")){
+        if (i < SECTION_NUM_MAX && !strcmp(section_name, ".rela.plt")){
             g_relplt.count++;
             g_relplt.value[i] = rela_dyn[i].r_offset;
         }

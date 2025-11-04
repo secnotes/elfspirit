@@ -334,3 +334,33 @@ int add_dynsym_entry(char *elf_name, char *name, uint64_t value, size_t code_siz
  * @return int error code {-1:error,0:sucess}
  */
 int confuse_symbol(char *elf_name, char *strtab);
+
+
+/* Non repetitive data structures */
+/* 不重复的数据结构 */
+#ifndef UNIQUE_SEQUENCE_H
+#define UNIQUE_SEQUENCE_H
+
+#define true 1
+#define false 0
+
+typedef struct {
+    int *data;
+    int size;
+    int capacity;
+} UniqueSequence;
+
+UniqueSequence* sequence_create(int initial_capacity);
+void sequence_destroy(UniqueSequence *seq);
+int sequence_insert(UniqueSequence *seq, int value);
+int sequence_remove(UniqueSequence *seq, int value);
+int sequence_contains(const UniqueSequence *seq, int value);
+int sequence_size(const UniqueSequence *seq);
+int sequence_is_empty(const UniqueSequence *seq);
+void sequence_clear(UniqueSequence *seq);
+void sequence_print(const UniqueSequence *seq);
+int sequence_get(const UniqueSequence *seq, int index);
+int sequence_union(UniqueSequence *result, const UniqueSequence *seq1, const UniqueSequence *seq2);
+int sequence_intersection(UniqueSequence *result, const UniqueSequence *seq1, const UniqueSequence *seq2);
+
+#endif
