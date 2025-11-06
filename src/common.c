@@ -401,6 +401,77 @@ int get_elf_machine(char *elf_name) {
     return arch;
 }
 
+/**
+ * @description: Get elf section number
+ * @param {char} *elf_name
+ * @return {*}
+ */
+int get_elf_shnum_32(char *elf_name) {
+    int fd;
+    struct stat st;
+    uint8_t *elf_map;
+    Elf32_Ehdr *ehdr;
+    int shnum;
+
+    fd = open(elf_name, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        return -1;
+    }
+
+    if (fstat(fd, &st) < 0) {
+        ERROR("fstat\n");
+        return -1;
+    }
+
+    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    if (elf_map == MAP_FAILED) {
+        ERROR("mmap\n");
+        return -1;
+    }
+
+    /* e_machine */
+    ehdr = (Elf32_Ehdr *)elf_map;    
+    shnum = ehdr->e_shnum;
+    munmap(elf_map, st.st_size);
+    close(fd);
+
+    return shnum;
+}
+
+int get_elf_shnum_64(char *elf_name) {
+    int fd;
+    struct stat st;
+    uint8_t *elf_map;
+    Elf64_Ehdr *ehdr;
+    int shnum;
+
+    fd = open(elf_name, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        return -1;
+    }
+
+    if (fstat(fd, &st) < 0) {
+        ERROR("fstat\n");
+        return -1;
+    }
+
+    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    if (elf_map == MAP_FAILED) {
+        ERROR("mmap\n");
+        return -1;
+    }
+
+    /* e_machine */
+    ehdr = (Elf64_Ehdr *)elf_map;    
+    shnum = ehdr->e_shnum;
+    munmap(elf_map, st.st_size);
+    close(fd);
+
+    return shnum;
+}
+
 
 /**
  * @brief 判断二进制是否开启地址随机化

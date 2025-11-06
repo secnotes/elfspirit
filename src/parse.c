@@ -94,6 +94,13 @@
     printf("    [%2s] %-016s %-16s\n", \
     Nr, value, name);
 
+#define IF_PRINT(is_display, format, ...) \
+    do { \
+        if (is_display) { \
+            printf(format, ##__VA_ARGS__); \
+        } \
+    } while(0)
+
 int flag2str(int flag, char *flag_str) {
     if (flag & 0x1)
         flag_str[2] = 'E';
@@ -142,6 +149,7 @@ struct ElfData g_dynsym;
 struct ElfData g_symtab;
 struct ElfData g_secname;
 struct ElfData g_relplt;
+struct ElfData g_unmapped_section;
 uint32_t g_strlength;
 
 void static init() {
@@ -149,6 +157,7 @@ void static init() {
     memset(&g_symtab, 0, sizeof(struct ElfData));
     memset(&g_secname, 0, sizeof(struct ElfData));
     memset(&g_relplt, 0, sizeof(struct ElfData));
+    memset(&g_unmapped_section, 0, sizeof(struct ElfData));
     g_strlength = 0;
 }
 
@@ -1945,12 +1954,14 @@ static void display_section64(handle_t64 *h, int is_display) {
  * @param {handle_t32} h
  * @return {void}
  */
-static void display_segment32(handle_t32 *h) {
+void display_segment32(handle_t32 *h, int is_display) {
     char *name;
     char *tmp;
     char flag[4];
-    INFO("Program Header Table\n");
-    PRINT_PROGRAM_TITLE("Nr", "Type", "Offset", "Virtaddr", "Physaddr", "Filesiz", "Memsiz", "Flg", "Align");
+    if (is_display) {
+        INFO("Program Header Table\n");
+        PRINT_PROGRAM_TITLE("Nr", "Type", "Offset", "Virtaddr", "Physaddr", "Filesiz", "Memsiz", "Flg", "Align");
+    }
     for (int i = 0; i < h->ehdr->e_phnum; i++) {
         switch (h->phdr[i].p_type) {
             case PT_NULL:
@@ -1967,93 +1978,9 @@ static void display_segment32(handle_t32 *h) {
 
             case PT_INTERP:
                 tmp = "PT_INTERP";
-                printf("\t\t[Requesting program interpreter: %s]\n", h->mem + h->phdr[i].p_offset);
-                break;
-
-            case PT_NOTE:
-                tmp = "PT_NOTE";
-                break;
-
-            case PT_SHLIB:
-                tmp = "PT_SHLIB";
-                break;
-
-            case PT_PHDR:
-                tmp = "PT_PHDR";
-                break;
-
-            case PT_LOPROC:
-                tmp = "PT_LOPROC";
-                break;
-
-            case PT_HIPROC:
-                tmp = "PT_HIPROC";
-                break;
-
-            case PT_GNU_STACK:
-                tmp = "PT_GNU_STACK";
-                break;
-            
-            default:
-                tmp = UNKOWN;
-                break;
-        }
-        strcpy(flag, "   ");
-        flag2str(h->phdr[i].p_flags, flag);
-        PRINT_PROGRAM(i, tmp, h->phdr[i].p_offset, h->phdr[i].p_vaddr, h->phdr[i].p_paddr, h->phdr[i].p_filesz, h->phdr[i].p_memsz, flag, h->phdr[i].p_align); 
-    }
-
-    INFO("Section to segment mapping\n");
-    UniqueSequence *seq_section_index = sequence_create(SECTION_NUM_MAX);
-    for (int i = 0; i < h->ehdr->e_phnum; i++) {
-        printf("    [%2d]", i);
-        for (int j = 0; j < h->ehdr->e_shnum; j++) {
-            name = h->mem + h->shstrtab->sh_offset + h->shdr[j].sh_name;
-            if (h->shdr[j].sh_addr >= h->phdr[i].p_vaddr && h->shdr[j].sh_addr + h->shdr[j].sh_size <= h->phdr[i].p_vaddr + h->phdr[i].p_memsz && h->shdr[j].sh_type != SHT_NULL) {
-                if (h->shdr[j].sh_flags >> 1 & 0x1) {
-                    if (name != NULL) {
-                        sequence_insert(seq_section_index, j);
-                        printf(" %s", name);
-                    }
+                if (is_display) {
+                    printf("\t\t[Requesting program interpreter: %s]\n", h->mem + h->phdr[i].p_offset);
                 }
-            }    
-        }
-        printf("\n");
-    }
-    
-    INFO("Unmapped sections\n");
-    printf("   ");
-    for (int j = 0; j < h->ehdr->e_shnum; j++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[j].sh_name;
-        sequence_contains(seq_section_index, j) ? "Yes" : printf(" [%d]%s", j, name);
-    }
-    printf("\n");
-    sequence_destroy(seq_section_index);
-}
-
-static void display_segment64(handle_t64 *h) {
-    char *name;
-    char *tmp;
-    char flag[4];
-    INFO("Program Header Table\n");
-    PRINT_PROGRAM_TITLE("Nr", "Type", "Offset", "Virtaddr", "Physaddr", "Filesiz", "Memsiz", "Flg", "Align");
-    for (int i = 0; i < h->ehdr->e_phnum; i++) {
-        switch (h->phdr[i].p_type) {
-            case PT_NULL:
-                tmp = "PT_NULL";
-                break;
-            
-            case PT_LOAD:
-                tmp = "PT_LOAD";
-                break;
-
-            case PT_DYNAMIC:
-                tmp = "PT_DYNAMIC";
-                break;
-
-            case PT_INTERP:
-                tmp = "PT_INTERP";
-                printf("\t\t[Requesting program interpreter: %s]\n", h->mem + h->phdr[i].p_offset);
                 break;
 
             case PT_NOTE:
@@ -2086,34 +2013,152 @@ static void display_segment64(handle_t64 *h) {
         }
         strcpy(flag, "   ");
         flag2str(h->phdr[i].p_flags, flag);
-        PRINT_PROGRAM(i, tmp, h->phdr[i].p_offset, h->phdr[i].p_vaddr, h->phdr[i].p_paddr, h->phdr[i].p_filesz, h->phdr[i].p_memsz, flag, h->phdr[i].p_align); 
+        if (is_display) {
+            PRINT_PROGRAM(i, tmp, h->phdr[i].p_offset, h->phdr[i].p_vaddr, h->phdr[i].p_paddr, h->phdr[i].p_filesz, h->phdr[i].p_memsz, flag, h->phdr[i].p_align); 
+        }
     }
 
-    INFO("Section to segment mapping\n");
+    if (is_display) {
+        INFO("Section to segment mapping\n");
+    }
     UniqueSequence *seq_section_index = sequence_create(SECTION_NUM_MAX);
     for (int i = 0; i < h->ehdr->e_phnum; i++) {
-        printf("    [%2d]", i);
+        IF_PRINT(is_display, "    [%2d]", i);
         for (int j = 0; j < h->ehdr->e_shnum; j++) {
             name = h->mem + h->shstrtab->sh_offset + h->shdr[j].sh_name;
             if (h->shdr[j].sh_addr >= h->phdr[i].p_vaddr && h->shdr[j].sh_addr + h->shdr[j].sh_size <= h->phdr[i].p_vaddr + h->phdr[i].p_memsz && h->shdr[j].sh_type != SHT_NULL) {
                 if (h->shdr[j].sh_flags >> 1 & 0x1) {
                     if (name != NULL) {
                         sequence_insert(seq_section_index, j);
-                        printf(" %s", name);
+                        IF_PRINT(is_display, " %s", name);
                     }                    
                 }
             }    
         }
-        printf("\n");
+        IF_PRINT(is_display, "\n");
     }
 
-    INFO("Unmapped sections\n");
-    printf("   ");
+    if (is_display) {
+        INFO("Unmapped sections\n");
+    }
+    IF_PRINT(is_display, "   ");
     for (int j = 0; j < h->ehdr->e_shnum; j++) {
         name = h->mem + h->shstrtab->sh_offset + h->shdr[j].sh_name;
-        sequence_contains(seq_section_index, j) ? "Yes" : printf(" [%d]%s", j, name);
+        if (!sequence_contains(seq_section_index, j)) {
+            IF_PRINT(is_display, " [%d]%s", j, name);
+            /* init g_unmapped_section data*/
+            if (!is_display & strlen(name) != 0) {
+                strcpy(g_unmapped_section.name[g_unmapped_section.count], name);
+                g_unmapped_section.count++;
+            }
+        }
     }
-    printf("\n");
+
+    IF_PRINT(is_display, "\n");
+    sequence_destroy(seq_section_index);
+}
+
+void display_segment64(handle_t64 *h, int is_display) {
+    char *name;
+    char *tmp;
+    char flag[4];
+    if (is_display) {
+        INFO("Program Header Table\n");
+        PRINT_PROGRAM_TITLE("Nr", "Type", "Offset", "Virtaddr", "Physaddr", "Filesiz", "Memsiz", "Flg", "Align");
+    }
+    for (int i = 0; i < h->ehdr->e_phnum; i++) {
+        switch (h->phdr[i].p_type) {
+            case PT_NULL:
+                tmp = "PT_NULL";
+                break;
+            
+            case PT_LOAD:
+                tmp = "PT_LOAD";
+                break;
+
+            case PT_DYNAMIC:
+                tmp = "PT_DYNAMIC";
+                break;
+
+            case PT_INTERP:
+                tmp = "PT_INTERP";
+                if (is_display) {
+                    printf("\t\t[Requesting program interpreter: %s]\n", h->mem + h->phdr[i].p_offset);
+                }
+                break;
+
+            case PT_NOTE:
+                tmp = "PT_NOTE";
+                break;
+
+            case PT_SHLIB:
+                tmp = "PT_SHLIB";
+                break;
+
+            case PT_PHDR:
+                tmp = "PT_PHDR";
+                break;
+
+            case PT_LOPROC:
+                tmp = "PT_LOPROC";
+                break;
+
+            case PT_HIPROC:
+                tmp = "PT_HIPROC";
+                break;
+
+            case PT_GNU_STACK:
+                tmp = "PT_GNU_STACK";
+                break;
+            
+            default:
+                tmp = UNKOWN;
+                break;
+        }
+        strcpy(flag, "   ");
+        flag2str(h->phdr[i].p_flags, flag);
+        if (is_display) {
+            PRINT_PROGRAM(i, tmp, h->phdr[i].p_offset, h->phdr[i].p_vaddr, h->phdr[i].p_paddr, h->phdr[i].p_filesz, h->phdr[i].p_memsz, flag, h->phdr[i].p_align); 
+        }
+    }
+
+    if (is_display) {
+        INFO("Section to segment mapping\n");
+    }
+    UniqueSequence *seq_section_index = sequence_create(SECTION_NUM_MAX);
+    for (int i = 0; i < h->ehdr->e_phnum; i++) {
+        IF_PRINT(is_display, "    [%2d]", i);
+        for (int j = 0; j < h->ehdr->e_shnum; j++) {
+            name = h->mem + h->shstrtab->sh_offset + h->shdr[j].sh_name;
+            if (h->shdr[j].sh_addr >= h->phdr[i].p_vaddr && h->shdr[j].sh_addr + h->shdr[j].sh_size <= h->phdr[i].p_vaddr + h->phdr[i].p_memsz && h->shdr[j].sh_type != SHT_NULL) {
+                if (h->shdr[j].sh_flags >> 1 & 0x1) {
+                    if (name != NULL) {
+                        sequence_insert(seq_section_index, j);
+                        IF_PRINT(is_display, " %s", name);
+                    }                    
+                }
+            }    
+        }
+        IF_PRINT(is_display, "\n");
+    }
+
+    if (is_display) {
+        INFO("Unmapped sections\n");
+    }
+    IF_PRINT(is_display, "   ");
+    for (int j = 0; j < h->ehdr->e_shnum; j++) {
+        name = h->mem + h->shstrtab->sh_offset + h->shdr[j].sh_name;
+        if (!sequence_contains(seq_section_index, j)) {
+            IF_PRINT(is_display, " [%d]%s", j, name);
+            /* init g_unmapped_section data*/
+            if (!is_display & strlen(name) != 0) {
+                strcpy(g_unmapped_section.name[g_unmapped_section.count], name);
+                g_unmapped_section.count++;
+            }
+        }
+    }
+
+    IF_PRINT(is_display, "\n");
     sequence_destroy(seq_section_index);
 }
 
@@ -5462,7 +5507,7 @@ int parse(char *elf, parser_opt_t *po, uint32_t length) {
 
         /* Segmentation Information */
         if (!get_option(po, SEGMENTS) || !get_option(po, ALL))
-            display_segment32(&h);
+            display_segment32(&h, 1);
 
         /* .dynsym information */
         if (!get_option(po, DYNSYM) || !get_option(po, ALL)){
@@ -5511,6 +5556,9 @@ int parse(char *elf, parser_opt_t *po, uint32_t length) {
 
         /* init symbol name */
         else {
+            if (!g_unmapped_section.count) {
+                display_segment32(&h, 0);
+            }
             display_dynsym32(&h, ".dynsym", ".dynstr", 0);
             display_dynsym32(&h, ".symtab", ".strtab", 0);
             display_section32(&h, 0);
@@ -5538,7 +5586,7 @@ int parse(char *elf, parser_opt_t *po, uint32_t length) {
 
         /* Segmentation Information */
         if (!get_option(po, SEGMENTS) || !get_option(po, ALL))
-            display_segment64(&h);
+            display_segment64(&h, 1);
 
         /* .dynsym information */
         if (!get_option(po, DYNSYM) || !get_option(po, ALL)){
@@ -5587,6 +5635,9 @@ int parse(char *elf, parser_opt_t *po, uint32_t length) {
 
         /* init elfdata */
         else {
+            if (!g_unmapped_section.count) {
+                display_segment64(&h, 0);
+            }
             display_dynsym64(&h, ".dynsym", ".dynstr", 0);
             display_dynsym64(&h, ".symtab", ".strtab", 0);
             display_section64(&h, 0);

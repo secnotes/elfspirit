@@ -564,6 +564,8 @@ static void readcmdline(int argc, char *argv[]) {
                     break;
 
                 case REMOVE_STRIP:
+                    /* init unmapped sections */
+                    parse(elf_name, &po, 0);
                     strip(elf_name);
                     break;
 

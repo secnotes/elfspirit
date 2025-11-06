@@ -31,6 +31,7 @@
 
 #include "common.h"
 #include "section.h"
+#include "parse.h"
 
 /**
  * @description: delete data from ELF memory
@@ -345,44 +346,58 @@ int delete_shtab(char *elf_name) {
 }
 
 /**
- * @brief 删除以下三个不必要的节
- * delelet .comment .symtab .strtab section
+ * @brief 删除不必要的节
+ * delelet unnecessary section, such as, .comment .symtab .strtab section
  * @param elf_name elf file name
  * @return int error code {-1:error,0:sucess}
  */
+extern struct ElfData g_unmapped_section;
 int strip(char *elf_name) {
-    uint64_t data_offset = get_section_offset(elf_name, ".comment");
-    uint64_t shstrtab_offset = get_section_offset(elf_name, ".shstrtab");
-    size_t shstrtab_size = get_section_size(elf_name, ".shstrtab");
-    DEBUG("start offset: 0x%x, end offset: 0x%x, shstrtab size: 0x%x\n", data_offset, shstrtab_offset, shstrtab_size);
-    if (!data_offset || !shstrtab_offset) {
-        WARNING("no .comment or .symtab\n");
-        return -1;
+    int shnum = 0;
+    /* The following sequence of operations is very important! Do not modify! */
+    int shstr_idx = get_section_index(elf_name, ".shstrtab");
+    if (MODE == ELFCLASS32) {
+        shnum = get_elf_shnum_32(elf_name);
+    }
+    else if (MODE == ELFCLASS64) {
+        shnum = get_elf_shnum_64(elf_name);
+    }
+    
+    for (int i = g_unmapped_section.count - 1; i >= 0; i--) {
+        if (strcmp(g_unmapped_section.name[i], ".shstrtab")) {
+            INFO("delete: %s\n", g_unmapped_section.name[i]);
+            uint64_t offset = get_section_offset(elf_name, g_unmapped_section.name[i]);
+            size_t size = get_section_size(elf_name, g_unmapped_section.name[i]);
+            int sh_idx = get_section_index(elf_name, g_unmapped_section.name[i]);
+            
+            /* 1. set new shstrtab offset */
+            if (sh_idx < shstr_idx) {
+                uint64_t shstrtab_offset = get_section_offset(elf_name, ".shstrtab");
+                set_section_off(elf_name, shstr_idx, shstrtab_offset - size);
+            }
+
+            /* 2. set new section header table offset */
+            set_header_shoff(elf_name, get_shdr_offset(elf_name) - size);
+
+            /* 3. delete section */
+            delete_data_from_file(elf_name, offset, size);
+
+            /* 4. delete section entry */
+            set_header_shnum(elf_name, --shnum);
+            if (sh_idx < shstr_idx) {
+                set_header_shstrndx(elf_name, --shstr_idx);
+            }
+            
+            if (MODE == ELFCLASS32) {
+                offset = get_shdr_offset(elf_name) + sh_idx * sizeof(Elf32_Shdr);
+                delete_data_from_file(elf_name, offset, sizeof(Elf32_Shdr));
+            }
+            else if (MODE == ELFCLASS64) {
+                offset = get_shdr_offset(elf_name) + sh_idx * sizeof(Elf64_Shdr);
+                delete_data_from_file(elf_name, offset, sizeof(Elf64_Shdr));
+            }
+        }
     }
 
-    // 1. set .shstrtab offset
-    int idx = get_section_index(elf_name, ".shstrtab");
-    DEBUG("shstrtab index: %d(0x%x)\n", idx, idx);
-    set_section_off(elf_name, idx, data_offset);
-    // 2. set shdr offset
-    set_header_shoff(elf_name, data_offset + shstrtab_size);
-    // 3. delete .comment .symtab .strtab
-    int ret = delete_data_from_file(elf_name, data_offset, shstrtab_offset - data_offset);
-    if (ret < 0) {
-        ERROR("delete data error\n");
-        return -1;
-    }
-
-    // 4. delete shdr entry .comment .symtab .strtab
-    if (MODE == ELFCLASS32)
-        ret = delete_data_from_file(elf_name, data_offset + shstrtab_size + (idx - 3) * sizeof(Elf32_Shdr), 3 * sizeof(Elf32_Shdr));
-    if (MODE == ELFCLASS64)
-        ret = delete_data_from_file(elf_name, data_offset + shstrtab_size + (idx - 3) * sizeof(Elf64_Shdr), 3 * sizeof(Elf64_Shdr));
-    if (ret < 0) {
-        ERROR("delete data error\n");
-        return -1;
-    }
-    set_header_shstrndx(elf_name, idx - 3);
-    set_header_shnum(elf_name, idx - 2);        // should num - 3
-    return 0;
+   return 0;
 }

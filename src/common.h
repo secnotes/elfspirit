@@ -173,6 +173,14 @@ int get_elf_class(char *elf_name);
 int get_elf_machine(char *elf_name);
 
 /**
+ * @description: Get elf section number
+ * @param {char} *elf_name
+ * @return {*}
+ */
+int get_elf_shnum_32(char *elf_name);
+int get_elf_shnum_64(char *elf_name);
+
+/**
  * @description: Judge whether the address is the starting address of the section (判断地址是否为section起始地址)
  * @param {char} *elf_name
  * @param {int} offset
