@@ -1,3 +1,10 @@
+[2025-11-07]
+    elfspirit 1.10.2
+        - Add ability to convert binary file to Windows/Linux script
+        - Add support for the cross-compiling for Android and HarmonyOS
+        - Rewrite the strip function that removes symbol information
+        - Fix some issues
+
 [2025-07-03]
     elfspirit 1.10.1
         - Support more ELF machine in parsing module

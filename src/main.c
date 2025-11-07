@@ -42,7 +42,7 @@
 #include "segment.h"
 #include "rel.h"
 
-#define VERSION "1.10.1"
+#define VERSION "1.10.2"
 #define CONTENT_LENGTH 1024 * 1024
 
 char section_name[LENGTH];
