@@ -1,0 +1,183 @@
+#include <elf.h>
+#include <stddef.h>
+
+enum {
+    ERROR = -2,
+    FALSE,
+    TRUE
+};
+
+typedef struct Elf32_Data {
+    Elf32_Ehdr *ehdr;
+    Elf32_Phdr *phdr;
+    Elf32_Shdr *shdr;
+    /* string table */
+    Elf32_Shdr *shstrtab;
+    Elf32_Shdr *dynstrtab;
+    Elf32_Shdr *strtab;
+    /* other section */
+    Elf32_Shdr *dynsym;
+    Elf32_Sym *dynsym_entry;
+    Elf32_Dyn *dyn_segment_entry;
+    size_t dyn_segment_count;
+} Elf32;
+
+typedef struct Elf64_Data {
+    Elf64_Ehdr *ehdr;
+    Elf64_Phdr *phdr;
+    Elf64_Shdr *shdr;
+    /* string table */
+    Elf64_Shdr *shstrtab;   // .shstrtab
+    Elf64_Shdr *dynstrtab;  // .dynstr
+    Elf64_Shdr *strtab;     // .strtab
+    /* other section */
+    Elf64_Shdr *dynsym;     // .dynsym
+    Elf64_Sym *dynsym_entry;
+    Elf64_Dyn *dyn_segment_entry;
+    size_t dyn_segment_count;
+} Elf64;
+
+typedef struct Elf_Data{
+    int class;          // elf class
+    int fd;             // file pointer
+    uint8_t *mem;       // file mmap pointer
+    size_t size;        // file size
+    union {
+        Elf32 elf32;
+        Elf64 elf64;
+    } data;
+} Elf;
+
+/**
+ * @brief 初始化elf文件，将elf文件转化为elf结构体
+ * initialize the elf file and convert it into an elf structure
+ * @param elf elf file name
+ * @return error code
+ */
+int init(char *elf_name, Elf *elf);
+int finit(Elf *elf);
+
+/**
+ * @brief 根据节的名称，获取节的信息
+ * Obtain section information based on its name.
+ * @param elf Elf custom structure
+ * @param name Elf section name
+ * @return section virtual address
+ */
+int get_section_addr_by_name(Elf *elf, char *name);
+int get_section_offset_by_name(Elf *elf, char *name);
+int get_section_type_by_name(Elf *elf, char *name);
+int get_section_size_by_name(Elf *elf, char *name);
+int get_section_entsize_by_name(Elf *elf, char *name);
+int get_section_addralign_by_name(Elf *elf, char *name);
+int get_section_flags_by_name(Elf *elf, char *name);
+int get_section_link_by_name(Elf *elf, char *name);
+int get_section_info_by_name(Elf *elf, char *name);
+
+/**
+ * @brief 根据节的名称，设置节的信息
+ * Set the virtual address of the section based on its name.
+ * @param elf Elf custom structure
+ * @param name Elf section name
+ * @param addr the values that need to be set
+ * @return error code
+ */
+int set_section_addr_by_name(Elf *elf, char *name, uint64_t addr);
+int set_section_offset_by_name(Elf *elf, char *name, uint64_t offset);
+int set_section_type_by_name(Elf *elf, char *name, uint64_t type);
+int set_section_size_by_name(Elf *elf, char *name, uint64_t size);
+int set_section_entsize_by_name(Elf *elf, char *name, uint64_t entsize);
+int set_section_addralign_by_name(Elf *elf, char *name, uint64_t addralign);
+int set_section_flags_by_name(Elf *elf, char *name, uint64_t flags);
+int set_section_link_by_name(Elf *elf, char *name, uint64_t link);
+int set_section_info_by_name(Elf *elf, char *name, uint64_t info);
+
+/**
+ * @brief 根据段的下标,获取段的信息
+ * Get the segment information based on its index.
+ * @param elf Elf custom structure
+ * @param index Elf segment index
+ * @return error code
+ */
+int get_segment_align_by_index(Elf *elf, int index);
+int get_segment_filesz_by_index(Elf *elf, int index);
+int get_segment_flags_by_index(Elf *elf, int index);
+int get_segment_memsz_by_index(Elf *elf, int index);
+int get_segment_offset_by_index(Elf *elf, int index);
+int get_segment_paddr_by_index(Elf *elf, int index);
+int get_segment_type_by_index(Elf *elf, int index);
+int get_segment_vaddr_by_index(Elf *elf, int index);
+
+/**
+ * @brief 根据段的下标,设置段的对齐方式
+ * Set the segment alignment based on its index.
+ * @param elf Elf custom structure
+ * @param index Elf segment index
+ * @return error code
+ */
+int set_segment_align_by_index(Elf *elf, int index, uint64_t align);
+int set_segment_filesz_by_index(Elf *elf, int index, uint64_t filesz);
+int set_segment_flags_by_index(Elf *elf, int index, uint64_t flags);
+int set_segment_memsz_by_index(Elf *elf, int index, uint64_t memsz);
+int set_segment_offset_by_index(Elf *elf, int index, uint64_t offset);
+int set_segment_paddr_by_index(Elf *elf, int index, uint64_t paddr);
+int set_segment_type_by_index(Elf *elf, int index, uint64_t type);
+int set_segment_vaddr_by_index(Elf *elf, int index, uint64_t vaddr);
+
+/**
+ * @brief 根据符号表的名称，获取符号表的下标
+ * Obtain the index of the dynamic symbol based on its name.
+ * @param elf Elf custom structure
+ * @param name Elf section name
+ * @return section index
+ */
+int get_dynsym_index_by_name(Elf *elf, char *name);
+
+/**
+ * @brief 根据节的名字，获取该节对应的段的下标.请注意，一个节可能属于多个段！
+ * Obtain the subscript of the segment corresponding to the section based on its name.
+ * Please note that a section may belong to multiple segments!
+ * @param elf Elf custom structure
+ * @param name Elf section name
+ * @param out_index Elf segment index
+ * @param max_size Elf segment index count
+ * @return error code
+ */
+int get_section_index_in_segment(Elf *elf, char *name, int out_index[], int max_size);
+
+/**
+ * @brief 扩充一个段，默认只扩充最后一个类型为PT_LOAD的段
+ * Expand a segment, default to only expanding the last segment of type PT_LOAD
+ * @param elf Elf custom structure
+ * @return start offset
+ */
+int expand_segment_t(Elf *elf, size_t size);
+
+/**
+ * @brief 根据动态链接段的类型,获取段的下标
+ * Get the dynamic segment index based on its type.
+ * @param elf Elf custom structure
+ * @param index Elf segment type
+ * @return index
+ */
+int get_dynseg_index_by_type(Elf *elf, int type);
+
+/**
+ * @brief 设置新的节名
+ * Set a new section name
+ * @param elf Elf custom structure
+ * @param src_name original section name
+ * @param dst_name new section name
+ * @return error code
+ */
+int set_section_name_t(Elf *elf, char *src_name, char *dst_name);
+
+/**
+ * @brief 设置符号表的名字
+ * Set a new dynamic symbole name
+ * @param elf Elf custom structure
+ * @param src_name original symbole name
+ * @param dst_name new symbole name
+ * @return error code
+ */
+int set_dynsym_name_t(Elf *elf, char *src_name, char *dst_name);

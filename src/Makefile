@@ -2,7 +2,11 @@
 GCC_VERSION := $(shell gcc -dumpversion | cut -d. -f1)
 
 TARGET=elfspirit
+DYNAMIC_LIB = libelfutil.so
+LIB_SRCS = elfutil.c section_manager.c
+LIB_OBJS = $(LIB_SRCS:.c=.o)
 OUT=/usr/local/bin/
+OUT_LIB=/usr/lib/
 SRCS = $(wildcard *.c cJSON/cJSON.c)
 OBJS = $(SRCS:.c=.o)
 CFLAGS = -w -c
@@ -36,6 +40,18 @@ ifeq ($(findstring aarch64-linux-android,$(CC)),aarch64-linux-android)
 CFLAGS += -DANDROID
 endif
 
+# 默认目标
+all: $(DYNAMIC_LIB) $(TARGET)
+
+# 生成动态链接库
+$(DYNAMIC_LIB) : $(LIB_OBJS)
+	$(CC) -shared $(LIB_OBJS) -o $(DYNAMIC_LIB)
+
+# 编译动态库对象文件（使用-fPIC）
+elfutil.o: elfutil.c elfutil.h
+	$(CC) $(CFLAGS) -fPIC $< -o $@
+
+# 生成可执行文件
 $(TARGET) : $(OBJS)
 	$(CC) $(CXXFLAGS) $(LDFLAGS) $(OBJS) -o $(TARGET)
 
@@ -47,9 +63,11 @@ clean:
 	rm -rvf *.o
 	rm -rvf cJSON/*.o
 	rm -vf $(TARGET)
+	rm -vf $(DYNAMIC_LIB)
 
 .PHONY: install
 install:$(TARGET)
 	@echo "begin install "$(TARGET)
 	cp $(TARGET) $(OUT)
+	cp $(DYNAMIC_LIB) $(OUT_LIB)
 	@echo $(TARGET) "install success!"
