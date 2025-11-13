@@ -69,6 +69,10 @@ int init(char *elf_name, Elf *elf) {
                 elf->data.elf32.dynsym = (Elf32_Shdr *)&elf->data.elf32.shdr[i];
                 elf->data.elf32.dynsym_entry = (Elf32_Sym *)&elf->mem[elf->data.elf32.dynsym->sh_offset];
             }
+            if (!strcmp(section_name, ".symtab")) {
+                elf->data.elf32.sym = (Elf32_Shdr *)&elf->data.elf32.shdr[i];
+                elf->data.elf32.sym_entry = (Elf32_Sym *)&elf->mem[elf->data.elf32.sym->sh_offset];
+            }
         }
 
         elf->data.elf32.dyn_segment_entry = NULL;
@@ -102,6 +106,10 @@ int init(char *elf_name, Elf *elf) {
             if (!strcmp(section_name, ".dynsym")) {
                 elf->data.elf64.dynsym = (Elf64_Shdr *)&elf->data.elf64.shdr[i];
                 elf->data.elf64.dynsym_entry = (Elf64_Sym *)&elf->mem[elf->data.elf64.dynsym->sh_offset];
+            }
+            if (!strcmp(section_name, ".symtab")) {
+                elf->data.elf64.sym = (Elf64_Shdr *)&elf->data.elf64.shdr[i];
+                elf->data.elf64.sym_entry = (Elf64_Sym *)&elf->mem[elf->data.elf64.sym->sh_offset];
             }
         }
 
@@ -1010,6 +1018,40 @@ int get_dynsym_index_by_name(Elf *elf, char *name) {
     return ret;
 }
 
+/**
+ * @brief 根据符号表的名称，获取符号表的下标
+ * Obtain the index of the symbol based on its name.
+ * @param elf Elf custom structure
+ * @param name Elf section name
+ * @return section index
+ */
+int get_sym_index_by_name(Elf *elf, char *name) {
+    int ret = FALSE;
+    if (elf->class == ELFCLASS32) {
+        int count = elf->data.elf32.sym->sh_size / sizeof(Elf32_Sym);
+        char *tmp_name = NULL;
+        for (int i = 0; i < count; i++) {
+            tmp_name = elf->mem + elf->data.elf32.strtab->sh_offset + elf->data.elf32.sym_entry[i].st_name;
+            if (!strcmp(tmp_name, name)) {
+                ret = i;
+                break;
+            }
+        }
+    }
+    else if (elf->class == ELFCLASS64) {
+        int count = elf->data.elf64.sym->sh_size / sizeof(Elf64_Sym);
+        char *tmp_name = NULL;
+        for (int i = 0; i < count; i++) {
+            tmp_name = elf->mem + elf->data.elf64.strtab->sh_offset + elf->data.elf64.sym_entry[i].st_name;
+            if (!strcmp(tmp_name, name)) {
+                ret = i;
+                break;
+            }
+        }
+    }
+    return ret;
+}
+
 
 static int copy_data(void *src, void *dst, size_t size) {
     void *m = malloc(size);
@@ -1046,6 +1088,10 @@ static void reinit(Elf *elf) {
                 elf->data.elf32.dynsym = (Elf32_Shdr *)&elf->data.elf32.shdr[i];
                 elf->data.elf32.dynsym_entry = (Elf32_Sym *)&elf->mem[elf->data.elf32.dynsym->sh_offset];
             }
+            if (!strcmp(section_name, ".symtab")) {
+                elf->data.elf32.sym = (Elf32_Shdr *)&elf->data.elf32.shdr[i];
+                elf->data.elf32.sym_entry = (Elf32_Sym *)&elf->mem[elf->data.elf32.sym->sh_offset];
+            }
         }
 
         elf->data.elf32.dyn_segment_entry = NULL;
@@ -1079,6 +1125,10 @@ static void reinit(Elf *elf) {
             if (!strcmp(section_name, ".dynsym")) {
                 elf->data.elf64.dynsym = (Elf64_Shdr *)&elf->data.elf64.shdr[i];
                 elf->data.elf64.dynsym_entry = (Elf64_Sym *)&elf->mem[elf->data.elf64.dynsym->sh_offset];
+            }
+            if (!strcmp(section_name, ".symtab")) {
+                elf->data.elf64.sym = (Elf64_Shdr *)&elf->data.elf64.shdr[i];
+                elf->data.elf64.sym_entry = (Elf64_Sym *)&elf->mem[elf->data.elf64.sym->sh_offset];
             }
         }
 
@@ -1127,6 +1177,7 @@ int expand_segment_t(Elf *elf, size_t size) {
             // reinit custom elf structure
             elf->mem = new_map;
             elf->size = new_size;
+            reinit(elf);
         }
         
         // mov section header table
@@ -1200,6 +1251,7 @@ int expand_segment_t(Elf *elf, size_t size) {
             // reinit custom elf structure
             elf->mem = new_map;
             elf->size = new_size;
+            reinit(elf);
         }
         
         // mov section header table
@@ -1340,7 +1392,7 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name) {
 
 /**
  * @brief 设置符号表的名字
- * Set a new dynamic symbole name
+ * Set a new dynamic symbol name
  * @param elf Elf custom structure
  * @param src_name original symbole name
  * @param dst_name new symbole name
@@ -1353,7 +1405,35 @@ int set_dynsym_name_t(Elf *elf, char *src_name, char *dst_name) {
         return FALSE;
     }
     if (elf->class == ELFCLASS32) {
-        ;
+        size_t src_len = elf->data.elf32.dynstrtab->sh_size;
+        size_t dst_len = src_len + strlen(dst_name) + 1;
+        // string end: 00
+        int expand_start = expand_segment_t(elf, dst_len);
+        if (expand_start == FALSE) {
+            return FALSE;
+        }
+        void *src = (void *)elf->mem + elf->data.elf32.dynstrtab->sh_offset;
+        void *dst = (void *)elf->mem + expand_start;
+
+        if (copy_data(src, dst, src_len) == TRUE) {
+            // new section dynstr table
+            elf->data.elf32.dynstrtab->sh_offset = expand_start;
+            elf->data.elf32.dynstrtab->sh_size = dst_len;
+            // map to segment
+            int strtab_i = get_dynseg_index_by_type(elf, DT_STRTAB);
+            int strsz_i = get_dynseg_index_by_type(elf, DT_STRSZ);
+            elf->data.elf32.dyn_segment_entry[strtab_i].d_un.d_val = expand_start;
+            elf->data.elf32.dyn_segment_entry[strsz_i].d_un.d_val = dst_len;
+            // string end: 00
+            memset(dst + src_len, 0, strlen(dst_name) + 1);
+            strcpy(dst + src_len, dst_name);
+            // new section name offset
+            elf->data.elf32.dynsym_entry[index].st_name = src_len;
+            return TRUE;
+        } else {
+            printf("error: mov section\n");
+            return FALSE;
+        }
     } else if (elf->class == ELFCLASS64) {
         if (strlen(dst_name) <= strlen(src_name)) {
             char *name = elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dynsym_entry[index].st_name;
@@ -1385,6 +1465,85 @@ int set_dynsym_name_t(Elf *elf, char *src_name, char *dst_name) {
                 strcpy(dst + src_len, dst_name);
                 // new section name offset
                 elf->data.elf64.dynsym_entry[index].st_name = src_len;
+                return TRUE;
+            } else {
+                printf("error: mov section\n");
+                return FALSE;
+            }
+        }
+    }
+}
+
+/**
+ * @brief 设置符号表的名字
+ * Set a new symbol name
+ * @param elf Elf custom structure
+ * @param src_name original symbole name
+ * @param dst_name new symbole name
+ * @return error code
+ */
+int set_sym_name_t(Elf *elf, char *src_name, char *dst_name) {
+    int index = get_sym_index_by_name(elf, src_name);
+    if (index == FALSE) {
+        printf("%s section not found!\n", src_name);
+        return FALSE;
+    }
+    if (elf->class == ELFCLASS32) {
+        size_t src_len = elf->data.elf32.dynstrtab->sh_size;
+        size_t dst_len = src_len + strlen(dst_name) + 1;
+        // string end: 00
+        int expand_start = expand_segment_t(elf, dst_len);
+        if (expand_start == FALSE) {
+            return FALSE;
+        }
+        void *src = (void *)elf->mem + elf->data.elf32.dynstrtab->sh_offset;
+        void *dst = (void *)elf->mem + expand_start;
+
+        if (copy_data(src, dst, src_len) == TRUE) {
+            // new section dynstr table
+            elf->data.elf32.dynstrtab->sh_offset = expand_start;
+            elf->data.elf32.dynstrtab->sh_size = dst_len;
+            // map to segment
+            int strtab_i = get_dynseg_index_by_type(elf, DT_STRTAB);
+            int strsz_i = get_dynseg_index_by_type(elf, DT_STRSZ);
+            elf->data.elf32.dyn_segment_entry[strtab_i].d_un.d_val = expand_start;
+            elf->data.elf32.dyn_segment_entry[strsz_i].d_un.d_val = dst_len;
+            // string end: 00
+            memset(dst + src_len, 0, strlen(dst_name) + 1);
+            strcpy(dst + src_len, dst_name);
+            // new section name offset
+            elf->data.elf32.dynsym_entry[index].st_name = src_len;
+            return TRUE;
+        } else {
+            printf("error: mov section\n");
+            return FALSE;
+        }
+    } else if (elf->class == ELFCLASS64) {
+        if (strlen(dst_name) <= strlen(src_name)) {
+            char *name = elf->mem + elf->data.elf64.strtab->sh_offset + elf->data.elf64.sym_entry[index].st_name;
+            memset(name, 0, strlen(name));
+            strcpy(name, dst_name);
+            return TRUE;
+        } else {
+            size_t src_len = elf->data.elf64.strtab->sh_size;
+            size_t dst_len = src_len + strlen(dst_name) + 1;
+            // string end: 00
+            int expand_start = expand_segment_t(elf, dst_len);
+            if (expand_start == FALSE) {
+                return FALSE;
+            }
+            void *src = (void *)elf->mem + elf->data.elf64.strtab->sh_offset;
+            void *dst = (void *)elf->mem + expand_start;
+
+            if (copy_data(src, dst, src_len) == TRUE) {
+                // new section dynstr table
+                elf->data.elf64.strtab->sh_offset = expand_start;
+                elf->data.elf64.strtab->sh_size = dst_len;
+                // string end: 00
+                memset(dst + src_len, 0, strlen(dst_name) + 1);
+                strcpy(dst + src_len, dst_name);
+                // new section name offset
+                elf->data.elf64.sym_entry[index].st_name = src_len;
                 return TRUE;
             } else {
                 printf("error: mov section\n");

@@ -16,7 +16,9 @@ typedef struct Elf32_Data {
     Elf32_Shdr *dynstrtab;
     Elf32_Shdr *strtab;
     /* other section */
+    Elf32_Shdr *sym;        // .symtab->strtab
     Elf32_Shdr *dynsym;
+    Elf32_Sym *sym_entry;
     Elf32_Sym *dynsym_entry;
     Elf32_Dyn *dyn_segment_entry;
     size_t dyn_segment_count;
@@ -31,7 +33,9 @@ typedef struct Elf64_Data {
     Elf64_Shdr *dynstrtab;  // .dynstr
     Elf64_Shdr *strtab;     // .strtab
     /* other section */
-    Elf64_Shdr *dynsym;     // .dynsym
+    Elf64_Shdr *sym;        // .symtab->strtab
+    Elf64_Shdr *dynsym;     // .dynsym->dynstr
+    Elf64_Sym *sym_entry;
     Elf64_Sym *dynsym_entry;
     Elf64_Dyn *dyn_segment_entry;
     size_t dyn_segment_count;
@@ -126,11 +130,12 @@ int set_segment_vaddr_by_index(Elf *elf, int index, uint64_t vaddr);
 
 /**
  * @brief 根据符号表的名称，获取符号表的下标
- * Obtain the index of the dynamic symbol based on its name.
+ * Obtain the index of the symbol based on its name.
  * @param elf Elf custom structure
  * @param name Elf section name
  * @return section index
  */
+int get_sym_index_by_name(Elf *elf, char *name);
 int get_dynsym_index_by_name(Elf *elf, char *name);
 
 /**
@@ -174,10 +179,12 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name);
 
 /**
  * @brief 设置符号表的名字
- * Set a new dynamic symbole name
+ * Set a new symbol name
  * @param elf Elf custom structure
  * @param src_name original symbole name
  * @param dst_name new symbole name
  * @return error code
  */
+int set_sym_name_t(Elf *elf, char *src_name, char *dst_name);
 int set_dynsym_name_t(Elf *elf, char *src_name, char *dst_name);
+
