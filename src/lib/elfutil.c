@@ -773,24 +773,25 @@ static int get_segment_index_by_type(Elf *elf, int type) {
     }
 }
 
+/****************************************/
+/* dynamic segmentation */
 /**
- * @brief 根据动态链接段的类型,获取段的下标
- * Get the dynamic segment index based on its type.
+ * @brief 根据dynamic段的tag,获取段的下标
+ * Get the dynamic segment index based on its tag.
  * @param elf Elf custom structure
- * @param index Elf segment type
+ * @param tag Elf dynamic segment tag
  * @return index
  */
-int get_dynseg_index_by_type(Elf *elf, int type) {
+int get_dynseg_index_by_tag(Elf *elf, int tag) {
     if (elf->class == ELFCLASS32) {
         for (int i = 0; i < elf->data.elf32.dyn_segment_count; i++) {
-            if (elf->data.elf32.dyn_segment_entry[i].d_tag == type) {
+            if (elf->data.elf32.dyn_segment_entry[i].d_tag == tag) {
                 return i;
             }
         }
     } else if (elf->class == ELFCLASS64) {
         for (int i = 0; i < elf->data.elf64.dyn_segment_count; i++) {
-            printf("count=%d\n", elf->data.elf64.dyn_segment_count);
-            if (elf->data.elf64.dyn_segment_entry[i].d_tag == type) {
+            if (elf->data.elf64.dyn_segment_entry[i].d_tag == tag) {
                 return i;
             }
         }
@@ -799,6 +800,68 @@ int get_dynseg_index_by_type(Elf *elf, int type) {
         return FALSE;
     }
 }
+
+/**
+ * @brief 根据dynamic段的tag，得到值
+ * get dynamic segment value by tag
+ * @param elfname 
+ * @param tag dynamic segment tag
+ * @return value
+ */
+int get_dynseg_value_by_tag(Elf *elf, int tag) {
+    int index = get_dynseg_index_by_tag(elf, tag);
+    if (index != FALSE) {
+        if (elf->class == ELFCLASS32)
+            return elf->data.elf32.dyn_segment_entry[index].d_un.d_val;
+        if (elf->class == ELFCLASS64)
+            return elf->data.elf64.dyn_segment_entry[index].d_un.d_val;
+    } else
+        return FALSE;
+}
+
+/**
+ * @brief 根据dynamic段的tag，设置tag
+ * set dynamic segment tag by tag
+ * @param elfname 
+ * @param tag dynamic segment tag
+ * @param value dynamic segment value
+ * @return value
+ */
+int set_dynseg_tag_by_tag(Elf *elf, int tag, uint64_t new_tag) {
+    int index = get_dynseg_index_by_tag(elf, tag);
+    if (index != FALSE) {
+        if (elf->class == ELFCLASS32)
+            elf->data.elf32.dyn_segment_entry[index].d_tag = new_tag;
+        if (elf->class == ELFCLASS64)
+            elf->data.elf64.dyn_segment_entry[index].d_tag = new_tag;
+        else
+            return FALSE;
+    } else
+        return FALSE;
+}
+
+/**
+ * @brief 根据dynamic段的tag，设置值
+ * set dynamic segment value by tag
+ * @param elfname 
+ * @param tag dynamic segment tag
+ * @param value dynamic segment value
+ * @return value
+ */
+int set_dynseg_value_by_tag(Elf *elf, int tag, uint64_t value) {
+    int index = get_dynseg_index_by_tag(elf, tag);
+    if (index != FALSE) {
+        if (elf->class == ELFCLASS32)
+            elf->data.elf32.dyn_segment_entry[index].d_un.d_val = value;
+        if (elf->class == ELFCLASS64)
+            elf->data.elf64.dyn_segment_entry[index].d_un.d_val = value;
+        else
+            return FALSE;
+    } else
+        return FALSE;
+}
+/* dynamic segmentation */
+/****************************************/
 
 /**
  * @brief 根据段的下标,设置段的对齐方式
@@ -1420,8 +1483,8 @@ int set_dynsym_name_t(Elf *elf, char *src_name, char *dst_name) {
             elf->data.elf32.dynstrtab->sh_offset = expand_start;
             elf->data.elf32.dynstrtab->sh_size = dst_len;
             // map to segment
-            int strtab_i = get_dynseg_index_by_type(elf, DT_STRTAB);
-            int strsz_i = get_dynseg_index_by_type(elf, DT_STRSZ);
+            int strtab_i = get_dynseg_index_by_tag(elf, DT_STRTAB);
+            int strsz_i = get_dynseg_index_by_tag(elf, DT_STRSZ);
             elf->data.elf32.dyn_segment_entry[strtab_i].d_un.d_val = expand_start;
             elf->data.elf32.dyn_segment_entry[strsz_i].d_un.d_val = dst_len;
             // string end: 00
@@ -1456,8 +1519,8 @@ int set_dynsym_name_t(Elf *elf, char *src_name, char *dst_name) {
                 elf->data.elf64.dynstrtab->sh_offset = expand_start;
                 elf->data.elf64.dynstrtab->sh_size = dst_len;
                 // map to segment
-                int strtab_i = get_dynseg_index_by_type(elf, DT_STRTAB);
-                int strsz_i = get_dynseg_index_by_type(elf, DT_STRSZ);
+                int strtab_i = get_dynseg_index_by_tag(elf, DT_STRTAB);
+                int strsz_i = get_dynseg_index_by_tag(elf, DT_STRSZ);
                 elf->data.elf64.dyn_segment_entry[strtab_i].d_un.d_val = expand_start;
                 elf->data.elf64.dyn_segment_entry[strsz_i].d_un.d_val = dst_len;
                 // string end: 00
@@ -1504,8 +1567,8 @@ int set_sym_name_t(Elf *elf, char *src_name, char *dst_name) {
             elf->data.elf32.dynstrtab->sh_offset = expand_start;
             elf->data.elf32.dynstrtab->sh_size = dst_len;
             // map to segment
-            int strtab_i = get_dynseg_index_by_type(elf, DT_STRTAB);
-            int strsz_i = get_dynseg_index_by_type(elf, DT_STRSZ);
+            int strtab_i = get_dynseg_index_by_tag(elf, DT_STRTAB);
+            int strsz_i = get_dynseg_index_by_tag(elf, DT_STRSZ);
             elf->data.elf32.dyn_segment_entry[strtab_i].d_un.d_val = expand_start;
             elf->data.elf32.dyn_segment_entry[strsz_i].d_un.d_val = dst_len;
             // string end: 00

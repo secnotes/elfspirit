@@ -51,12 +51,15 @@ int main(int argc, char const *argv[])
 	// }
 
 	/* testacse: set new section name... */
-	char *src_name = "12345678";
-	char *dst_name = "123456789999";
-	int code = set_sym_name_t(&elf, src_name, dst_name);
-	if (code == TRUE) {
-		printf("change name %s to %s success\n", src_name, dst_name);
-	}
+	// char *src_name = "12345678";
+	// char *dst_name = "123456789999";
+	// int code = set_sym_name_t(&elf, src_name, dst_name);
+	// if (code == TRUE) {
+	// 	printf("change name %s to %s success\n", src_name, dst_name);
+	// }
+
+	/* testcase: set dynamic segment */
+	set_dynseg_tag_by_tag(&elf, DT_NULL, DT_NEEDED);
 		
 	finit(&elf);
 	return 0;

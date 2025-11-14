@@ -158,14 +158,50 @@ int get_section_index_in_segment(Elf *elf, char *name, int out_index[], int max_
  */
 int expand_segment_t(Elf *elf, size_t size);
 
+
+/****************************************/
+/* dynamic segmentation */
 /**
- * @brief 根据动态链接段的类型,获取段的下标
- * Get the dynamic segment index based on its type.
+ * @brief 根据dynamic段的tag,获取段的下标
+ * Get the dynamic segment index based on its tag.
  * @param elf Elf custom structure
- * @param index Elf segment type
+ * @param tag Elf dynamic segment tag
  * @return index
  */
-int get_dynseg_index_by_type(Elf *elf, int type);
+int get_dynseg_index_by_tag(Elf *elf, int tag);
+
+/**
+ * @brief 根据dynamic段的tag，得到值
+ * get dynamic segment value by tag
+ * @param elfname 
+ * @param tag dynamic segment tag
+ * @return value
+ */
+int get_dynseg_value_by_tag(Elf *elf, int tag);
+
+
+/**
+ * @brief 根据dynamic段的tag，设置tag
+ * set dynamic segment tag by tag
+ * @param elfname 
+ * @param tag dynamic segment tag
+ * @param value dynamic segment value
+ * @return value
+ */
+int set_dynseg_tag_by_tag(Elf *elf, int tag, uint64_t new_tag);
+
+/**
+ * @brief 根据dynamic段的tag，设置值
+ * set dynamic segment value by tag
+ * @param elfname 
+ * @param tag dynamic segment tag
+ * @param value dynamic segment value
+ * @return value
+ */
+int set_dynseg_value_by_tag(Elf *elf, int tag, uint64_t value);
+/* dynamic segmentation */
+/****************************************/
+
 
 /**
  * @brief 设置新的节名
