@@ -2,6 +2,13 @@
 #include <stddef.h>
 
 enum {
+    /* ELF file error */
+    ERR_SEG = -7,
+    ERR_TYPE = -6,
+    ERR_CLASS,
+    /* other error */
+    ERR_MMAP,
+    ERR_COPY,
     ERROR = -2,
     FALSE,
     TRUE
@@ -42,6 +49,7 @@ typedef struct Elf64_Data {
 } Elf64;
 
 typedef struct Elf_Data{
+    int type;           // elf file type
     int class;          // elf class
     int fd;             // file pointer
     uint8_t *mem;       // file mmap pointer
@@ -236,3 +244,27 @@ int set_dynsym_name_t(Elf *elf, char *src_name, char *dst_name);
  * @return error code
  */
 int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_offset, uint64_t *added_vaddr);
+
+/**
+ * @brief 增加一个段，但是不在PHT增加新条目。我们可以通过修改不重要的段条目，比如类型为PT_NOTE、PT_NULL的段，实现这一功能。
+ * Add a segment, but do not add a new entry in PHT. 
+ * We can achieve this function by modifying unimportant segment entries, such as segments of type PT_NOTE or PT_NULL.
+ * @param elf Elf custom structure
+ * @param size segment size
+ * @param added_index segment index
+ * @return error code
+ */
+int add_segment_easy(Elf *elf, size_t size, uint64_t *added_index);
+
+/**
+ * @brief 增加一个段，但是不在PHT增加新条目。增加一个段，但是不修改已有的PHT新条目。为了不修改已有的PT_LOAD段的地址，我们只能搬迁PHT
+ * Add a segment, but do not modify the existing PHT new entry. 
+ * In order not to modify the address of the existing PT_LOAD segment, we can only relocate PHT.
+ * @param elf Elf custom structure
+ * @param size segment size
+ * @param added_index segment index
+ * @return error code
+ */
+int add_segment_difficult(Elf *elf, size_t size, uint64_t *added_index);
+
+int get_file_type(Elf *elf);

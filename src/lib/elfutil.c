@@ -124,6 +124,8 @@ int init(char *elf_name, Elf *elf) {
         }
     }
 
+    elf->type = get_file_type(elf);
+
     return TRUE;
 }
 
@@ -1839,3 +1841,264 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
     free_mapping_list(mapping_list);
     return TRUE;
 }
+
+/**
+ * @brief 增加一个段
+ * Add a segment
+ * @param elf Elf custom structure
+ * @param size segment size
+ * @param added_index segment index
+ * @return error code
+ */
+int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, uint64_t *added_index) {
+    int is_break = 0;
+    uint64_t last_load = 0;
+    size_t added_size = align_page(size);
+    uint64_t start_offset = 0;
+    uint64_t start_addr = 0;
+    uint64_t actual_offset = 0;
+    uint64_t actual_addr = 0;
+    uint64_t actual_size = 0;
+    uint64_t actual_diff = 0;
+    
+    size_t pht_dst_size = 0;
+    size_t pht_src_size = 0;
+    uint64_t pht_offset = 0;
+    uint64_t pht_addr = 0;
+
+    if (elf->class == ELFCLASS32) {
+       ;
+    } else if (elf->class == ELFCLASS64) {
+        for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
+            switch (elf->data.elf64.phdr[i].p_type)
+            {
+                case PT_NOTE:
+                case PT_NULL:
+                    *added_index = i;
+                    is_break = 1;
+                    break;
+
+                case PT_LOAD:
+                    last_load = i;
+                
+                default:
+                    break;
+            }
+            if (is_break) break;
+        }
+        
+        if (!is_break) {
+            return ERR_SEG;
+        }
+
+        start_offset = elf->data.elf64.phdr[last_load].p_offset + elf->data.elf64.phdr[last_load].p_filesz;
+        start_addr = elf->data.elf64.phdr[last_load].p_vaddr + elf->data.elf64.phdr[last_load].p_memsz;
+        /**
+         * 对于ELF的PIE可执行程序，在最后一个PT_LOAD段（rw权限）后，添加一个PT_LOAD（r权限），ELF可执行程序能够正常运行。
+         * 但是，在ELF动态链接库中，进行相同的操作，即在最后一个PT_LOAD段后，添加一个段（r权限），这个动态链接库并不能被正确加载。当我把添加的段的权限改为rwx，这个动态链接库又可以正常被其他可执行程序引用了
+         * 添加的所有段偏移地址都遵循页对齐
+         */
+        if (elf->type == ET_EXEC) {
+            actual_addr = start_addr;
+            actual_offset = align_offset(start_offset, actual_addr);
+        } else if (elf->type == ET_DYN) {
+            actual_addr = align_page(start_addr);
+            actual_offset = align_offset(start_offset, actual_addr);
+        } else {
+            return ERR_TYPE;
+        }
+
+        actual_size = align_page(size);
+        if (mov_pht) {
+            pht_dst_size = (elf->data.elf64.ehdr->e_phnum + 1) * elf->data.elf64.ehdr->e_phentsize;
+            pht_src_size = elf->data.elf64.ehdr->e_phnum * elf->data.elf64.ehdr->e_phentsize;
+            pht_offset = actual_offset + align_page(size);
+            pht_addr = actual_addr + align_page(size);
+            actual_size = align_page(size) + align_page(pht_dst_size);
+            *added_index = elf->data.elf64.ehdr->e_phnum;
+        }
+        
+        actual_diff = actual_offset - start_offset + actual_size;
+
+        /* ----------------------------0.expand file---------------------------- */
+        size_t new_size = elf->size + actual_diff;
+        ftruncate(elf->fd, new_size);
+        void* new_map = mremap(elf->mem, elf->size, new_size, MREMAP_MAYMOVE);
+        if (new_map == MAP_FAILED) {
+            perror("mremap");
+            return ERR_MMAP;
+        } else {
+            // reinit custom elf structure
+            elf->mem = new_map;
+            elf->size = new_size;
+            reinit(elf);
+        }
+
+        /* ----------------------------1.mov section---------------------------- */
+        mov_last_sections(elf, start_offset, actual_diff);
+        reinit(elf);
+
+        /* ----------------------------2.change dynamic segment entry value---------------------------- */
+        for (int i = 0; i < elf->data.elf64.dyn_segment_count; i++) {
+            uint64_t value = elf->data.elf64.dyn_segment_entry[i].d_un.d_ptr;
+            uint64_t tag = elf->data.elf64.dyn_segment_entry[i].d_tag;
+            if (value >= start_addr) {
+                switch (tag)
+                {
+                    case DT_INIT:
+                    case DT_FINI:
+                    case DT_INIT_ARRAY:
+                    case DT_FINI_ARRAY:
+                    case DT_GNU_HASH:
+                    case DT_STRTAB:
+                    case DT_SYMTAB:
+                    case DT_PLTGOT:
+                    case DT_JMPREL:
+                    case DT_RELA:
+                    case DT_VERNEED:
+                    case DT_VERSYM:
+                        elf->data.elf64.dyn_segment_entry[i].d_un.d_ptr += actual_size;
+                        break;
+                    
+                    default:
+                        break;
+                }
+            }
+        }
+
+        /* mov program header table */
+        if (mov_pht) {
+            void *src = elf->mem + elf->data.elf64.ehdr->e_phoff;
+            void *dst = elf->mem + pht_offset;
+            if (copy_data(src, dst, pht_src_size) == TRUE) {
+                elf->data.elf64.ehdr->e_phnum++;
+                elf->data.elf64.ehdr->e_phoff = pht_offset;
+                reinit(elf);
+                for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
+                    if (elf->data.elf64.phdr[i].p_type = PT_PHDR) {
+                        printf("i=%d , offset=%x, dst_offset=%x\n", i, elf->data.elf64.phdr[i].p_offset, pht_offset);
+                        elf->data.elf64.phdr[i].p_offset = pht_offset;
+                        elf->data.elf64.phdr[i].p_vaddr = pht_addr;
+                        elf->data.elf64.phdr[i].p_paddr = pht_addr;
+                        elf->data.elf64.phdr[i].p_filesz = pht_dst_size;
+                        elf->data.elf64.phdr[i].p_memsz = pht_dst_size;
+                        break;
+                    }
+                }
+
+            } else {
+                return ERR_COPY;
+            }
+        }
+
+        elf->data.elf64.phdr[*added_index].p_offset = actual_offset;
+        elf->data.elf64.phdr[*added_index].p_vaddr = actual_addr;
+        elf->data.elf64.phdr[*added_index].p_paddr = actual_addr;
+        elf->data.elf64.phdr[*added_index].p_filesz = actual_size;
+        elf->data.elf64.phdr[*added_index].p_memsz = actual_size;
+        elf->data.elf64.phdr[*added_index].p_type = PT_LOAD;
+        elf->data.elf64.phdr[*added_index].p_align = ONE_PAGE;
+        elf->data.elf64.phdr[*added_index].p_flags = PF_R;
+    } else {
+        return ERR_CLASS;
+    }
+}
+
+/**
+ * @brief 增加一个段，但是不在PHT增加新条目。我们可以通过修改不重要的段条目，比如类型为PT_NOTE、PT_NULL的段，实现这一功能。
+ * Add a segment, but do not add a new entry in PHT. 
+ * We can achieve this function by modifying unimportant segment entries, such as segments of type PT_NOTE or PT_NULL.
+ * @param elf Elf custom structure
+ * @param size segment size
+ * @param added_index segment index
+ * @return error code
+ */
+int add_segment_easy(Elf *elf, size_t size, uint64_t *added_index) {
+    return add_segment_common(elf, size, 0, added_index);
+}
+
+
+/*
+**                         
+  LOAD ───► ┌──────────┐ 
+            │ use free │ 
+  PHT  ───► ├──────────┼ 
+            │   pht    │ 
+            └──────────┘ 
+*/
+/**
+ * @brief 增加一个段，但是不在PHT增加新条目。增加一个段，但是不修改已有的PHT新条目。为了不修改已有的PT_LOAD段的地址，我们只能搬迁PHT
+ * Add a segment, but do not modify the existing PHT new entry. 
+ * In order not to modify the address of the existing PT_LOAD segment, we can only relocate PHT.
+ * @param elf Elf custom structure
+ * @param size segment size
+ * @param added_index segment index
+ * @return error code
+ */
+int add_segment_difficult(Elf *elf, size_t size, uint64_t *added_index) {
+    return add_segment_common(elf, size, 1, added_index);
+}
+
+/**
+ * @brief 获取ELF文件的类型
+ * Retrieve the type of ELF file 
+ * @param elf Elf custom structure
+ * @return error code
+ */
+int get_file_type(Elf *elf) {
+    if (elf->class == ELFCLASS32) {
+        switch (elf->data.elf32.ehdr->e_type)
+        {
+            case ET_REL:
+                return ET_REL;
+                break;
+            
+            case ET_EXEC:
+                return ET_EXEC;
+                break;
+
+            case ET_DYN:
+                if (!elf->data.elf32.ehdr->e_entry)
+                    return ET_DYN;
+                else
+                    return ET_EXEC;
+                break;
+
+            case ET_CORE:
+                return ET_CORE;
+                break;
+            
+            default:
+                return ET_NONE;
+                break;
+        }
+    } else if (elf->class == ELFCLASS64) {
+        switch (elf->data.elf64.ehdr->e_type)
+        {
+            case ET_REL:
+                return ET_REL;
+                break;
+            
+            case ET_EXEC:
+                return ET_EXEC;
+                break;
+
+            case ET_DYN:
+                if (!elf->data.elf64.ehdr->e_entry)
+                    return ET_DYN;
+                else
+                    return ET_EXEC;
+                break;
+
+            case ET_CORE:
+                return ET_CORE;
+                break;
+            
+            default:
+                return ET_NONE;
+                break;
+        }
+    } else {
+        return ERR_CLASS;
+    }
+} 
