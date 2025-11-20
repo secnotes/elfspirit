@@ -1,7 +1,7 @@
 // dynamic link
-// gcc test_api.c ../src/lib//elfutil.h -L../src/lib -lelfutil -o testapi
+// gcc testapi.c ../src/lib//elfutil.h -L../src/lib -lelfutil -o testapi
 // static link
-// gcc test_api.c ../src/lib/elfutil.h ../src/lib/elfutil.c ../src/lib/section_manager.c -g -fsanitize=address -o testapi
+// gcc testapi.c ../src/lib/elfutil.h ../src/lib/elfutil.c ../src/lib/manager.c ../src/lib/util.c -g -fsanitize=address -o testapi
 // run
 // LD_LIBRARY_PATH=../src/ ./test ../src/elfspirit
 
@@ -59,7 +59,13 @@ int main(int argc, char const *argv[])
 	// }
 
 	/* testcase: set dynamic segment */
-	set_dynseg_tag_by_tag(&elf, DT_NULL, DT_NEEDED);
+	// set_dynseg_tag_by_tag(&elf, DT_NULL, DT_NEEDED);
+
+	/* testcase7 */
+	uint64_t offset = 0;
+	uint64_t addr = 0;
+	expand_segment_load(&elf, 5, 0x850, &offset, &addr);
+	printf("offset=0x%x, addr=0x%x\n", offset, addr);
 		
 	finit(&elf);
 	return 0;

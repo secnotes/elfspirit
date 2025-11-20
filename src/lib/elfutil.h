@@ -224,3 +224,15 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name);
 int set_sym_name_t(Elf *elf, char *src_name, char *dst_name);
 int set_dynsym_name_t(Elf *elf, char *src_name, char *dst_name);
 
+// these variables need to be refreshed!
+/**
+ * @brief 扩充一个段
+ * Expand a segment by its index
+ * @param elf Elf custom structure
+ * @param index segment index
+ * @param size expand size
+ * @param added_offset return start offset
+ * @param added_vaddr return start virtual address
+ * @return error code
+ */
+int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_offset, uint64_t *added_vaddr);

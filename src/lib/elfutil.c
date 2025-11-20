@@ -9,7 +9,8 @@
 #include <sys/mman.h>
 #include <stdlib.h>
 #include "elfutil.h"
-#include "section_manager.h"
+#include "manager.h"
+#include "util.h"
 
 /**
  * @brief 初始化elf文件，将elf文件转化为elf结构体
@@ -1614,4 +1615,227 @@ int set_sym_name_t(Elf *elf, char *src_name, char *dst_name) {
             }
         }
     }
+}
+
+static int mov_last_sections(Elf *elf, uint64_t expand_offset, size_t size) {
+    // mov section header table
+    void *src = (void *)elf->mem + elf->data.elf64.ehdr->e_shoff;
+    void *dst = (void *)elf->mem + elf->data.elf64.ehdr->e_shoff + size;
+    size_t src_len = elf->data.elf64.ehdr->e_shnum * elf->data.elf64.ehdr->e_shentsize;
+    if (copy_data(src, dst, src_len) == TRUE) {
+        elf->data.elf64.ehdr->e_shoff += size;
+        reinit(elf);
+    } else {
+        printf("error: mov section header\n");
+        return FALSE;
+    }
+
+    /* 按节偏移降序排序 */
+    /* Sort by section offset in descending order */
+    SectionManager *manager = section_manager_create();
+    if (!manager) {
+        printf("Failed to create section manager\n");
+        return FALSE;
+    }
+
+    for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
+        if (elf->data.elf64.shdr[i].sh_addr == 0 && elf->data.elf64.shdr[i].sh_offset != 0 && elf->data.elf64.shdr[i].sh_offset >= expand_offset) {
+            section_manager_add_64bit(manager, &elf->data.elf64.shdr[i], i);
+        }
+    }
+
+    section_manager_sort_by_offset_desc(manager);
+
+    /* 我们只移动节, 不移动段, 注意顺序，从大到小 */
+    /* we only move sections, not segments. */
+    SectionNode *cur_sec = manager->head;
+    int link_index = 0;
+    while (cur_sec) {
+        void *src = (void *)elf->mem + cur_sec->shdr64->sh_offset;
+        void *dst = (void *)elf->mem + cur_sec->shdr64->sh_offset + size;
+        if (copy_data(src, dst, cur_sec->shdr64->sh_size) == TRUE) {
+            cur_sec->shdr64->sh_offset += size;
+        } else {
+            printf("error: mov section\n");
+            return FALSE;
+        }  
+        cur_sec = cur_sec->next;
+        link_index++;
+    }
+    section_manager_destroy(manager);
+}
+
+static void mapp_load(Elf *elf, MappingList *mapping_list) {
+    for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
+        if (elf->data.elf64.phdr[i].p_type == PT_LOAD) {
+            uint64_t start = elf->data.elf64.phdr[i].p_offset;
+            uint64_t end = elf->data.elf64.phdr[i].p_offset + elf->data.elf64.phdr[i].p_filesz;
+            IndexMapping* mapping = create_mapping(i);
+            for (int j = 0; j < elf->data.elf64.ehdr->e_phnum; j++) {  
+                if (elf->data.elf64.phdr[j].p_type != PT_GNU_STACK && j != i && elf->data.elf64.phdr[j].p_offset >= start && elf->data.elf64.phdr[j].p_offset < end) {
+                    add_subseg(mapping, j);
+                }
+            }
+
+            for (int j = 0; j < elf->data.elf64.ehdr->e_shnum; j++) {
+                if (elf->data.elf64.shdr[j].sh_type != SHT_NULL && elf->data.elf64.shdr[j].sh_offset >= start && elf->data.elf64.shdr[j].sh_offset < end) {
+                    add_subsec(mapping, j);
+                } 
+                // .bss
+                else if (elf->data.elf64.shdr[j].sh_addr >= elf->data.elf64.phdr[i].p_vaddr && elf->data.elf64.shdr[j].sh_addr < elf->data.elf64.phdr[i].p_vaddr + elf->data.elf64.phdr[i].p_memsz) {
+                    add_subsec(mapping, j);
+                }
+            }
+            
+            add_mapping_to_list(mapping_list, mapping);
+        }
+    }
+}
+
+// 请注意，调用该函数后，如果引用了elf结构体中的变量，则需要刷新这些变量!
+// Please note that after calling this function, if variables in the elf struct are referenced, 
+// these variables need to be refreshed!
+/**
+ * @brief 扩充一个段
+ * Expand a segment by its index
+ * @param elf Elf custom structure
+ * @param index segment index
+ * @param size expand size
+ * @param added_offset return start offset
+ * @param added_vaddr return start virtual address
+ * @return error code
+ */
+int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_offset, uint64_t *added_vaddr) {
+    MappingList *mapping_list = create_mapping_list();
+    mapp_load(elf, mapping_list);
+    IndexMapping* found = find_mapping(mapping_list, index);
+    if (found == NULL) {
+        free_mapping_list(mapping_list);
+        return FALSE;
+    }
+
+    *added_offset = elf->data.elf64.phdr[index].p_offset + elf->data.elf64.phdr[index].p_filesz;
+    *added_vaddr = elf->data.elf64.phdr[index].p_vaddr + elf->data.elf64.phdr[index].p_memsz;
+    
+    size_t free_space = 0;
+    // last load segment
+    if (elf->data.elf64.phdr[index+1].p_type == PT_LOAD)
+        free_space = elf->data.elf64.phdr[index+1].p_offset - elf->data.elf64.phdr[index].p_offset - elf->data.elf64.phdr[index].p_filesz;
+    // printf("free_space = %x\n", free_space);
+    if (size <= free_space) {
+        elf->data.elf64.phdr[index].p_filesz += size;
+        elf->data.elf64.phdr[index].p_memsz += size;
+        
+        // the end sub section
+        ListNode* current = found->sec_head;
+        while (current != NULL) {
+            if (current->next == NULL) {
+                elf->data.elf64.shdr[current->index].sh_size += size;
+            } 
+            current = current->next;
+        }
+    } else {
+        size_t added_size = align_page(size);
+        elf->data.elf64.phdr[index].p_filesz += size;
+        elf->data.elf64.phdr[index].p_memsz += size;
+
+        // the end sub section
+        ListNode* current = found->sec_head;
+        while (current != NULL) {
+            if (current->next == NULL) {
+                elf->data.elf64.shdr[current->index].sh_size += size;
+            } 
+            current = current->next;
+        }
+
+        /* ----------------------------0.expand file---------------------------- */
+        size_t new_size = elf->size + added_size;
+        ftruncate(elf->fd, new_size);
+        void* new_map = mremap(elf->mem, elf->size, new_size, MREMAP_MAYMOVE);
+        if (new_map == MAP_FAILED) {
+            perror("mremap");
+            return FALSE;
+        } else {
+            // reinit custom elf structure
+            elf->mem = new_map;
+            elf->size = new_size;
+            reinit(elf);
+        }
+
+        /* ----------------------------1.mov section---------------------------- */
+        mov_last_sections(elf, *added_offset, added_size);
+        
+        // 2. mov segment after target segment
+        /* ----------------------------2.mov segment---------------------------- */
+        for (int i = elf->data.elf64.ehdr->e_phnum - 1; i > index; i--) {
+            if (elf->data.elf64.phdr[i].p_type == PT_LOAD) {
+                void *src = (void *)elf->mem + elf->data.elf64.phdr[i].p_offset;
+                void *dst = src + added_size;
+                if (copy_data(src, dst, elf->data.elf64.phdr[i].p_filesz) == TRUE) {
+                    elf->data.elf64.phdr[i].p_offset += added_size;
+                    elf->data.elf64.phdr[i].p_vaddr += added_size;
+                    elf->data.elf64.phdr[i].p_paddr += added_size;
+                } else {
+                    printf("error: mov segment\n");
+                    return FALSE;
+                }
+
+                // set sub segment offset and address
+                IndexMapping* found_seg = find_mapping(mapping_list, i);
+                ListNode* cur_seg = found_seg->seg_head;
+                while (cur_seg != NULL) {
+                    elf->data.elf64.phdr[cur_seg->index].p_offset += added_size;
+                    elf->data.elf64.phdr[cur_seg->index].p_vaddr += added_size;
+                    elf->data.elf64.phdr[cur_seg->index].p_paddr += added_size; 
+                    cur_seg = cur_seg->next;
+                }
+
+                // set sub section offset and address
+                IndexMapping* found_sec = find_mapping(mapping_list, i);
+                ListNode* cur_sec = found_sec->sec_head;
+                while (cur_sec != NULL) {
+                    elf->data.elf64.shdr[cur_sec->index].sh_offset += added_size;
+                    elf->data.elf64.shdr[cur_sec->index].sh_addr += added_size;
+                    cur_sec = cur_sec->next;
+                }
+
+                // set elf file entry
+                if (elf->data.elf64.phdr[i].p_flags & PF_X) {
+                    elf->data.elf64.ehdr->e_entry += added_size;
+                }
+            }
+        }
+
+        reinit(elf);
+        // 3. change dynamic segment entry value
+        for (int i = 0; i < elf->data.elf64.dyn_segment_count; i++) {
+            uint64_t value = elf->data.elf64.dyn_segment_entry[i].d_un.d_ptr;
+            uint64_t tag = elf->data.elf64.dyn_segment_entry[i].d_tag;
+            if (value >= *added_vaddr) {
+                switch (tag)
+                {
+                    case DT_INIT:
+                    case DT_FINI:
+                    case DT_INIT_ARRAY:
+                    case DT_FINI_ARRAY:
+                    case DT_GNU_HASH:
+                    case DT_STRTAB:
+                    case DT_SYMTAB:
+                    case DT_PLTGOT:
+                    case DT_JMPREL:
+                    case DT_RELA:
+                    case DT_VERNEED:
+                    case DT_VERSYM:
+                        elf->data.elf64.dyn_segment_entry[i].d_un.d_ptr += added_size;
+                        break;
+                    
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+
+    free_mapping_list(mapping_list);
+    return TRUE;
 }
