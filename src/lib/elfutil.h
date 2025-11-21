@@ -3,12 +3,14 @@
 
 enum {
     /* ELF file error */
-    ERR_SEG = -7,
-    ERR_TYPE = -6,
+    ERR_SEG = -9,
+    ERR_TYPE = -8,
     ERR_CLASS,
     /* other error */
     ERR_MMAP,
     ERR_COPY,
+    ERR_EXPANDSEG,
+    ERR_ADDSEG,
     ERROR = -2,
     FALSE,
     TRUE
@@ -158,14 +160,6 @@ int get_dynsym_index_by_name(Elf *elf, char *name);
  */
 int get_section_index_in_segment(Elf *elf, char *name, int out_index[], int max_size);
 
-/**
- * @brief 扩充一个段，默认只扩充最后一个类型为PT_LOAD的段
- * Expand a segment, default to only expanding the last segment of type PT_LOAD
- * @param elf Elf custom structure
- * @return start offset
- */
-int expand_segment_t(Elf *elf, size_t size);
-
 
 /****************************************/
 /* dynamic segmentation */
@@ -230,7 +224,16 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name);
  * @return error code
  */
 int set_sym_name_t(Elf *elf, char *src_name, char *dst_name);
-int set_dynsym_name_t(Elf *elf, char *src_name, char *dst_name);
+int set_dynsym_name(Elf *elf, char *src_name, char *dst_name);
+
+/**
+ * @brief 扩充一个段，默认只扩充最后一个类型为PT_LOAD的段
+ * Expand a segment, default to only expanding the last segment of type PT_LOAD
+ * @param elf Elf custom structure
+ * @return start offset
+ */
+/* deprecated */
+int expand_segment_test(Elf *elf, size_t size);
 
 // these variables need to be refreshed!
 /**
