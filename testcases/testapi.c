@@ -51,12 +51,12 @@ int main(int argc, char const *argv[])
 	// }
 
 	/* testacse: set new section name... */
-	char *src_name = "strcmp";
-	char *dst_name = "strncmp";
-	int code = set_dynsym_name(&elf, src_name, dst_name);
-	if (code == TRUE) {
-		printf("change name %s to %s success\n", src_name, dst_name);
-	}
+	// char *src_name = "strcmp";
+	// char *dst_name = "strncmp";
+	// int code = set_dynsym_name(&elf, src_name, dst_name);
+	// if (code == TRUE) {
+	// 	printf("change name %s to %s success\n", src_name, dst_name);
+	// }
 
 	/* testcase: set dynamic segment */
 	// set_dynseg_tag_by_tag(&elf, DT_NULL, DT_NEEDED);
@@ -66,6 +66,9 @@ int main(int argc, char const *argv[])
 	// uint64_t addr = 0;
 	// expand_segment_load(&elf, 5, 0x850, &offset, &addr);
 	// printf("offset=0x%x, addr=0x%x\n", offset, addr);
+	int err = strip_t(&elf);
+	// int err = delete_section_by_name(&elf, ".strtab");
+	print_error(err);
 		
 	finit(&elf);
 	return 0;

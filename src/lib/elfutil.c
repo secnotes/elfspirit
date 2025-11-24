@@ -13,6 +13,49 @@
 #include "util.h"
 
 /**
+ * @brief 打印错误信息
+ * print error message
+ * @param code error code
+ */
+void print_error(enum ErrorCode code) {
+    switch (code) {
+        case ERR_SEC:
+            printf("Error: cannot find section\n");
+            break;
+        case ERR_SEG:
+            printf("Error: cannot find segment\n");
+            break;
+        case ERR_TYPE:
+            printf("Error: ELF type error\n");
+            break;
+        case ERR_CLASS:
+            printf("Error: ELF Class error\n");
+            break;
+        case ERR_ARGS:
+            printf("Error: Function arrgument error\n");
+            break;
+        case ERR_MMAP:
+            printf("Error: Memory mapping error\n");
+            break;
+        case ERR_COPY:
+            printf("Error: Memory copy error\n");
+            break;
+        case ERR_EXPANDSEG:
+            printf("Error: Expand segment error\n");
+            break;
+        case ERR_ADDSEG:
+            printf("Error: Add segment error\n");
+            break;
+        case TRUE:
+            printf("Success\n");
+            break;
+        default:
+            printf("Error: Unknown error\n");
+            break;
+    }
+}
+
+/**
  * @brief 初始化elf文件，将elf文件转化为elf结构体
  * initialize the elf file and convert it into an elf structure
  * @param elf elf file name
@@ -142,7 +185,7 @@ int finit(Elf *elf) {
  * @return section index
  */
 int get_section_index_by_name(Elf *elf, char *name) {
-    int ret = FALSE;
+    int ret = ERR_SEC;
     if (elf->class == ELFCLASS32) {
         for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
             char *section_name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
@@ -607,6 +650,24 @@ int set_section_info_by_name(Elf *elf, char *name, uint64_t info) {
 }
 
 /**
+ * @brief 根据段的下标,获取节的名称
+ * Get the section name based on its index.
+ * @param elf Elf custom structure
+ * @param index Elf section index
+ * @return section name
+ */
+char *get_section_name(Elf *elf, int index) {
+    if (elf->class == ELFCLASS32) {
+        return (char *)&elf->mem[elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[index].sh_name];
+    } else if (elf->class == ELFCLASS64) {
+        return (char *)&elf->mem[elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[index].sh_name];
+    }
+    else {
+        return NULL;
+    }
+}
+
+/**
  * @brief 根据段的下标,获取段的对齐方式
  * Get the segment alignment based on its index.
  * @param elf Elf custom structure
@@ -1048,6 +1109,53 @@ int get_section_index_in_segment(Elf *elf, char *name, int out_index[], int max_
     return ret;
 }
 
+/**
+ * @brief 根据节的名字，判断该节是否是一个孤立节，即不属于任何段
+ * Determine whether the section is an isolated section based on its name, that is, it does not belong to any segment.
+ * @param elf Elf custom structure
+ * @param name Elf section name
+ * @return TRUE or FALSE
+ */
+int is_isolated_section_by_name(Elf *elf, char *name) {
+    int index = get_section_index_by_name(elf, name);
+    return is_isolated_section_by_index(elf, index);
+}
+
+/**
+ * @brief 根据节的下标，判断该节是否是一个孤立节，即不属于任何段
+ * Determine whether the section is an isolated section based on its index, that is, it does not belong to any segment.
+ * @param elf Elf custom structure
+ * @param index Elf section index
+ * @return TRUE or FALSE
+ */
+int is_isolated_section_by_index(Elf *elf, int index) {
+    if (elf->class == ELFCLASS32) {
+        int addr = elf->data.elf32.shdr[index].sh_addr;
+        int size = elf->data.elf32.shdr[index].sh_size;
+        if (addr == 0) {
+            for (int i = 0; i < elf->data.elf32.ehdr->e_phnum; i++) {
+                if (addr+size > elf->data.elf32.phdr[i].p_vaddr+elf->data.elf32.phdr[i].p_memsz) {
+                    return TRUE;
+                }
+            }
+        }
+    } else if (elf->class == ELFCLASS64) {
+        int addr = elf->data.elf64.shdr[index].sh_addr;
+        int size = elf->data.elf64.shdr[index].sh_size;
+        if (addr == 0) {
+            for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
+                if (addr+size > elf->data.elf64.phdr[i].p_vaddr+elf->data.elf64.phdr[i].p_memsz) {
+                    return TRUE;
+                }
+            }
+        }
+    } else {
+        return ERR_CLASS;
+    }
+
+    return FALSE;
+}
+
 
 /**
  * @brief 根据符号表的名称，获取符号表的下标
@@ -1117,7 +1225,14 @@ int get_sym_index_by_name(Elf *elf, char *name) {
     return ret;
 }
 
-
+/**
+ * @brief 复制数据到目标地址
+ * Copy data to the destination address
+ * @param src source address
+ * @param dst destination address
+ * @param size size of data
+ * @return error code
+ */
 static int copy_data(void *src, void *dst, size_t size) {
     void *m = malloc(size);
     if (m == NULL) {
@@ -1130,7 +1245,29 @@ static int copy_data(void *src, void *dst, size_t size) {
     return TRUE;
 }
 
-static void reinit(Elf *elf) {
+/**
+ * @brief 修改文件大小，并重新映射
+ * Change the file size and remap it
+ * @param elf Elf custom structure
+ * @param new_size new file size
+ * @return error code
+ */
+static int change_file_size(Elf *elf, size_t new_size) {
+    ftruncate(elf->fd, new_size);
+    void* new_map = mremap(elf->mem, elf->size, new_size, MREMAP_MAYMOVE);
+    if (new_map == MAP_FAILED) {
+        perror("mremap");
+        return ERR_MMAP;
+    } else {
+        // reinit custom elf structure
+        elf->mem = new_map;
+        elf->size = new_size;
+        reinit(elf);
+    }
+    return TRUE;
+}
+
+void reinit(Elf *elf) {
     /* 32bit */
     if (elf->class == ELFCLASS32) {
         elf->data.elf32.ehdr = (Elf32_Ehdr *)elf->mem;
@@ -1832,17 +1969,7 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
 
             /* ----------------------------0.expand file---------------------------- */
             size_t new_size = elf->size + added_size;
-            ftruncate(elf->fd, new_size);
-            void* new_map = mremap(elf->mem, elf->size, new_size, MREMAP_MAYMOVE);
-            if (new_map == MAP_FAILED) {
-                perror("mremap");
-                return ERR_MMAP;
-            } else {
-                // reinit custom elf structure
-                elf->mem = new_map;
-                elf->size = new_size;
-                reinit(elf);
-            }
+            change_file_size(elf, new_size);
 
             /* ----------------------------1.mov section---------------------------- */
             mov_last_sections(elf, *added_offset, added_size);
@@ -1954,17 +2081,7 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
 
             /* ----------------------------0.expand file---------------------------- */
             size_t new_size = elf->size + added_size;
-            ftruncate(elf->fd, new_size);
-            void* new_map = mremap(elf->mem, elf->size, new_size, MREMAP_MAYMOVE);
-            if (new_map == MAP_FAILED) {
-                perror("mremap");
-                return ERR_MMAP;
-            } else {
-                // reinit custom elf structure
-                elf->mem = new_map;
-                elf->size = new_size;
-                reinit(elf);
-            }
+            change_file_size(elf, new_size);
 
             /* ----------------------------1.mov section---------------------------- */
             mov_last_sections(elf, *added_offset, added_size);
@@ -2439,3 +2556,123 @@ int get_file_type(Elf *elf) {
         return ERR_CLASS;
     }
 } 
+
+/**
+ * @brief 从ELF文件中删除数据
+ * Delete data from ELF file
+ * @param elf Elf custom structure
+ * @param offset delete start offset
+ * @param size delete size
+ * @return error code
+ */
+int delete_data_from_file(Elf *elf, uint64_t offset, size_t size) {
+    if (offset + size > elf->size) {
+        return ERR_ARGS;
+    }
+
+    // memmove(elf->mem + offset, elf->mem + offset + size, elf->size - offset - size);
+    void *dst = elf->mem + offset;
+    void *src = elf->mem + offset + size;
+    uint64_t move_size = elf->size - offset - size;
+    if (copy_data(src, dst, move_size) == FALSE) {
+        return ERR_COPY;
+    }
+    size_t new_size = elf->size - size;
+    ftruncate(elf->fd, new_size);
+    void* new_map = mremap(elf->mem, elf->size, new_size, MREMAP_MAYMOVE);
+    if (new_map == MAP_FAILED) {
+        perror("mremap");
+        return ERR_MMAP;
+    } else {
+        // reinit custom elf structure
+        elf->mem = new_map;
+        elf->size = new_size;
+        reinit(elf);
+    }
+
+    return 0;
+}
+
+/**
+ * @brief 通过节索引删除节
+ * Delete section by index
+ * @param elf Elf custom structure
+ * @param index section index
+ * @return error code
+ */
+int delete_section_by_index(Elf *elf, uint64_t index) {
+    if (elf->class == ELFCLASS32) {
+        ;
+    } else if (elf->class == ELFCLASS64) {
+        uint64_t offset = elf->data.elf64.shdr[index].sh_offset;
+        size_t size = elf->data.elf64.shdr[index].sh_size;
+
+        /* 1. set new shstrtab offset */
+        int shstr_idx = elf->data.elf64.ehdr->e_shstrndx;
+        if (index < shstr_idx) {
+            elf->data.elf64.shdr[shstr_idx].sh_offset -= size;              
+        }
+
+        /* 2. set new section header table offset */
+        elf->data.elf64.ehdr->e_shoff -= size;
+        
+        /* 3. delete section */
+        delete_data_from_file(elf, offset, size);
+
+        /* 4. delete section header table entry */
+        elf->data.elf64.ehdr->e_shnum--;
+        if (index < shstr_idx) {
+            elf->data.elf64.ehdr->e_shstrndx--;
+        }
+        
+        uint64_t shdr_offset = elf->data.elf64.ehdr->e_shoff + index * sizeof(Elf64_Shdr);
+        delete_data_from_file(elf, shdr_offset, sizeof(Elf64_Shdr));
+    } else {
+        return ERR_CLASS;
+    }
+    return TRUE;
+}
+
+/**
+ * @brief 通过节名称删除节
+ * Delete section by name
+ * @param elf Elf custom structure
+ * @param name section name
+ * @return error code
+ */
+int delete_section_by_name(Elf *elf, const char *name) {
+    uint64_t index = get_section_index_by_name(elf, name);
+    if (index == ERR_SEC) {
+        return ERR_SEC;
+    }
+
+    return delete_section_by_index(elf, index);
+}
+
+/**
+ * @brief 删除不必要的节
+ * delelet unnecessary section, such as, .comment .symtab .strtab section
+ * @param elf_name elf file name
+ * @return int error code {-1:error,0:sucess}
+ */
+int strip_t(Elf *elf) {
+    if (elf->class == ELFCLASS32) {
+        for( int i = elf->data.elf32.ehdr->e_shnum - 1; i >= 0; i--) {
+            if (is_isolated_section_by_index(elf, i) == TRUE && elf->data.elf32.shdr[i].sh_type != SHT_NULL && strcmp(get_section_name(elf, i), ".shstrtab") != 0) {
+                printf("delete: %d %s\n", i, get_section_name(elf, i));
+                delete_section_by_index(elf, i);
+            }
+        }
+    } else if (elf->class == ELFCLASS64) {
+        for (int i = elf->data.elf64.ehdr->e_shnum - 1; i >= 0; i--) {
+            if (is_isolated_section_by_index(elf, i) == TRUE && elf->data.elf64.shdr[i].sh_type != SHT_NULL && strcmp(get_section_name(elf, i), ".shstrtab") != 0) {
+                printf("delete: %d %s\n", i, get_section_name(elf, i));
+                delete_section_by_index(elf, i);
+            }
+        }
+    } else {
+        return ERR_CLASS;
+    }
+
+   return TRUE;
+}

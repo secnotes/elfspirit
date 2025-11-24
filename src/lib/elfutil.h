@@ -1,12 +1,14 @@
 #include <elf.h>
 #include <stddef.h>
 
-enum {
+enum ErrorCode {
     /* ELF file error */
-    ERR_SEG = -9,
-    ERR_TYPE = -8,
+    ERR_SEC = -11,
+    ERR_SEG = -10,
+    ERR_TYPE = -9,
     ERR_CLASS,
     /* other error */
+    ERR_ARGS,
     ERR_MMAP,
     ERR_COPY,
     ERR_EXPANDSEG,
@@ -63,6 +65,13 @@ typedef struct Elf_Data{
 } Elf;
 
 /**
+ * @brief 打印错误信息
+ * print error message
+ * @param code error code
+ */
+void print_error(enum ErrorCode code);
+
+/**
  * @brief 初始化elf文件，将elf文件转化为elf结构体
  * initialize the elf file and convert it into an elf structure
  * @param elf elf file name
@@ -70,6 +79,7 @@ typedef struct Elf_Data{
  */
 int init(char *elf_name, Elf *elf);
 int finit(Elf *elf);
+void reinit(Elf *elf);
 
 /**
  * @brief 根据节的名称，获取节的信息
@@ -105,6 +115,15 @@ int set_section_addralign_by_name(Elf *elf, char *name, uint64_t addralign);
 int set_section_flags_by_name(Elf *elf, char *name, uint64_t flags);
 int set_section_link_by_name(Elf *elf, char *name, uint64_t link);
 int set_section_info_by_name(Elf *elf, char *name, uint64_t info);
+
+/**
+ * @brief 根据段的下标,获取节的名称
+ * Get the section name based on its index.
+ * @param elf Elf custom structure
+ * @param index Elf section index
+ * @return section name
+ */
+char *get_section_name(Elf *elf, int index);
 
 /**
  * @brief 根据段的下标,获取段的信息
@@ -159,6 +178,16 @@ int get_dynsym_index_by_name(Elf *elf, char *name);
  * @return error code
  */
 int get_section_index_in_segment(Elf *elf, char *name, int out_index[], int max_size);
+
+/**
+ * @brief 根据节的名字，判断该节是否是一个孤立节，即不属于任何段
+ * Determine whether the section is an isolated section based on its name, that is, it does not belong to any segment.
+ * @param elf Elf custom structure
+ * @param name Elf section name
+ * @return TRUE or FALSE
+ */
+int is_isolated_section_by_name(Elf *elf, char *name);
+int is_isolated_section_by_index(Elf *elf, int index);
 
 
 /****************************************/
@@ -270,4 +299,28 @@ int add_segment_easy(Elf *elf, size_t size, uint64_t *added_index);
  */
 int add_segment_difficult(Elf *elf, size_t size, uint64_t *added_index);
 
+/**
+ * @brief 获取elf文件类型
+ * get elf file type
+ * @param elf Elf custom structure
+ * @return elf file type
+ */
 int get_file_type(Elf *elf);
+
+/**
+ * @brief 通过节索引删除节
+ * Delete section by index
+ * @param elf Elf custom structure
+ * @param index section index
+ * @return error code
+ */
+int delete_section_by_index(Elf *elf, uint64_t index);
+int delete_section_by_name(Elf *elf, const char *name);
+
+/**
+ * @brief 删除不必要的节
+ * delelet unnecessary section, such as, .comment .symtab .strtab section
+ * @param elf_name elf file name
+ * @return int error code {-1:error,0:sucess}
+ */
+int strip_t(Elf *elf);
