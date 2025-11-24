@@ -2609,8 +2609,8 @@ int delete_section_by_index(Elf *elf, uint64_t index) {
 
         /* 1. set new shstrtab offset */
         int shstr_idx = elf->data.elf64.ehdr->e_shstrndx;
-        if (index < shstr_idx) {
-            elf->data.elf64.shdr[shstr_idx].sh_offset -= size;              
+        for (int i = elf->data.elf64.ehdr->e_shnum - 1; i > index; i--) {
+            elf->data.elf64.shdr[i].sh_offset -= size;
         }
 
         /* 2. set new section header table offset */
