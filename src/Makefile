@@ -4,7 +4,7 @@ GCC_VERSION := $(shell gcc -dumpversion | cut -d. -f1)
 BIN=elfspirit
 LIB=libelfspirit
 OUT=/usr/local/bin/
-SRCS = $(wildcard *.c cJSON/cJSON.c)
+SRCS = $(wildcard *.c cJSON/cJSON.c lib/*.c)
 OBJS = $(SRCS:.c=.o)
 CFLAGS = -w -c
 # LDFLAGS = -L./lib -lelfutil

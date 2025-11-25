@@ -34,6 +34,9 @@ void print_error(enum ErrorCode code) {
         case ERR_ARGS:
             printf("Error: Function arrgument error\n");
             break;
+        case ERR_OPEN:
+            printf("Error: File open error\n");
+            break;
         case ERR_MMAP:
             printf("Error: Memory mapping error\n");
             break;
@@ -2565,7 +2568,7 @@ int get_file_type(Elf *elf) {
  * @param size delete size
  * @return error code
  */
-int delete_data_from_file(Elf *elf, uint64_t offset, size_t size) {
+static int delete_data(Elf *elf, uint64_t offset, size_t size) {
     if (offset + size > elf->size) {
         return ERR_ARGS;
     }
@@ -2617,7 +2620,7 @@ int delete_section_by_index(Elf *elf, uint64_t index) {
         elf->data.elf64.ehdr->e_shoff -= size;
         
         /* 3. delete section */
-        delete_data_from_file(elf, offset, size);
+        delete_data(elf, offset, size);
 
         /* 4. delete section header table entry */
         elf->data.elf64.ehdr->e_shnum--;
@@ -2626,7 +2629,7 @@ int delete_section_by_index(Elf *elf, uint64_t index) {
         }
         
         uint64_t shdr_offset = elf->data.elf64.ehdr->e_shoff + index * sizeof(Elf64_Shdr);
-        delete_data_from_file(elf, shdr_offset, sizeof(Elf64_Shdr));
+        delete_data(elf, shdr_offset, sizeof(Elf64_Shdr));
     } else {
         return ERR_CLASS;
     }
@@ -2675,4 +2678,275 @@ int strip_t(Elf *elf) {
     }
 
    return TRUE;
+}
+
+/**
+ * @brief 为二进制文件添加ELF头
+ * Add ELF header to binary file
+ * @param bin binary file path
+ * @param arch architecture
+ * @param class ELF class(32/64)
+ * @param endian endianess(little/big)
+ * @param base_addr base address
+ * @return int error code {-1:error,0:sucess}
+ */
+int add_elf_header(uint8_t *bin, uint8_t *arch, uint32_t class, uint8_t *endian, uint64_t base_addr){
+    int fd;
+    struct stat st;
+    uint8_t *bin_map;
+    uint8_t *new_bin_map;
+    uint32_t new_size;
+
+    fd = open(bin, O_RDONLY);
+    if (fd < 0) {
+        perror("open in add_elf_info");
+        return ERR_OPEN;
+    }
+
+    if (fstat(fd, &st) < 0) {
+        perror("fstat");
+        return ERROR;
+    }
+
+    bin_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    if (bin_map == MAP_FAILED) {
+        perror("mmap");
+        return ERR_MMAP;
+    }
+
+    /* 32bit */
+    if (class == 32) {
+        /*****| ELF Header | Phdr*2 | Shdr | padding | data | *****/
+        if (base_addr == 0) {
+            base_addr = 0x08048000;
+        }
+        new_size = 0x1000 + st.st_size; 
+        new_bin_map = malloc(new_size);
+        if (new_bin_map < 0) {
+            return -1;
+        }
+        memset(new_bin_map, 0, new_size);
+
+        Elf32_Ehdr ehdr = {
+            .e_ident = 0x0,
+            .e_type = ET_EXEC,
+            .e_machine = arch_to_mach(arch, class),
+            .e_version = EV_CURRENT,
+            .e_entry = base_addr + 0x1000,
+            .e_phoff = sizeof(Elf32_Ehdr),
+            .e_shoff = sizeof(Elf32_Ehdr) * 2 + sizeof(Elf32_Phdr) * 2,
+            .e_flags = 0,
+            .e_ehsize = sizeof(Elf32_Ehdr),
+            .e_phentsize = sizeof(Elf32_Phdr),
+            .e_phnum = 2,
+            .e_shentsize = sizeof(Elf32_Shdr),
+            .e_shnum = 1,
+            .e_shstrndx = 0,
+        };
+        if (ehdr.e_machine == EM_ARM) {
+            ehdr.e_flags = 0x05000200;  /* arm32 */
+        }
+        ehdr.e_ident[0] = '\x7f';
+        ehdr.e_ident[1] = 'E';
+        ehdr.e_ident[2] = 'L';
+        ehdr.e_ident[3] = 'F';
+        ehdr.e_ident[4] = ELFCLASS32;   /* ELF class */
+        if (!strcmp(endian, "little"))
+            ehdr.e_ident[5] = '\x01';      
+        else if(!strcmp(endian, "big"))
+            ehdr.e_ident[5] = '\x02';            
+        ehdr.e_ident[6] = '\x01';       /* EI_VERSION */
+
+        Elf32_Phdr phdr1 = {
+            .p_type = PT_LOAD,
+            .p_offset = 0,
+            .p_vaddr = base_addr,
+            .p_paddr = base_addr,
+            .p_filesz = sizeof(Elf32_Ehdr) + sizeof(Elf32_Phdr) * 2 + sizeof(Elf32_Shdr) * 2,
+            .p_memsz = sizeof(Elf32_Ehdr) + sizeof(Elf32_Phdr) * 2 + sizeof(Elf32_Shdr) * 2,
+            .p_flags = PF_R,
+            .p_align = 0x1000
+        };
+
+        Elf32_Phdr phdr2 = {
+            .p_type = PT_LOAD,
+            .p_offset = 0x1000,
+            .p_vaddr = base_addr + 0x1000,
+            .p_paddr = base_addr + 0x1000,
+            .p_filesz = st.st_size,
+            .p_memsz = st.st_size,
+            .p_flags = PF_R | PF_W | PF_X,
+            .p_align = 0x1000
+        };
+
+        Elf32_Shdr shdr = {
+            .sh_name = 0x0,
+            .sh_type = SHT_PROGBITS,    /* Program data */
+            .sh_flags = SHF_EXECINSTR,  /* Executable */ 
+            .sh_addr = base_addr + 0x1000,
+            .sh_offset = 0x1000,
+            .sh_size = st.st_size,      /* Section(bin) size */
+            .sh_link = 0x0,
+            .sh_info = 0x0,
+            .sh_addralign = 4,
+            .sh_entsize = 0x0
+        };
+
+        /*****| ELF Header | Phdr*2 | Shdr*2 | padding | data | *****/
+        memset(new_bin_map, 0, new_size);
+        memcpy(new_bin_map, &ehdr, sizeof(Elf32_Ehdr));
+        memcpy(new_bin_map + sizeof(Elf32_Ehdr), &phdr1, sizeof(Elf32_Phdr));
+        memcpy(new_bin_map + sizeof(Elf32_Ehdr) + sizeof(Elf32_Phdr), &phdr2, sizeof(Elf32_Phdr));
+        memcpy(new_bin_map + sizeof(Elf32_Ehdr) + sizeof(Elf32_Phdr) * 2, &shdr, sizeof(Elf32_Shdr));
+        memcpy(new_bin_map + 0x1000, bin_map, st.st_size);
+    }
+
+    /* 64bit */
+    if (class == 64) {
+        /*****| ELF Header | ELF Phdr | ELF Section header1 | ELF Section header2 |*****/
+        if (base_addr == 0) {
+            base_addr = 0x400000;
+        }
+        new_size = 0x1000 + st.st_size; 
+        new_bin_map = malloc(new_size);
+        if (new_bin_map < 0) {
+            return -1;
+        }
+        memset(new_bin_map, 0, new_size);
+
+        Elf64_Ehdr ehdr = {
+            .e_ident = 0x0,
+            .e_type = ET_EXEC,
+            .e_machine = arch_to_mach(arch, class),
+            .e_version = EV_CURRENT,
+            .e_entry = base_addr + 0x1000,
+            .e_phoff = sizeof(Elf64_Ehdr),
+            .e_shoff = sizeof(Elf64_Ehdr) * 2 + sizeof(Elf64_Phdr) * 2,
+            .e_flags = 0,
+            .e_ehsize = sizeof(Elf64_Ehdr),
+            .e_phentsize = sizeof(Elf64_Phdr),
+            .e_phnum = 2,
+            .e_shentsize = sizeof(Elf64_Shdr),
+            .e_shnum = 1,
+            .e_shstrndx = 0,
+        };
+        if (ehdr.e_machine == EM_ARM) {
+            ehdr.e_flags = 0x05000200;  /* arm64?? */
+        }
+        ehdr.e_ident[0] = '\x7f';
+        ehdr.e_ident[1] = 'E';
+        ehdr.e_ident[2] = 'L';
+        ehdr.e_ident[3] = 'F';
+        ehdr.e_ident[4] = ELFCLASS64;   /* ELF class */
+        if (!strcmp(endian, "little"))
+            ehdr.e_ident[5] = '\x01';      
+        else if(!strcmp(endian, "big"))
+            ehdr.e_ident[5] = '\x02';            
+        ehdr.e_ident[6] = '\x01';       /* EI_VERSION */
+
+        Elf64_Phdr phdr1 = {
+            .p_type = PT_LOAD,
+            .p_offset = 0,
+            .p_vaddr = base_addr,
+            .p_paddr = base_addr,
+            .p_filesz = sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr) * 2 + sizeof(Elf64_Shdr) * 2,
+            .p_memsz = sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr) * 2 + sizeof(Elf64_Shdr) * 2,
+            .p_flags = PF_R,
+            .p_align = 0x1000
+        };
+
+        Elf64_Phdr phdr2 = {
+            .p_type = PT_LOAD,
+            .p_offset = 0x1000,
+            .p_vaddr = base_addr + 0x1000,
+            .p_paddr = base_addr + 0x1000,
+            .p_filesz = st.st_size,
+            .p_memsz = st.st_size,
+            .p_flags = PF_R | PF_W | PF_X,
+            .p_align = 0x1000
+        };
+
+        Elf64_Shdr shdr = {
+            .sh_name = 0x0,
+            .sh_type = SHT_PROGBITS,    /* Program data */
+            .sh_flags = SHF_EXECINSTR,  /* Executable */ 
+            .sh_addr = base_addr + 0x1000,
+            .sh_offset = 0x1000,
+            .sh_size = st.st_size,      /* Section(bin) size */
+            .sh_link = 0x0,
+            .sh_info = 0x0,
+            .sh_addralign = 4,
+            .sh_entsize = 0x0
+        };
+
+        /*****| ELF Header | Phdr*2 | Shdr*2 | padding | data | *****/
+        memset(new_bin_map, 0, new_size);
+        memcpy(new_bin_map, &ehdr, sizeof(Elf64_Ehdr));
+        memcpy(new_bin_map + sizeof(Elf64_Ehdr), &phdr1, sizeof(Elf64_Phdr));
+        memcpy(new_bin_map + sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr), &phdr2, sizeof(Elf64_Phdr));
+        memcpy(new_bin_map + sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr) * 2, &shdr, sizeof(Elf64_Shdr));
+        memcpy(new_bin_map + 0x1000, bin_map, st.st_size);
+    } else {
+        munmap(bin_map, st.st_size);
+        free(new_bin_map);
+        close(fd);
+        return ERR_CLASS;
+    }
+
+    int err = mem_to_file(bin, new_bin_map, new_size, 1);
+    free(new_bin_map);
+    close(fd);
+    return err;
+}
+
+/**
+ * @brief 将命令行传入的shellcode，转化为内存实际值
+ * convert the shellcode passed in from the command line to the actual value in memory
+ * @param sc_str input shellcode string
+ * @param sc_mem output shellcode memory
+ * @return error code
+ */
+int escaped_str_to_mem(char *sc_str, char *sc_mem) {
+    if (strlen(sc_str) % 4 != 0) 
+        return ERR_ARGS;
+    else {
+        printf("shellcode: ");
+        for (int i = 0; i < strlen(sc_str); i += 4) {
+            unsigned char value;
+            sscanf(&sc_str[i], "\\x%2hhx", &value);
+            *(sc_mem+i/4) = value;
+            printf("%02x ", value);
+        }
+        printf("\n");
+    }
+    return TRUE;
+}
+
+/**
+ * @brief 创建文件
+ * Create a file
+ * @param file_name file name
+ * @param map file content
+ * @param map_size file size
+ * @param is_new create new file or overwrite the old file
+ * @return int error code {-1:error,0:sucess}
+ */
+int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new) {
+    /* new file */
+    char new_name[MAX_PATH];
+    memset(new_name, 0, MAX_PATH);
+    if (is_new) 
+        snprintf(new_name, MAX_PATH, "%s.elf", file_name);
+    else
+        strncpy(new_name, file_name, MAX_PATH);
+        
+    int fd_new = open(new_name, O_RDWR|O_CREAT|O_TRUNC, 0777);
+    if (fd_new < 0) {
+        return ERR_OPEN;
+    }
+    
+    write(fd_new, map, map_size);  
+    close(fd_new);
+    printf("[+] Create file: %s\n", new_name);
+    return 0;
 }

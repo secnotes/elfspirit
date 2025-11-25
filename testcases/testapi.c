@@ -66,8 +66,10 @@ int main(int argc, char const *argv[])
 	// uint64_t addr = 0;
 	// expand_segment_load(&elf, 5, 0x850, &offset, &addr);
 	// printf("offset=0x%x, addr=0x%x\n", offset, addr);
-	int err = strip_t(&elf);
+	// int err = strip_t(&elf);
 	// int err = delete_section_by_name(&elf, ".strtab");
+
+	int err = add_elf_header((uint8_t *)argv[1], (uint8_t *)"x86", 64, (uint8_t *)"little", 0);
 	print_error(err);
 		
 	finit(&elf);

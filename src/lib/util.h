@@ -16,3 +16,12 @@ uint64_t align_page(uint64_t address);
  * @return uint64_t output 4k address
  */
 uint64_t align_offset(uint64_t p_offset, uint64_t p_vaddr);
+
+/**
+ * @brief 转换架构名称为ELF机器码
+ * Convert architecture name to ELF machine code
+ * @param arch architecture
+ * @param class ELF class(32/64)
+ * @return ELF machine code
+ */
+int arch_to_mach(uint8_t *arch, uint32_t class);

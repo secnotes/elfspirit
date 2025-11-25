@@ -41,6 +41,7 @@
 #include "edit.h"
 #include "segment.h"
 #include "rel.h"
+#include "lib/elfutil.h"
 
 #define VERSION "1.10.2"
 #define CONTENT_LENGTH 1024 * 1024
@@ -56,6 +57,7 @@ char ver_elfspirt[LENGTH];
 char elf_name[LENGTH];
 char function[LENGTH];
 char *g_shellcode;
+int err;
 uint64_t base_addr;
 uint32_t size;
 uint32_t off;
@@ -109,7 +111,7 @@ static int get_version(char *ver, size_t len) {
 /**
  * @description: initialize arguments
  */
-static void init() {
+static void main_init() {
     memset(section_name, 0, LENGTH);
     memset(string, 0, PAGE_SIZE);
     memset(file, 0, PAGE_SIZE);
@@ -118,6 +120,7 @@ static void init() {
     memset(function, 0, LENGTH);
     size = 0;
     off = 0;
+    err = 0;
     get_version(ver_elfspirt, LENGTH);
     po.index = 0;
     memset(po.options, 0, sizeof(po.options));
@@ -208,9 +211,9 @@ static const char *help =
     "Detailed Usage: \n"
     "  elfspirit parse    [-A|H|S|P|B|D|R|I|G] ELF\n"
     "  elfspirit edit     [-H|S|P|B|D|R|I] [-i]<row> [-j]<column> [-m|-s]<int|string value> ELF\n" 
+    "  elfspirit hex2bin  [-s]<shellcode hex> [-z]<size>\n"
     "  elfspirit bin2elf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-b]<base address> ELF\n"
     "  elfspirit joinelf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-c]<configuration file> OUT_ELF\n"
-    "  elfspirit hex2bin  [-s]<shellcode hex> [-z]<size>\n"
     "  elfspirit extract  [-n]<section name> ELF\n"
     "                     [-o]<file offset> [-z]<size> ELF\n"
     "  elfspirit hook [-s]<hook symbol> [-f]<new function bin> [-o]<new function start offset> ELF\n"
@@ -281,9 +284,9 @@ static const char *help_chinese =
     "细节: \n"
     "  elfspirit parse    [-A|H|S|P|B|D|R|I|G] ELF\n"
     "  elfspirit edit     [-H|S|P|B|D|R] [-i]<第几行> [-j]<第几列> [-m|-s]<int|str修改值> ELF\n"
+    "  elfspirit hex2bin  [-s]<shellcode> [-z]<size>\n" 
     "  elfspirit bin2elf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-b]<基地址> ELF\n"
     "  elfspirit joinelf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-c]<配置文件> OUT_ELF\n"
-    "  elfspirit hex2bin  [-s]<shellcode> [-z]<size>\n"    
     "  elfspirit extract  [-n]<节的名字> ELF\n"
     "                     [-o]<节的偏移> [-z]<size> ELF\n"
     "  elfspirit hook [-s]<hook函数名> [-f]<新的函数二进制> [-o]<新函数偏移> ELF\n"
@@ -486,12 +489,25 @@ static void readcmdline(int argc, char *argv[]) {
         }
     }
 
-    /* shell bin to so */
+    /* save escapsed string to file */
     if (optind == argc - 1 && !strcmp(argv[optind], "hex2bin")) {  
-        g_shellcode = calloc(size, 1);
-        cmdline_shellcode(string, g_shellcode);
-        save_file(g_shellcode, size);
-        free(g_shellcode);
+        char *out = "/tmp/elfspirit_out.bin";
+        char * shellcode = calloc(size, 1);
+        err = escaped_str_to_mem(string, shellcode);
+        if (err != TRUE) {
+            free(shellcode);
+            print_error(err);
+            exit(-1);
+        }
+
+        err = mem_to_file(out, shellcode, size, 0);
+        if (err != TRUE) {
+            free(shellcode);
+            print_error(err);
+            exit(-1);
+        }
+        printf("[+] Shellcode has been saved to %s\n", out);
+        free(shellcode);
         exit(0);
     }
 
@@ -640,7 +656,11 @@ static void readcmdline(int argc, char *argv[]) {
 
     /* add elf info to firmware for IDA */
     if (!strcmp(function, "bin2elf")) {
-        add_elf_info(elf_name, arch, class, endian, base_addr);
+        err = add_elf_header(elf_name, arch, class, endian, base_addr);
+        if (err != TRUE) {
+            print_error(err);
+            exit(-1);
+        }
     }
 
     /* connect each bin in firmware for IDA */
@@ -687,7 +707,7 @@ static void readcmdline(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-    init();
+    main_init();
     readcmdline(argc, argv);
     return 0;
 }

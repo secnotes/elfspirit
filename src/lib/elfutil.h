@@ -1,14 +1,17 @@
 #include <elf.h>
 #include <stddef.h>
 
+#define MAX_PATH 4096
+
 enum ErrorCode {
     /* ELF file error */
-    ERR_SEC = -11,
-    ERR_SEG = -10,
-    ERR_TYPE = -9,
+    ERR_SEC = -12,
+    ERR_SEG = -11,
+    ERR_TYPE = -10,
     ERR_CLASS,
     /* other error */
     ERR_ARGS,
+    ERR_OPEN,
     ERR_MMAP,
     ERR_COPY,
     ERR_EXPANDSEG,
@@ -321,6 +324,38 @@ int delete_section_by_name(Elf *elf, const char *name);
  * @brief 删除不必要的节
  * delelet unnecessary section, such as, .comment .symtab .strtab section
  * @param elf_name elf file name
- * @return int error code {-1:error,0:sucess}
+ * @return error code
  */
 int strip_t(Elf *elf);
+
+/**
+ * @brief 为二进制文件添加ELF头
+ * Add ELF header to binary file
+ * @param bin binary file path
+ * @param arch architecture
+ * @param class ELF class(32/64)
+ * @param endian endianess(little/big)
+ * @param base_addr base address
+ * @return error code
+ */
+int add_elf_header(uint8_t *bin, uint8_t *arch, uint32_t class, uint8_t *endian, uint64_t base_addr);
+
+/**
+ * @brief 将命令行传入的shellcode，转化为内存实际值
+ * convert the shellcode passed in from the command line to the actual value in memory
+ * @param sc_str input shellcode string
+ * @param sc_mem output shellcode memory
+ * @return error code
+ */
+int escaped_str_to_mem(char *sc_str, char *sc_mem);
+
+/**
+ * @brief 创建文件
+ * Create a file
+ * @param file_name file name
+ * @param map file content
+ * @param map_size file size
+ * @param is_new create new file or overwrite the old file
+ * @return int error code {-1:error,0:sucess}
+ */
+int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new);
