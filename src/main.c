@@ -583,17 +583,24 @@ static void readcmdline(int argc, char *argv[]) {
                     break;
 
                 case REMOVE_SECTION:
-                    clear_section(elf_name, section_name, config_name);
+                    init(elf_name, &elf);
+                    err = delete_section_by_name(&elf, section_name);
+                    print_error(err);
+                    finit(&elf);
                     break;
 
                 case REMOVE_SHDR:
-                    delete_shtab(elf_name);
+                    init(elf_name, &elf);
+                    err = delete_all_shdr(&elf);
+                    print_error(err);
+                    finit(&elf);
                     break;
 
                 case REMOVE_STRIP:
-                    /* init unmapped sections */
-                    parse(elf_name, &po, 0);
-                    strip(elf_name);
+                    init(elf_name, &elf);
+                    err = strip(&elf);
+                    print_error(err);
+                    finit(&elf);
                     break;
 
                 case CONFUSE_SYMBOL:

@@ -1282,6 +1282,9 @@ void reinit(Elf *elf) {
         elf->data.elf32.strtab = NULL;
         elf->data.elf32.dynsym = NULL;
         elf->data.elf32.dynsym_entry = NULL;
+        if (elf->data.elf32.ehdr->e_shstrndx == 0) {
+            return;
+        }
         for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
             char *section_name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
             if (!strcmp(section_name, ".dynstr")) {
@@ -1320,6 +1323,9 @@ void reinit(Elf *elf) {
         elf->data.elf64.strtab = NULL;
         elf->data.elf64.dynsym = NULL;
         elf->data.elf64.dynsym_entry = NULL;
+        if (elf->data.elf64.ehdr->e_shstrndx == 0) {
+            return;
+        }
         for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
             char *section_name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
             if (!strcmp(section_name, ".dynstr")) {
@@ -3050,23 +3056,68 @@ int delete_section_by_name(Elf *elf, const char *name) {
 }
 
 /**
+ * @brief 删除所有节头表
+ * Delete all section header table
+ * @param elf Elf custom structure
+ * @return error code
+ */
+int delete_all_shdr(Elf *elf) {
+    int err = 0;
+    if (elf->class == ELFCLASS32) {
+        // delete .shstrtab section
+        err = delete_section_by_name(elf, ".shstrtab");
+        if (err != TRUE) {
+            return err;
+        }
+        elf->data.elf32.ehdr->e_shstrndx = 0;
+        
+        // delete all section header table
+        err = delete_data(elf, elf->data.elf32.ehdr->e_shoff, elf->data.elf32.ehdr->e_shnum * sizeof(Elf32_Shdr));
+        if (err != TRUE) {
+            return err;
+        }
+        elf->data.elf32.ehdr->e_shoff = 0;
+        elf->data.elf32.ehdr->e_shnum = 0;
+    } else if (elf->class == ELFCLASS64) {
+        // delete .shstrtab section
+        err = delete_section_by_name(elf, ".shstrtab");
+        if (err != TRUE) {
+            return err;
+        }
+        elf->data.elf64.ehdr->e_shstrndx = 0;
+        
+        // delete all section header table
+        err = delete_data(elf, elf->data.elf64.ehdr->e_shoff, elf->data.elf64.ehdr->e_shnum * sizeof(Elf64_Shdr));
+        if (err != TRUE) {
+            return err;
+        }
+        elf->data.elf64.ehdr->e_shoff = 0;
+        elf->data.elf64.ehdr->e_shnum = 0;
+        
+    } else {
+        return ERR_CLASS;
+    }
+    return TRUE;
+}
+
+/**
  * @brief 删除不必要的节
  * delelet unnecessary section, such as, .comment .symtab .strtab section
  * @param elf_name elf file name
  * @return int error code {-1:error,0:sucess}
  */
-int strip_t(Elf *elf) {
+int strip(Elf *elf) {
     if (elf->class == ELFCLASS32) {
         for( int i = elf->data.elf32.ehdr->e_shnum - 1; i >= 0; i--) {
             if (is_isolated_section_by_index(elf, i) == TRUE && elf->data.elf32.shdr[i].sh_type != SHT_NULL && strcmp(get_section_name(elf, i), ".shstrtab") != 0) {
-                printf("delete: %d %s\n", i, get_section_name(elf, i));
+                PRINT_VERBOSE("delete: %d %s\n", i, get_section_name(elf, i));
                 delete_section_by_index(elf, i);
             }
         }
     } else if (elf->class == ELFCLASS64) {
         for (int i = elf->data.elf64.ehdr->e_shnum - 1; i >= 0; i--) {
             if (is_isolated_section_by_index(elf, i) == TRUE && elf->data.elf64.shdr[i].sh_type != SHT_NULL && strcmp(get_section_name(elf, i), ".shstrtab") != 0) {
-                printf("delete: %d %s\n", i, get_section_name(elf, i));
+                PRINT_VERBOSE("delete: %d %s\n", i, get_section_name(elf, i));
                 delete_section_by_index(elf, i);
             }
         }

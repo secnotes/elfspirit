@@ -333,12 +333,20 @@ int delete_section_by_index(Elf *elf, uint64_t index);
 int delete_section_by_name(Elf *elf, const char *name);
 
 /**
+ * @brief 删除所有节头表
+ * Delete all section header table
+ * @param elf Elf custom structure
+ * @return error code
+ */
+int delete_all_shdr(Elf *elf);
+
+/**
  * @brief 删除不必要的节
  * delelet unnecessary section, such as, .comment .symtab .strtab section
  * @param elf_name elf file name
  * @return error code
  */
-int strip_t(Elf *elf);
+int strip(Elf *elf);
 
 /**
  * @brief 为二进制文件添加ELF头
