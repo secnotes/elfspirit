@@ -5,13 +5,15 @@
 
 enum ErrorCode {
     /* ELF file error */
-    ERR_SEC = -12,
-    ERR_SEG = -11,
-    ERR_TYPE = -10,
+    ERR_DYN_NOTFOUND = -20,
+    ERR_SEC_NOTFOUND = -13,
+    ERR_SEG_NOTFOUND = -12,
+    ERR_TYPE = -11,
     ERR_CLASS,
     /* other error */
     ERR_ARGS,
     ERR_OPEN,
+    ERR_STAT,
     ERR_MMAP,
     ERR_COPY,
     ERR_EXPANDSEG,
@@ -303,6 +305,16 @@ int add_segment_easy(Elf *elf, size_t size, uint64_t *added_index);
 int add_segment_difficult(Elf *elf, size_t size, uint64_t *added_index);
 
 /**
+ * @brief 增加一个段，自动选择增加方式
+ * Add a segment, automatically choose the addition method
+ * @param elf Elf custom structure
+ * @param size segment size
+ * @param added_index segment index
+ * @return error code
+ */
+int add_segment_auto(Elf *elf, size_t size, uint64_t *added_index);
+
+/**
  * @brief 获取elf文件类型
  * get elf file type
  * @param elf Elf custom structure
@@ -359,3 +371,30 @@ int escaped_str_to_mem(char *sc_str, char *sc_mem);
  * @return int error code {-1:error,0:sucess}
  */
 int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new);
+
+/**
+ * @brief 设置新的解释器（动态链接器）
+ * set up a new interpreter (dynamic linker)
+ * @param elf_name elf file name
+ * @param new_interpreter string
+ * @return error code
+ */
+int set_interpreter(Elf *elf, char *new_interpreter);
+
+/**
+ * @brief 设置rpath
+ * set rpath
+ * @param elf Elf custom structure
+ * @param rpath string
+ * @return error code
+ */
+int set_rpath(Elf *elf, char *rpath);
+
+/**
+ * @brief 设置runpath
+ * set runpath
+ * @param elf Elf custom structure
+ * @param rpath string
+ * @return error code
+ */
+int set_runpath(Elf *elf, char *runpath);

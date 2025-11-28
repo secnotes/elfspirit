@@ -249,15 +249,6 @@ int extract_fragment(const char *input_file, long offset, size_t size, char *out
 int validated_offset(uint64_t addr, uint64_t start, uint64_t end);
 
 /**
- * @brief Set the interpreter object
- * 
- * @param elf_name elf file name
- * @param new_interpreter string
- * @return int error code {-1:error,0:sucess}
- */
-int set_interpreter(char *elf_name, char *new_interpreter);
-
-/**
  * @brief 判断二进制是否开启地址随机化
  * determine whether binary has enabled address randomization
  * @param elfname 
@@ -284,33 +275,6 @@ int set_pointer(char *elf_name, uint64_t offset, uint64_t value);
  * @return int error code {-1:error,0:sucess}
  */
 int set_content(char *elf_name, uint64_t offset, char *content, size_t size);
-
-/**
- * @brief 设置新的解释器（动态链接器）
- * set up a new interpreter (dynamic linker)
- * @param elf_name elf file name
- * @param new_interpreter string
- * @return int error code {-1:error,0:sucess}
- */
-int set_interpreter(char *elf_name, char *new_interpreter);
-
-/**
- * @brief 设置rpath
- * set rpath
- * @param elf_name elf file name
- * @param rpath string
- * @return int error code {-1:error,0:sucess}
- */
-int set_rpath(char *elf_name, char *rpath);
-
-/**
- * @brief 设置runpath
- * set runpath
- * @param elf_name elf file name
- * @param rpath string
- * @return int error code {-1:error,0:sucess}
- */
-int set_runpath(char *elf_name, char *rpath);
 
 /**
  * @brief hook外部函数

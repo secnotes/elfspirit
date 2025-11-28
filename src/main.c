@@ -42,6 +42,7 @@
 #include "segment.h"
 #include "rel.h"
 #include "lib/elfutil.h"
+#include "lib/util.h"
 
 #define VERSION "1.10.2"
 #define CONTENT_LENGTH 1024 * 1024
@@ -506,12 +507,13 @@ static void readcmdline(int argc, char *argv[]) {
             print_error(err);
             exit(-1);
         }
-        printf("[+] Shellcode has been saved to %s\n", out);
+        PRINT_INFO("shellcode has been saved to %s\n", out);
         free(shellcode);
         exit(0);
     }
 
     /* handle additional long parameters */
+    Elf elf;
     if (optind == argc - 1) {
         memcpy(elf_name, argv[optind], LENGTH);
         MODE = get_elf_class(elf_name);
@@ -548,17 +550,26 @@ static void readcmdline(int argc, char *argv[]) {
 
                 case SET_INTERPRETER:
                     /* set new interpreter */
-                    set_interpreter(elf_name, string);
+	                init(elf_name, &elf);
+                    err = set_interpreter(&elf, string);
+                    print_error(err);
+                    finit(&elf);
                     break;
                 
                 case SET_RPATH:
                     /* set rpath */
-                    set_rpath(elf_name, string);
+	                init(elf_name, &elf);
+                    err = set_rpath(&elf, string);
+                    print_error(err);
+                    finit(&elf);
                     break;
 
                 case SET_RUNPATH:
                     /* set runpath */
-                    set_runpath(elf_name, string);
+	                init(elf_name, &elf);
+                    err = set_runpath(&elf, string);
+                    print_error(err);
+                    finit(&elf);
                     break;
 
                 case ADD_SEGMENT:

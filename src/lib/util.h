@@ -1,3 +1,13 @@
+#define NONE      "\e[0m"              // Clear color 清除颜色，即之后的打印为正常输出，之前的不受影响
+#define RED     "\e[1;31m"           // Light Red 鲜红
+#define GREEN   "\e[1;32m"           // Light Green 鲜绿
+#define YELLOW    "\e[1;33m"           // Light Yellow 鲜黄
+
+#define PRINT_WARNING(format, ...) printf (""YELLOW"[!] "format""NONE"", ##__VA_ARGS__)
+#define PRINT_ERROR(format, ...) printf (""RED"[-] "format""NONE"", ##__VA_ARGS__)
+#define PRINT_INFO(format, ...) printf (""NONE"[+] "format""NONE"", ##__VA_ARGS__)
+#define PRINT_VERBOSE(format, ...) printf (""GREEN"[*] "format""NONE"", ##__VA_ARGS__)
+
 #define ONE_PAGE 4096 // 4K的大小
 
 /**

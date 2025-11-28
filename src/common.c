@@ -924,44 +924,6 @@ ERR_EXIT:
 }
 
 /**
- * @brief 设置新的解释器（动态链接器）
- * set up a new interpreter (dynamic linker)
- * @param elf_name elf file name
- * @param new_interpreter string
- * @return int error code {-1:error,0:sucess}
- */
-int set_interpreter(char *elf_name, char *new_interpreter) {
-    uint64_t offset = get_section_offset(elf_name, ".interp");
-    size_t size = get_section_size(elf_name, ".interp");
-    // 如果新的解释器的名字的长度小于原有的长度，则不需要修改ELF文件大小
-    // if the length of the name of the new interpreter is less than the original length,
-    // there is no need to modify the ELF file size
-    if (strlen(new_interpreter) + 1 <= size) {
-        VERBOSE("don't need to add segment\n");
-        return set_content(elf_name, offset, new_interpreter, strlen(new_interpreter) + 1);
-    }
-
-    else {
-        VERBOSE("add segment\n");
-        int seg_i =add_segment_content(elf_name, PT_LOAD, new_interpreter, strlen(new_interpreter) + 1);
-        // 原有interpreter段表指向新的load段
-        // the original interpreter segment table points to the new load segment
-        VERBOSE("set phdr\n");
-        set_segment_offset(elf_name, 1, get_segment_offset(elf_name, seg_i));
-        set_segment_vaddr(elf_name, 1, get_segment_vaddr(elf_name, seg_i));
-        set_segment_paddr(elf_name, 1, get_segment_paddr(elf_name, seg_i));
-        set_segment_filesz(elf_name, 1, get_segment_filesz(elf_name, seg_i));
-        set_segment_memsz(elf_name, 1, get_segment_memsz(elf_name, seg_i));
-        // set shdr
-        VERBOSE("set shdr\n");
-        int sec_i = get_section_index(elf_name, ".interp");
-        set_section_off(elf_name, sec_i, get_segment_offset(elf_name, seg_i));
-        set_section_addr(elf_name, sec_i, get_segment_vaddr(elf_name, seg_i));
-        set_section_size(elf_name, sec_i, get_segment_filesz(elf_name, seg_i));
-    }
-}
-
-/**
  * @brief 增加一个dynamic条目
  * add a dynamic segment
  * @param elf_name elf file name
@@ -995,28 +957,6 @@ int add_dynamic_item(char *elf_name, int dt_tag, char *dt_value) {
     } else {
         return 0;
     }
-}
-
-/**
- * @brief 设置rpath
- * set rpath
- * @param elf_name elf file name
- * @param rpath string
- * @return int error code {-1:error,0:sucess}
- */
-int set_rpath(char *elf_name, char *rpath) {
-    return add_dynamic_item(elf_name, DT_RPATH, rpath);
-}
-
-/**
- * @brief 设置runpath
- * set runpath
- * @param elf_name elf file name
- * @param rpath string
- * @return int error code {-1:error,0:sucess}
- */
-int set_runpath(char *elf_name, char *runpath) {
-    return add_dynamic_item(elf_name, DT_RUNPATH, runpath);
 }
 
 /**

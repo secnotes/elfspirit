@@ -44,6 +44,9 @@ all: $(LIB) $(BIN)
 $(BIN) : $(OBJS)
 	$(CC) $(CXXFLAGS) $(LDFLAGS) $(OBJS) -o $(BIN)
 
+%.o: %.c
+	$(CC) $(CFLAGS) $(CXXFLAGS) $< -o $@
+
 # generate dynamic library
 $(LIB):
 	@echo "Building library in lib directory..."
