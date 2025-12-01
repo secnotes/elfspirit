@@ -231,7 +231,7 @@ static const char *help =
     "  elfspirit --set-interpreter [-s]<new interpreter> ELF\n"
     "  elfspirit --set-rpath [-s]<rpath> ELF\n"
     "  elfspirit --set-runpath [-s]<runpath> ELF\n"
-    "  elfspirit --add-section [-z]<size> ELF\n"
+    "  elfspirit --add-section [-z]<size> [-n]<section name> ELF\n"
     "  elfspirit --add-segment [-z]<size> ELF\n"
     "  elfspirit --rm-section  [-n]<section name> ELF\n"
     "                          [-c]<multi section name> ELF\n"
@@ -304,7 +304,7 @@ static const char *help_chinese =
     "  elfspirit --set-interpreter [-s]<新的链接器> ELF\n"
     "  elfspirit --set-rpath [-s]<rpath> ELF\n"
     "  elfspirit --set-runpath [-s]<runpath> ELF\n"
-    "  elfspirit --add-section [-z]<size> ELF\n"
+    "  elfspirit --add-section [-z]<size> [-n]<节的名字> ELF\n"
     "  elfspirit --add-segment [-z]<size> ELF\n"
     "  elfspirit --rm-section  [-n]<节的名字> ELF\n"
     "                          [-c]<多个节的名字> ELF\n"
@@ -573,13 +573,19 @@ static void readcmdline(int argc, char *argv[]) {
                     break;
 
                 case ADD_SEGMENT:
-                    /* add a segment */
-                    add_segment(elf_name, PT_LOAD, size);
+                    init(elf_name, &elf);
+                    uint64_t index = 0;
+                    err = add_segment_auto(&elf, size, &index);
+                    print_error(err);
+                    finit(&elf);
                     break;
 
                 case ADD_SECTION:
-                    /* add a section */
-                    add_section(elf_name, size);
+                    init(elf_name, &elf);
+                    uint64_t index1 = 0;
+                    err = add_section_auto(&elf, size, section_name, &index1);
+                    print_error(err);
+                    finit(&elf);
                     break;
 
                 case REMOVE_SECTION:

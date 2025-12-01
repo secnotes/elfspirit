@@ -253,12 +253,23 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name);
  * @brief 设置符号表的名字
  * Set a new symbol name
  * @param elf Elf custom structure
- * @param src_name original symbole name
- * @param dst_name new symbole name
+ * @param src_name original symbo name
+ * @param dst_name new symbol name
  * @return error code
  */
 int set_sym_name_t(Elf *elf, char *src_name, char *dst_name);
 int set_dynsym_name(Elf *elf, char *src_name, char *dst_name);
+
+/**
+ * @brief 添加符号名字
+ * Add a new symbol name
+ * @param elf Elf custom structure
+ * @param name new symbol name
+ * @param name_offset offset of new symbol name in dynstr table
+ * @return error code
+ */
+int add_shstr_name(Elf *elf, char *name, uint64_t *name_offset);
+int add_dynsym_name(Elf *elf, char *name, uint64_t *name_offset);
 
 /**
  * @brief 扩充一个段，默认只扩充最后一个类型为PT_LOAD的段
@@ -291,7 +302,7 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
  * @param added_index segment index
  * @return error code
  */
-int add_segment_easy(Elf *elf, size_t size, uint64_t *added_index);
+int add_segment_easy(Elf *elf, size_t size, size_t *added_index);
 
 /**
  * @brief 增加一个段，但是不在PHT增加新条目。增加一个段，但是不修改已有的PHT新条目。为了不修改已有的PT_LOAD段的地址，我们只能搬迁PHT
@@ -302,7 +313,7 @@ int add_segment_easy(Elf *elf, size_t size, uint64_t *added_index);
  * @param added_index segment index
  * @return error code
  */
-int add_segment_difficult(Elf *elf, size_t size, uint64_t *added_index);
+int add_segment_difficult(Elf *elf, size_t size, size_t *added_index);
 
 /**
  * @brief 增加一个段，自动选择增加方式
@@ -312,9 +323,40 @@ int add_segment_difficult(Elf *elf, size_t size, uint64_t *added_index);
  * @param added_index segment index
  * @return error code
  */
-int add_segment_auto(Elf *elf, size_t size, uint64_t *added_index);
+int add_segment_auto(Elf *elf, size_t size, size_t *added_index);
 
 /**
+ * @brief 增加一个节，自动选择增加方式
+ * Add a section, automatically choose the addition method
+ * @param elf Elf custom structure
+ * @param size section size
+ * @param name section name
+ * @param added_index section index
+ * @return error code
+ */
+int add_section_auto(Elf *elf, size_t size, const char *name, uint64_t *added_index);
+
+/**
+ * @brief 增加一个段，自动选择增加方式
+ * Add a segment, automatically choose the addition method
+ * @param elf Elf custom structure
+ * @param type dynamic segment type
+ * @param value dynamic segment value
+ * @return error code
+ */
+int add_dynseg_auto(Elf *elf, int type, uint64_t value);
+
+/**
+ * @brief 增加一个段
+ * Add a dynamic segment
+ * @param elf Elf custom structure
+ * @param type dynamic segment type
+ * @param value dynamic segment value
+ * @return error code
+ */
+int add_dynseg_difficult(Elf *elf, int type, uint64_t value);
+
+/**i
  * @brief 获取elf文件类型
  * get elf file type
  * @param elf Elf custom structure

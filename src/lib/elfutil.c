@@ -1461,6 +1461,18 @@ static int is_isolated_dynamic(Elf *elf) {
     return FALSE;
 }
 
+static int is_isolated_shstr(Elf *elf) {
+    uint64_t offset = get_section_offset_by_name(elf, ".shstrtab");
+    for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
+        if (elf->data.elf64.phdr[i].p_type == PT_LOAD) {
+            if (offset == elf->data.elf64.phdr[i].p_offset) {
+                return i;
+            }
+        }
+    }
+    return FALSE;
+}
+
 /**
  * @brief 设置符号表的名字
  * Set a new dynamic symbol name
@@ -1618,7 +1630,7 @@ int set_dynsym_name(Elf *elf, char *src_name, char *dst_name) {
  * Add a new dynamic symbol name
  * @param elf Elf custom structure
  * @param name new symbole name
- * @param name_offset offset of new symbole name in dynstr table
+ * @param name_offset offset of new symbol name in dynstr table
  * @return error code
  */
 int add_dynsym_name(Elf *elf, char *name, uint64_t *name_offset) {
@@ -1764,6 +1776,86 @@ int add_dynsym_name(Elf *elf, char *name, uint64_t *name_offset) {
 }
 
 /**
+ * @brief 添加符号名字
+ * Add a new section header name
+ * @param elf Elf custom structure
+ * @param name new symbole name
+ * @param name_offset offset of new symbol name in dynstr table
+ * @return error code
+ */
+int add_shstr_name(Elf *elf, char *name, uint64_t *name_offset) {
+    int shstr_sec_i = get_section_index_by_name(elf, ".shstrtab");
+    if (shstr_sec_i < 0) {
+        return shstr_sec_i;
+    }
+
+    uint64_t offset = 0;    // for expand_segment_load
+    uint64_t addr = 0;      // for expand_segment_load
+    uint64_t seg_i = 0;
+    if (index == FALSE) {
+        return ERR_SEC_NOTFOUND;
+    }
+    if (elf->class == ELFCLASS32) {
+        ;
+    } else if (elf->class == ELFCLASS64) { 
+        /* Determine whether dynstr is within an independent PT_LOAD segment */
+        /* 判断shstrtab是否在一个独立的PT_LOAD段内 */
+        seg_i = is_isolated_shstr(elf);
+        if (seg_i != FALSE) {
+            PRINT_VERBOSE("shstr is in an isolated PT_LOAD segment, expand a segment\n");
+            int strsz_i = get_dynseg_index_by_tag(elf, DT_STRSZ);
+            /* Determine if PT_LOAD has extra space */
+            /* 判断PT_LOAD是否有多余空间 */
+            if (elf->data.elf64.phdr[seg_i].p_filesz - elf->data.elf64.shdr[shstr_sec_i].sh_size >= strlen(name) + 1) {
+                // enough space
+                *name_offset = elf->data.elf64.shdr[shstr_sec_i].sh_size;
+                memset((void *)elf->mem + elf->data.elf64.shdr[shstr_sec_i].sh_offset + elf->data.elf64.shdr[shstr_sec_i].sh_size, 0, strlen(name) + 1);
+                strcpy((char *)elf->mem + elf->data.elf64.shdr[shstr_sec_i].sh_offset + elf->data.elf64.shdr[shstr_sec_i].sh_size, name);
+                elf->data.elf64.shdr[shstr_sec_i].sh_size += strlen(name) + 1;
+            } else if (expand_segment_load(elf, seg_i, strlen(name) + 1, &offset, &addr) == TRUE) {
+                *name_offset = elf->data.elf64.shdr[shstr_sec_i].sh_size;
+                memset((void *)elf->mem + elf->data.elf64.shdr[shstr_sec_i].sh_offset + elf->data.elf64.shdr[shstr_sec_i].sh_size, 0, strlen(name) + 1);
+                strcpy((char *)elf->mem + elf->data.elf64.shdr[shstr_sec_i].sh_offset + elf->data.elf64.shdr[shstr_sec_i].sh_size, name);
+                elf->data.elf64.shdr[shstr_sec_i].sh_size += strlen(name) + 1;
+            } else {
+                return ERR_EXPANDSEG;
+            }
+
+            return TRUE;
+        } else {
+            PRINT_VERBOSE("dynstr is not in an isolated PT_LOAD segment, add a new segment\n");
+            size_t src_len = elf->data.elf64.shdr[shstr_sec_i].sh_size;
+            size_t dst_len = src_len + strlen(name) + 1;
+            if (add_segment_auto(elf, dst_len, &seg_i) != TRUE) {
+                return ERR_ADDSEG;
+            }
+
+            uint64_t dst_offset = elf->data.elf64.phdr[seg_i].p_offset;
+            uint64_t dst_addr = elf->data.elf64.phdr[seg_i].p_vaddr;
+            void *src = (void *)elf->mem + elf->data.elf64.shdr[shstr_sec_i].sh_offset;
+            void *dst = (void *)elf->mem + dst_offset;
+
+            if (copy_data(src, dst, src_len) == TRUE) {
+                // new section shdr table
+                elf->data.elf64.shdr[shstr_sec_i].sh_offset = dst_offset;
+                // elf->data.elf64.shdr[shstr_sec_i].sh_addr = dst_addr;
+                elf->data.elf64.shdr[shstr_sec_i].sh_size = dst_len;
+                memset(dst + src_len, 0, strlen(name) + 1);
+                strcpy(dst + src_len, name);
+                // new section name offset
+                *name_offset = src_len;
+                return TRUE;
+            } else {
+                return ERR_COPY;
+            }
+        }
+    } else {
+        return ERR_CLASS;
+    }
+    return TRUE;
+}
+
+/**
  * @brief 设置符号表的名字
  * Set a new symbol name
  * @param elf Elf custom structure
@@ -1864,7 +1956,7 @@ int set_interpreter(Elf *elf, char *new_interpreter) {
         PRINT_VERBOSE("need to add a segment\n");
         // 添加一个新的load段，存放新的interpreter字符串
         // add a new load segment to store the new interpreter string
-        uint32_t seg_added = 0;
+        size_t seg_added = 0;
         int err = add_segment_easy(elf, strlen(new_interpreter) + 1, &seg_added);
         if (err != TRUE) {
             return err;
@@ -1892,7 +1984,7 @@ int set_interpreter(Elf *elf, char *new_interpreter) {
         PRINT_VERBOSE("need to add a segment\n");
         // 添加一个新的load段，存放新的interpreter字符串
         // add a new load segment to store the new interpreter string
-        uint64_t seg_added = 0;
+        size_t seg_added = 0;
         int err = add_segment_easy(elf, strlen(new_interpreter) + 1, &seg_added);
         if (err != TRUE) {
             return err;
@@ -2461,7 +2553,7 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
  * @param added_index segment index
  * @return error code
  */
-int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, uint64_t *added_index) {
+int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, size_t *added_index) {
     int is_break = 0;
     uint64_t last_load = 0;
     size_t added_size = align_page(size);
@@ -2496,7 +2588,7 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, uint64_t *added_
             if (is_break) break;
         }
         
-        if (!is_break) {
+        if (!is_break && !mov_pht) {
             return ERR_SEG_NOTFOUND;
         }
 
@@ -2534,7 +2626,6 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, uint64_t *added_
         ftruncate(elf->fd, new_size);
         void* new_map = mremap(elf->mem, elf->size, new_size, MREMAP_MAYMOVE);
         if (new_map == MAP_FAILED) {
-            perror("mremap");
             return ERR_MMAP;
         } else {
             // reinit custom elf structure
@@ -2585,7 +2676,6 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, uint64_t *added_
                 reinit(elf);
                 for (int i = 0; i < elf->data.elf32.ehdr->e_phnum; i++) {
                     if (elf->data.elf32.phdr[i].p_type = PT_PHDR) {
-                        printf("i=%d , offset=%x, dst_offset=%x\n", i, elf->data.elf32.phdr[i].p_offset, pht_offset);
                         elf->data.elf32.phdr[i].p_offset = pht_offset;
                         elf->data.elf32.phdr[i].p_vaddr = pht_addr;
                         elf->data.elf32.phdr[i].p_paddr = pht_addr;
@@ -2627,7 +2717,7 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, uint64_t *added_
             if (is_break) break;
         }
         
-        if (!is_break) {
+        if (!is_break && !mov_pht) {
             return ERR_SEG_NOTFOUND;
         }
 
@@ -2665,7 +2755,6 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, uint64_t *added_
         ftruncate(elf->fd, new_size);
         void* new_map = mremap(elf->mem, elf->size, new_size, MREMAP_MAYMOVE);
         if (new_map == MAP_FAILED) {
-            perror("mremap");
             return ERR_MMAP;
         } else {
             // reinit custom elf structure
@@ -2716,7 +2805,6 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, uint64_t *added_
                 reinit(elf);
                 for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
                     if (elf->data.elf64.phdr[i].p_type = PT_PHDR) {
-                        printf("i=%d , offset=%x, dst_offset=%x\n", i, elf->data.elf64.phdr[i].p_offset, pht_offset);
                         elf->data.elf64.phdr[i].p_offset = pht_offset;
                         elf->data.elf64.phdr[i].p_vaddr = pht_addr;
                         elf->data.elf64.phdr[i].p_paddr = pht_addr;
@@ -2755,7 +2843,7 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, uint64_t *added_
  * @param added_index segment index
  * @return error code
  */
-int add_segment_easy(Elf *elf, size_t size, uint64_t *added_index) {
+int add_segment_easy(Elf *elf, size_t size, size_t *added_index) {
     return add_segment_common(elf, size, 0, added_index);
 }
 
@@ -2777,7 +2865,7 @@ int add_segment_easy(Elf *elf, size_t size, uint64_t *added_index) {
  * @param added_index segment index
  * @return error code
  */
-int add_segment_difficult(Elf *elf, size_t size, uint64_t *added_index) {
+int add_segment_difficult(Elf *elf, size_t size, size_t *added_index) {
     return add_segment_common(elf, size, 1, added_index);
 }
 
@@ -2883,7 +2971,13 @@ int add_dynseg_difficult(Elf *elf, int type, uint64_t value) {
  */
 int add_dynseg_auto(Elf *elf, int type, uint64_t value) {
     if (elf->class == ELFCLASS32) {
-        ;
+        int index = get_dynseg_index_by_tag(elf, DT_NULL);
+        if (index == ERR_DYN_NOTFOUND) {
+            return add_dynseg_difficult(elf, type, value);
+        } else {
+            elf->data.elf32.dyn_segment_entry[index].d_tag = type;
+            elf->data.elf32.dyn_segment_entry[index].d_un.d_ptr = value;
+        }
     } else if (elf->class == ELFCLASS64) {
         int index = get_dynseg_index_by_tag(elf, DT_NULL);
         if (index == ERR_DYN_NOTFOUND) {
@@ -2897,6 +2991,91 @@ int add_dynseg_auto(Elf *elf, int type, uint64_t value) {
         return ERR_CLASS;
     }
     return TRUE;
+}
+
+/**
+ * @brief 增加一个节表项
+ * Add a section entry
+ * @param elf Elf custom structure
+ * @param added_index section index
+ * @return error code
+ */
+int add_section_entry(Elf *elf, uint64_t *added_index) {
+    if (elf->class == ELFCLASS32) {
+        size_t new_size = elf->size + elf->data.elf32.ehdr->e_shentsize;
+        ftruncate(elf->fd, new_size);
+        void* new_map = mremap(elf->mem, elf->size, new_size, MREMAP_MAYMOVE);
+        if (new_map == MAP_FAILED) {
+            return ERR_MMAP;
+        } else {
+            // reinit custom elf structure
+            elf->mem = new_map;
+            elf->size = new_size;
+            reinit(elf);
+        }
+        elf->data.elf32.ehdr->e_shnum++;
+        *added_index = elf->data.elf32.ehdr->e_shnum - 1;
+        return TRUE;
+    } else if (elf->class == ELFCLASS64) {
+        size_t new_size = elf->size + elf->data.elf64.ehdr->e_shentsize;
+        ftruncate(elf->fd, new_size);
+        void* new_map = mremap(elf->mem, elf->size, new_size, MREMAP_MAYMOVE);
+        if (new_map == MAP_FAILED) {
+            return ERR_MMAP;
+        } else {
+            // reinit custom elf structure
+            elf->mem = new_map;
+            elf->size = new_size;
+            reinit(elf);
+        }
+        elf->data.elf64.ehdr->e_shnum++;
+        *added_index = elf->data.elf64.ehdr->e_shnum - 1;
+        return TRUE;
+    } else {
+        return ERR_CLASS;
+    }
+}
+
+/**
+ * @brief 增加一个节，自动选择增加方式
+ * Add a section, automatically choose the addition method
+ * @param elf Elf custom structure
+ * @param size section size
+ * @param name section name
+ * @param added_index section index
+ * @return error code
+ */
+int add_section_auto(Elf *elf, size_t size, const char *name, uint64_t *added_index) {
+    uint64_t added_seg_i = 0;
+    int err = add_segment_auto(elf, size, &added_seg_i);
+    if (err != TRUE) {
+        return err;
+    }
+
+    err = add_section_entry(elf, added_index);
+    if (err != TRUE) {
+        return err;
+    }
+
+    uint64_t name_offset = 0;
+    err = add_shstr_name(elf, name, &name_offset);;
+    if (err != TRUE) {
+        return err;
+    }
+
+    if (elf->class == ELFCLASS32) {
+        elf->data.elf32.shdr[*added_index].sh_name = name_offset;
+        elf->data.elf32.shdr[*added_index].sh_offset = elf->data.elf32.phdr[added_seg_i].p_offset;
+        elf->data.elf32.shdr[*added_index].sh_size = elf->data.elf32.phdr[added_seg_i].p_filesz;
+        return TRUE;
+    } else if (elf->class == ELFCLASS64) {
+        elf->data.elf64.shdr[*added_index].sh_name = name_offset;
+        elf->data.elf64.shdr[*added_index].sh_offset = elf->data.elf64.phdr[added_seg_i].p_offset;
+        elf->data.elf64.shdr[*added_index].sh_size = elf->data.elf64.phdr[added_seg_i].p_filesz;
+        return TRUE;
+    } else {
+        return ERR_CLASS;
+    }
 }
 
 /**
