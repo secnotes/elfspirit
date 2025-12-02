@@ -71,10 +71,7 @@ parser_opt_t po;
 /* Additional long parameters */
 static int g_long_option;
 enum LONG_OPTION {
-    EDIT_SECTION_FLAGS = 1,
-    EDIT_SEGMENT_FLAGS,
-    EDIT_POINTER,
-    SET_POINTER,
+    SET_POINTER = 1,
     SET_CONTENT,
     SET_INTERPRETER,
     ADD_SEGMENT,
@@ -146,10 +143,7 @@ static const struct option longopts[] = {
     {"row", required_argument, NULL, 'i'},
     {"column", required_argument, NULL, 'j'},
     {"length", required_argument, NULL, 'l'},
-    {"edit-section-flags", no_argument, &g_long_option, EDIT_SECTION_FLAGS},
-    {"edit-segment-flags", no_argument, &g_long_option, EDIT_SEGMENT_FLAGS},
-    {"edit-pointer", no_argument, &g_long_option, EDIT_POINTER},
-    {"set-pointer", no_argument, &g_long_option, SET_POINTER},
+    {"edit-pointer", no_argument, &g_long_option, SET_POINTER},
     {"edit-hex", no_argument, &g_long_option, SET_CONTENT},
     {"set-interpreter", no_argument, &g_long_option, SET_INTERPRETER},
     {"add-segment", no_argument, &g_long_option, ADD_SEGMENT},
@@ -223,11 +217,8 @@ static const char *help =
     "  elfspirit injectso [-n]<section name> [-f]<so name> [-c]<configure file>\n"
     "                     [-v]<libc version> ELF\n" 
     "  elfspirit checksec ELF\n"
-    "  elfspirit --edit-section-flags [-i]<row of section> [-m]<permission> ELF\n"
-    "  elfspirit --edit-segment-flags [-i]<row of segment> [-m]<permission> ELF\n"
-    "  elfspirit --edit-hex     [-o]<offset> [-s]<hex string> [-z]<size> ELF\n"
-    "  elfspirit --edit-pointer [-n]<section name> [-i]<index of item> [-m]<pointer value> ELF\n"
-    "  elfspirit --set-pointer  [-o]<offset> [-m]<pointer value> ELF\n"
+    "  elfspirit --edit-hex      [-o]<offset> [-s]<hex string> [-z]<size> ELF\n"
+    "  elfspirit --edit-pointer  [-o]<offset> [-m]<pointer value> ELF\n"
     "  elfspirit --set-interpreter [-s]<new interpreter> ELF\n"
     "  elfspirit --set-rpath [-s]<rpath> ELF\n"
     "  elfspirit --set-runpath [-s]<runpath> ELF\n"
@@ -296,11 +287,8 @@ static const char *help_chinese =
     "  elfspirit injectso [-n]<节的名字> [-f]<so的名字> [-c]<配置文件>\n"
     "                     [-v]<libc的版本> ELF\n"
     "  elfspirit checksec ELF\n"
-    "  elfspirit --edit-section-flags [-i]<第几个节> [-m]<权限值> ELF\n"
-    "  elfspirit --edit-segment-flags [-i]<第几个段> [-m]<权限值> ELF\n"
-    "  elfspirit --edit-hex     [-o]<偏移> [-s]<hex string> [-z]<size> ELF\n"
-    "  elfspirit --edit-pointer [-n]<section name> [-i]<第几个条目> [-m]<指针值> ELF\n"
-    "  elfspirit --set-pointer  [-o]<偏移> [-m]<指针值> ELF\n"
+    "  elfspirit --edit-hex      [-o]<偏移> [-s]<hex string> [-z]<size> ELF\n"
+    "  elfspirit --edit-pointer  [-o]<偏移> [-m]<指针值> ELF\n"
     "  elfspirit --set-interpreter [-s]<新的链接器> ELF\n"
     "  elfspirit --set-rpath [-s]<rpath> ELF\n"
     "  elfspirit --set-runpath [-s]<runpath> ELF\n"
@@ -520,32 +508,29 @@ static void readcmdline(int argc, char *argv[]) {
         if (g_long_option) {
             switch (g_long_option)
             {
-                case EDIT_SECTION_FLAGS:
-                    /* modify section information */
-                    set_section_flags(elf_name, row, value);
-                    break;
-
-                case EDIT_SEGMENT_FLAGS:
-                    /* modify segment information */
-                    set_segment_flags(elf_name, row, value);
-                    break;
-                
-                case EDIT_POINTER:
-                    /* edit pointer */
-                    edit_pointer_value(elf_name, row, value, section_name);
-                    break;
-
                 case SET_POINTER:
                     /* set pointer */
-                    set_pointer(elf_name, off, value);
+                    init(elf_name, &elf);
+                    err = edit_pointer(&elf, off, value);
+                    print_error(err);
+                    finit(&elf);
                     break;
 
                 case SET_CONTENT:
                     /* set content */
-                    g_shellcode = malloc(size);
-                    cmdline_shellcode(string, g_shellcode);
-                    set_content(elf_name, off, g_shellcode, size);
-                    free(g_shellcode);
+                    init(elf_name, &elf);
+                    char * shellcode = calloc(size, 1);
+                    err = escaped_str_to_mem(string, shellcode);
+                    if (err != TRUE) {
+                        free(shellcode);
+                        print_error(err);
+                        exit(-1);
+                    }
+
+                    err = edit_hex(&elf, off, shellcode, size);
+                    print_error(err);
+                    free(shellcode);
+                    finit(&elf);
                     break;
 
                 case SET_INTERPRETER:

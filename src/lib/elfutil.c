@@ -3537,7 +3537,7 @@ int escaped_str_to_mem(char *sc_str, char *sc_mem) {
     if (strlen(sc_str) % 4 != 0) 
         return ERR_ARGS;
     else {
-        printf("shellcode: ");
+        printf("[+] shellcode: ");
         for (int i = 0; i < strlen(sc_str); i += 4) {
             unsigned char value;
             sscanf(&sc_str[i], "\\x%2hhx", &value);
@@ -3576,4 +3576,58 @@ int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new) 
     close(fd_new);
     printf("[+] Create file: %s\n", new_name);
     return 0;
+}
+
+/**
+ * @brief 编辑ELF文件的十六进制内容
+ * Edit the hex content of ELF file
+ * @param elf Elf custom structure
+ * @param offset edit start offset
+ * @param data edit data
+ * @param size edit size
+ * @return error code
+ */
+int edit_hex(Elf *elf, uint64_t offset, uint8_t *data, size_t size) {
+    if (offset + size > elf->size) {
+        return ERR_ARGS;
+    }
+
+    void *dst = elf->mem + offset;
+    if (!memcpy(dst, data, size)) {
+        return ERR_COPY;
+    }
+
+    return TRUE;
+}
+
+/**
+ * @brief 编辑ELF文件的指针内容
+ * Edit the pointer content of ELF file
+ * @param elf Elf custom structure
+ * @param offset edit start offset
+ * @param value edit value
+ * @return error code
+ */
+int edit_pointer(Elf *elf, uint64_t offset, uint64_t value) {
+    if (elf->class == ELFCLASS32) {
+        if (offset + sizeof(uint32_t) > elf->size) {
+            return ERR_ARGS;
+        }
+        uint32_t val32 = (uint32_t)value;
+        void *dst = elf->mem + offset;
+        if (!memcpy(dst, &val32, sizeof(uint32_t))) {
+            return ERR_COPY;
+        }
+    } else if (elf->class == ELFCLASS64) {
+        if (offset + sizeof(uint64_t) > elf->size) {
+            return ERR_ARGS;
+        }
+        void *dst = elf->mem + offset;
+        if (!memcpy(dst, &value, sizeof(uint64_t))) {
+            return ERR_COPY;
+        }
+    } else {
+        return ERR_CLASS;
+    }
+    return TRUE;
 }

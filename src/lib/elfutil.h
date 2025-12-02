@@ -403,26 +403,6 @@ int strip(Elf *elf);
 int add_elf_header(uint8_t *bin, uint8_t *arch, uint32_t class, uint8_t *endian, uint64_t base_addr);
 
 /**
- * @brief 将命令行传入的shellcode，转化为内存实际值
- * convert the shellcode passed in from the command line to the actual value in memory
- * @param sc_str input shellcode string
- * @param sc_mem output shellcode memory
- * @return error code
- */
-int escaped_str_to_mem(char *sc_str, char *sc_mem);
-
-/**
- * @brief 创建文件
- * Create a file
- * @param file_name file name
- * @param map file content
- * @param map_size file size
- * @param is_new create new file or overwrite the old file
- * @return int error code {-1:error,0:sucess}
- */
-int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new);
-
-/**
  * @brief 设置新的解释器（动态链接器）
  * set up a new interpreter (dynamic linker)
  * @param elf_name elf file name
@@ -448,3 +428,46 @@ int set_rpath(Elf *elf, char *rpath);
  * @return error code
  */
 int set_runpath(Elf *elf, char *runpath);
+
+/***********************file***********************/
+
+/**
+ * @brief 将命令行传入的shellcode，转化为内存实际值
+ * convert the shellcode passed in from the command line to the actual value in memory
+ * @param sc_str input shellcode string
+ * @param sc_mem output shellcode memory
+ * @return error code
+ */
+int escaped_str_to_mem(char *sc_str, char *sc_mem);
+
+/**
+ * @brief 创建文件
+ * Create a file
+ * @param file_name file name
+ * @param map file content
+ * @param map_size file size
+ * @param is_new create new file or overwrite the old file
+ * @return int error code {-1:error,0:sucess}
+ */
+int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new);
+
+/**
+ * @brief 编辑ELF文件的十六进制内容
+ * Edit the hex content of ELF file
+ * @param elf Elf custom structure
+ * @param offset edit start offset
+ * @param data edit data
+ * @param size edit size
+ * @return error code
+ */
+int edit_hex(Elf *elf, uint64_t offset, uint8_t *data, size_t size);
+
+/**
+ * @brief 编辑ELF文件的指针内容
+ * Edit the pointer content of ELF file
+ * @param elf Elf custom structure
+ * @param offset edit start offset
+ * @param value edit value
+ * @return error code
+ */
+int edit_pointer(Elf *elf, uint64_t offset, uint64_t value);
