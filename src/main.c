@@ -31,7 +31,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "addsec.h"
 #include "injectso.h"
 #include "delete.h"
 #include "parse.h"
@@ -71,8 +70,9 @@ parser_opt_t po;
 /* Additional long parameters */
 static int g_long_option;
 enum LONG_OPTION {
-    SET_POINTER = 1,
-    SET_CONTENT,
+    EDIT_POINTER = 1,
+    EDIT_CONTENT,
+    EDIT_EXTRACT,
     SET_INTERPRETER,
     ADD_SEGMENT,
     ADD_SECTION,
@@ -143,8 +143,9 @@ static const struct option longopts[] = {
     {"row", required_argument, NULL, 'i'},
     {"column", required_argument, NULL, 'j'},
     {"length", required_argument, NULL, 'l'},
-    {"edit-pointer", no_argument, &g_long_option, SET_POINTER},
-    {"edit-hex", no_argument, &g_long_option, SET_CONTENT},
+    {"edit-pointer", no_argument, &g_long_option, EDIT_POINTER},
+    {"edit-hex", no_argument, &g_long_option, EDIT_CONTENT},
+    {"edit-extract", no_argument, &g_long_option, EDIT_EXTRACT},
     {"set-interpreter", no_argument, &g_long_option, SET_INTERPRETER},
     {"add-segment", no_argument, &g_long_option, ADD_SEGMENT},
     {"add-section", no_argument, &g_long_option, ADD_SECTION},
@@ -209,16 +210,14 @@ static const char *help =
     "  elfspirit hex2bin  [-s]<shellcode hex> [-z]<size>\n"
     "  elfspirit bin2elf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-b]<base address> ELF\n"
     "  elfspirit joinelf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-c]<configuration file> OUT_ELF\n"
-    "  elfspirit extract  [-n]<section name> ELF\n"
-    "                     [-o]<file offset> [-z]<size> ELF\n"
     "  elfspirit hook [-s]<hook symbol> [-f]<new function bin> [-o]<new function start offset> ELF\n"
     "  elfspirit exe2so   [-s]<symbol> [-m]<function offset> [-z]<function size> ELF\n"
-    "  elfspirit addsec   [-n]<section name> [-z]<section size> [-o]<offset(optional)> ELF\n"
     "  elfspirit injectso [-n]<section name> [-f]<so name> [-c]<configure file>\n"
     "                     [-v]<libc version> ELF\n" 
     "  elfspirit checksec ELF\n"
-    "  elfspirit --edit-hex      [-o]<offset> [-s]<hex string> [-z]<size> ELF\n"
-    "  elfspirit --edit-pointer  [-o]<offset> [-m]<pointer value> ELF\n"
+    "  elfspirit --edit-hex      [-o]<offset> [-s]<hex string> [-z]<size> file\n"
+    "  elfspirit --edit-pointer  [-o]<offset> [-m]<pointer value> file\n"
+    "  elfspirit --edit-extract  [-o]<file offset> [-z]<size> file\n"
     "  elfspirit --set-interpreter [-s]<new interpreter> ELF\n"
     "  elfspirit --set-rpath [-s]<rpath> ELF\n"
     "  elfspirit --set-runpath [-s]<runpath> ELF\n"
@@ -279,16 +278,14 @@ static const char *help_chinese =
     "  elfspirit hex2bin  [-s]<shellcode> [-z]<size>\n" 
     "  elfspirit bin2elf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-b]<基地址> ELF\n"
     "  elfspirit joinelf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-c]<配置文件> OUT_ELF\n"
-    "  elfspirit extract  [-n]<节的名字> ELF\n"
-    "                     [-o]<节的偏移> [-z]<size> ELF\n"
     "  elfspirit hook [-s]<hook函数名> [-f]<新的函数二进制> [-o]<新函数偏移> ELF\n"
     "  elfspirit exe2so   [-s]<函数名> [-m]<函数偏移> [-z]<函数大小> ELF\n"
-    "  elfspirit addsec   [-n]<节的名字> [-z]<节的大小> [-o]<节的偏移(可选项)> ELF\n"
     "  elfspirit injectso [-n]<节的名字> [-f]<so的名字> [-c]<配置文件>\n"
     "                     [-v]<libc的版本> ELF\n"
     "  elfspirit checksec ELF\n"
-    "  elfspirit --edit-hex      [-o]<偏移> [-s]<hex string> [-z]<size> ELF\n"
-    "  elfspirit --edit-pointer  [-o]<偏移> [-m]<指针值> ELF\n"
+    "  elfspirit --edit-hex      [-o]<偏移> [-s]<hex string> [-z]<size> file\n"
+    "  elfspirit --edit-pointer  [-o]<偏移> [-m]<指针值> file\n"
+    "  elfspirit --edit-extract  [-o]<节的偏移> [-z]<size> file\n"
     "  elfspirit --set-interpreter [-s]<新的链接器> ELF\n"
     "  elfspirit --set-rpath [-s]<rpath> ELF\n"
     "  elfspirit --set-runpath [-s]<runpath> ELF\n"
@@ -508,7 +505,7 @@ static void readcmdline(int argc, char *argv[]) {
         if (g_long_option) {
             switch (g_long_option)
             {
-                case SET_POINTER:
+                case EDIT_POINTER:
                     /* set pointer */
                     init(elf_name, &elf);
                     err = edit_pointer(&elf, off, value);
@@ -516,7 +513,7 @@ static void readcmdline(int argc, char *argv[]) {
                     finit(&elf);
                     break;
 
-                case SET_CONTENT:
+                case EDIT_CONTENT:
                     /* set content */
                     init(elf_name, &elf);
                     char * shellcode = calloc(size, 1);
@@ -531,6 +528,12 @@ static void readcmdline(int argc, char *argv[]) {
                     print_error(err);
                     free(shellcode);
                     finit(&elf);
+                    break;
+
+                case EDIT_EXTRACT:
+                    /* set contract */
+                    err = extract_fragment(elf_name, off, size, NULL);
+                    print_error(err);
                     break;
 
                 case SET_INTERPRETER:
@@ -647,11 +650,6 @@ static void readcmdline(int argc, char *argv[]) {
         MODE = get_elf_class(elf_name);
     }
 
-    /* add a section */
-    if (!strcmp(function, "addsec")) {
-        add_section_bak(elf_name, off, section_name, size);
-    }
-
     /* inject so */
     if (!strcmp(function, "injectso")) {
         char *so_name = file;
@@ -675,17 +673,6 @@ static void readcmdline(int argc, char *argv[]) {
     /* connect each bin in firmware for IDA */
     if (!strcmp(function, "joinelf")) {
         join_elf(config_name, arch, class, endian, elf_name);
-    }
-
-    /* extract binary fragments */
-    if (!strcmp(function, "extract")) {
-        if (strlen(section_name) != 0) {
-            off = get_section_offset(elf_name, section_name);
-            size = get_section_size(elf_name, section_name);
-            extract_fragment(elf_name, off, size, NULL);
-        } else if (size != 0) {
-            extract_fragment(elf_name, off, size, NULL);
-        }
     }
 
     /* edit elf */

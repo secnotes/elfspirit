@@ -750,60 +750,6 @@ uint64_t get_entry(char *elf_name) {
 }
 
 /**
- * @brief Extract binary fragments from the target file
- * 
- * @param input_file original file name
- * @param offset start address
- * @param size end address(size)
- * @param output fragments content
- * @return error code {-1:error,0:sucess}
- */
-int extract_fragment(const char *input_file, long offset, size_t size, char *output) {
-    FILE *input_fp = fopen(input_file, "rb");
-    if (input_fp == NULL) {
-        perror("open input file");
-        return -1;
-    }
-
-    // 设置文件指针偏移量
-    fseek(input_fp, offset, SEEK_SET);
-
-    // 读取指定大小的数据
-    unsigned char *buffer = (unsigned char *)malloc(size);
-    if (buffer == NULL) {
-        perror("memory allocation");
-        fclose(input_fp);
-        return -1;
-    }
-
-    fread(buffer, 1, size, input_fp);
-    for (int i = 0; i < size; i++) {
-        printf("\\x%02x", buffer[i]);
-    }
-    printf("\n");
-    if (output)
-        memcpy(output, buffer, size);
-
-    // 关闭输入文件
-    fclose(input_fp);
-
-    // 写入数据到一个新文件
-    FILE *output_fp = fopen(g_out_name, "wb");
-    if (output_fp == NULL) {
-        perror("Error creating output file");
-        free(buffer);
-        return -1;
-    }
-
-    fwrite(buffer, 1, size, output_fp);
-    printf("write to %s\n", g_out_name);
-
-    // 关闭输出文件
-    fclose(output_fp);
-    free(buffer);
-}
-
-/**
  * @brief 向ELF文件特定偏移处，写入一段数据
  * Write a piece of data to a specific offset in the ELF file
  * @param elf_name elf file name

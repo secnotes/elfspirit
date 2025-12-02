@@ -3563,7 +3563,7 @@ int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new) 
     char new_name[MAX_PATH];
     memset(new_name, 0, MAX_PATH);
     if (is_new) 
-        snprintf(new_name, MAX_PATH, "%s.elf", file_name);
+        snprintf(new_name, MAX_PATH, "%s.out", file_name);
     else
         strncpy(new_name, file_name, MAX_PATH);
         
@@ -3575,7 +3575,7 @@ int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new) 
     write(fd_new, map, map_size);  
     close(fd_new);
     printf("[+] Create file: %s\n", new_name);
-    return 0;
+    return TRUE;
 }
 
 /**
@@ -3630,4 +3630,42 @@ int edit_pointer(Elf *elf, uint64_t offset, uint64_t value) {
         return ERR_CLASS;
     }
     return TRUE;
+}
+
+/**
+ * @brief 从文件中提取指定偏移和大小的数据片段
+ * Extract a data fragment from a file at a specified offset and size
+ * @param file_name input file name
+ * @param offset extract start offset
+ * @param size extract size
+ * @param output output buffer
+ * @return error code
+ */
+int extract_fragment(const char *file_name, long offset, size_t size, char *output) {
+    FILE *input_fp = fopen(file_name, "rb");
+    if (input_fp == NULL) {
+        return ERR_OPEN;
+    }
+
+    // 设置文件指针偏移量
+    fseek(input_fp, offset, SEEK_SET);
+
+    // 读取指定大小的数据
+    unsigned char *buffer = (unsigned char *)malloc(size);
+    if (buffer == NULL) {
+        fclose(input_fp);
+        return ERR_MMAP;
+    }
+
+    fread(buffer, 1, size, input_fp);
+    for (int i = 0; i < size; i++) {
+        printf("\\x%02x", buffer[i]);
+    }
+    printf("\n");
+    if (output)
+        memcpy(output, buffer, size);
+
+    mem_to_file(file_name, buffer, size, 1);
+    free(buffer);
+    fclose(input_fp);
 }

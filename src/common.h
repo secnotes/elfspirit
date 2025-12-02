@@ -25,6 +25,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <elf.h>
 
 #include "cJSON/cJSON.h"
 
@@ -226,18 +229,6 @@ uint64_t get_phdr_offset(char *elf_name);
  */
 uint64_t get_entry(char *elf_name);
 
-/**
- * @brief Extract binary fragments from the target file
- * 
- * @param input_file original file name
- * @param offset start address
- * @param size end address(size)
- * @param output fragments content
- * @return error code {-1:error,0:sucess}
- */
-int extract_fragment(const char *input_file, long offset, size_t size, char *output);
-
-
 /* EXTERN API */
 /**
  * @description: Judge whether the memory address is legal
@@ -255,15 +246,6 @@ int validated_offset(uint64_t addr, uint64_t start, uint64_t end);
  * @return int {1:true,0:false}
  */
 int is_pie(char *elfname);
-
-/**
- * @brief 编辑指针
- * edit pointers in the ELF files
- * @param elf_name elf file name
- * @param offset start elf file offset
- * @return int error code {-1:error,0:sucess}
- */
-int set_pointer(char *elf_name, uint64_t offset, uint64_t value);
 
 /**
  * @brief 向ELF文件特定偏移处，写入一段数据

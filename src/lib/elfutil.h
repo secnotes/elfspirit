@@ -471,3 +471,14 @@ int edit_hex(Elf *elf, uint64_t offset, uint8_t *data, size_t size);
  * @return error code
  */
 int edit_pointer(Elf *elf, uint64_t offset, uint64_t value);
+
+/**
+ * @brief 从文件中提取指定偏移和大小的数据片段
+ * Extract a data fragment from a file at a specified offset and size
+ * @param input_file input file name
+ * @param offset extract start offset
+ * @param size extract size
+ * @param output output buffer
+ * @return error code
+ */
+int extract_fragment(const char *input_file, long offset, size_t size, char *output);

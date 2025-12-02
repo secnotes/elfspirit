@@ -22,6 +22,8 @@
  SOFTWARE.
 */
 
+#include <stdint.h>
+
 /**
  * @description: delete data from ELF memory
  * @param {char} *elf_map
@@ -42,16 +44,6 @@ char *delete_data_from_mem(char *elf_map, uint32_t file_size, uint32_t offset, u
  * @return int error code {-1:error,0:sucess}
  */
 int delete_data_from_file(char *file_name, uint64_t offset, size_t size);
-
-/**
- * @brief 清理节的内容，但是并没有改变节的大小
- * clean up the content of the section, but do not change the size of the section
- * @param elf_name elf file name
- * @param section_name section name
- * @param config_name multi section name
- * @return int error code {-1:error,0:sucess}
- */
-int clear_section(char *elf_name, char *section_name, char *config_name);
 
 /**
  * @brief 删除节头表
