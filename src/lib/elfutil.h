@@ -36,6 +36,7 @@ typedef struct Elf32_Data {
     Elf32_Shdr *dynsym;
     Elf32_Sym *sym_entry;
     Elf32_Sym *dynsym_entry;
+    Elf32_Sym *dynsym_count;
     Elf32_Dyn *dyn_segment_entry;
     size_t dyn_segment_count;
 } Elf32;
@@ -53,6 +54,7 @@ typedef struct Elf64_Data {
     Elf64_Shdr *dynsym;     // .dynsym->dynstr
     Elf64_Sym *sym_entry;
     Elf64_Sym *dynsym_entry;
+    Elf64_Sym *dynsym_count;
     Elf64_Dyn *dyn_segment_entry;
     size_t dyn_segment_count;
 } Elf64;
@@ -68,6 +70,15 @@ typedef struct Elf_Data{
         Elf64 elf64;
     } data;
 } Elf;
+
+typedef struct GnuHash {
+    uint32_t nbuckets;      // 桶的数量
+    uint32_t symndx;        // 符号表的开始索引
+    uint32_t maskbits;      // 掩码位数
+    uint32_t shift;         // 用于计算哈希值的位移量
+    uint32_t buckets[];     // 桶数组，大小为 nbuckets
+    // 后面可能跟着链表和其他数据
+} gnuhash_t;
 
 /**
  * @brief 打印错误信息
@@ -258,7 +269,7 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name);
  * @return error code
  */
 int set_sym_name_t(Elf *elf, char *src_name, char *dst_name);
-int set_dynsym_name(Elf *elf, char *src_name, char *dst_name);
+int set_dynstr_name(Elf *elf, char *src_name, char *dst_name);
 
 /**
  * @brief 添加符号名字
@@ -269,7 +280,7 @@ int set_dynsym_name(Elf *elf, char *src_name, char *dst_name);
  * @return error code
  */
 int add_shstr_name(Elf *elf, char *name, uint64_t *name_offset);
-int add_dynsym_name(Elf *elf, char *name, uint64_t *name_offset);
+int add_dynstr_name(Elf *elf, char *name, uint64_t *name_offset);
 
 /**
  * @brief 扩充一个段，默认只扩充最后一个类型为PT_LOAD的段
@@ -292,6 +303,18 @@ int expand_segment_test(Elf *elf, size_t size);
  * @return error code
  */
 int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_offset, uint64_t *added_vaddr);
+
+/**
+ * @brief 扩充一个节或者一个段
+ * expand a section or segment
+ * @param elf Elf custom structure 
+ * @param offset sec/seg offset
+ * @param org_size sec/seg origin size
+ * @param add_content new added content
+ * @param content_size new added content size
+ * @return error code
+ */
+int expand_segment_content(Elf *elf, uint64_t org_offset, size_t org_size, char *add_content, size_t content_size);
 
 /**
  * @brief 增加一个段，但是不在PHT增加新条目。我们可以通过修改不重要的段条目，比如类型为PT_NOTE、PT_NULL的段，实现这一功能。
@@ -355,6 +378,25 @@ int add_dynseg_auto(Elf *elf, int type, uint64_t value);
  * @return error code
  */
 int add_dynseg_difficult(Elf *elf, int type, uint64_t value);
+
+/**
+ * @brief 增加一个.dynsym table条目
+ * add a dynamic symbol stable item
+ * @param elf Elf custom structure
+ * @param name dynamic symbol name
+ * @param value dynamic symbol address
+ * @param code_size func size
+ * @return int error code
+ */
+int add_dynsym_entry(Elf *elf, char *name, uint64_t value, size_t code_size);
+
+/**
+ * @brief 刷新ELF文件的.gnu.hash节
+ * Refresh the .gnu.hash section of ELF file
+ * @param elf Elf custom structure
+ * @return error code
+ */
+int refresh_hash_table(Elf *elf);
 
 /**i
  * @brief 获取elf文件类型
@@ -475,10 +517,10 @@ int edit_pointer(Elf *elf, uint64_t offset, uint64_t value);
 /**
  * @brief 从文件中提取指定偏移和大小的数据片段
  * Extract a data fragment from a file at a specified offset and size
- * @param input_file input file name
+ * @param file_name input file name
  * @param offset extract start offset
  * @param size extract size
  * @param output output buffer
  * @return error code
  */
-int extract_fragment(const char *input_file, long offset, size_t size, char *output);
+int extract_fragment(const char *file_name, long offset, size_t size, char *output);

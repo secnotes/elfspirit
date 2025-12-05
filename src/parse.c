@@ -31,6 +31,7 @@
 #include <stdarg.h>
 #include "common.h"
 #include "parse.h"
+#include "lib/elfutil.h"
 
 #ifdef ANDROID
 #define ELF32_ST_VISIBILITY(o)	((o) & 0x03)
@@ -152,7 +153,7 @@ struct ElfData g_relplt;
 struct ElfData g_unmapped_section;
 uint32_t g_strlength;
 
-void static init() {
+void static init_t() {
     memset(&g_dynsym, 0, sizeof(struct ElfData));
     memset(&g_symtab, 0, sizeof(struct ElfData));
     memset(&g_secname, 0, sizeof(struct ElfData));
@@ -5458,7 +5459,7 @@ int parse(char *elf, parser_opt_t *po, uint32_t length) {
     char *name = NULL;
     char flag[4] = "\0";
 
-    init();
+    init_t();
 
     if (!length) {
         g_strlength = 15;

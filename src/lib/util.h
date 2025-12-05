@@ -1,12 +1,30 @@
-#define NONE      "\e[0m"              // Clear color 清除颜色，即之后的打印为正常输出，之前的不受影响
-#define RED     "\e[1;31m"           // Light Red 鲜红
-#define GREEN   "\e[1;32m"           // Light Green 鲜绿
-#define YELLOW    "\e[1;33m"           // Light Yellow 鲜黄
+#define NONE         "\033[m"
+#define RED          "\033[0;32;31m"
+#define LIGHT_RED    "\033[1;31m"
+#define GREEN        "\033[0;32;32m"
+#define LIGHT_GREEN  "\033[1;32m"
+#define BLUE         "\033[0;32;34m"
+#define LIGHT_BLUE   "\033[1;34m"
+#define DARY_GRAY    "\033[1;30m"
+#define CYAN         "\033[0;36m"
+#define LIGHT_CYAN   "\033[1;36m"
+#define PURPLE       "\033[0;35m"
+#define LIGHT_PURPLE "\033[1;35m"
+#define BROWN        "\033[0;33m"
+#define YELLOW       "\033[1;33m"
+#define LIGHT_GRAY   "\033[0;37m"
+#define WHITE        "\033[1;37m"
 
 #define PRINT_WARNING(format, ...) printf (""YELLOW"[!] "format""NONE"", ##__VA_ARGS__)
 #define PRINT_ERROR(format, ...) printf (""RED"[-] "format""NONE"", ##__VA_ARGS__)
 #define PRINT_INFO(format, ...) printf (""NONE"[+] "format""NONE"", ##__VA_ARGS__)
-#define PRINT_VERBOSE(format, ...) printf (""GREEN"[*] "format""NONE"", ##__VA_ARGS__)
+#define PRINT_VERBOSE(format, ...) printf (""DARY_GRAY"[*] "format""NONE"", ##__VA_ARGS__)
+
+#ifdef debug
+    #define PRINT_DEBUG(...)  do{printf(BROWN "[D] %s#%d: " NONE, __FILE__,__LINE__); printf(BROWN __VA_ARGS__);}while(0)
+#else
+    #define PRINT_DEBUG(format, ...)
+#endif
 
 #define ONE_PAGE 4096 // 4K的大小
 

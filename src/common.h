@@ -94,15 +94,6 @@ typedef struct handle64 {
     size_t size;        // file size
 } handle_t64;
 
-typedef struct GnuHash {
-    uint32_t nbuckets;      // 桶的数量
-    uint32_t symndx;        // 符号表的开始索引
-    uint32_t maskbits;      // 掩码位数
-    uint32_t shift;         // 用于计算哈希值的位移量
-    uint32_t buckets[];     // 桶数组，大小为 nbuckets
-    // 后面可能跟着链表和其他数据
-} gnuhash_t;
-
 void log_warning(char *str);
 void log_error(char *str);
 void log_info(char *str);
@@ -268,27 +259,6 @@ int set_content(char *elf_name, uint64_t offset, char *content, size_t size);
  * @return int error code {-1:error,0:sucess}
  */
 int hook_extern(char *elf_name, char *symbol, char *hookfile, uint64_t hook_offset);
-
-/**
- * @brief 增加一个.dynsym table条目
- * add a dynamic symbol stable item
- * @param elf_name elf file name
- * @param name dynamic symbol name
- * @param value dynamic symbol address
- * @param code_size func size
- * @return int error code {-1:error,0:sucess}
- */
-int add_dynsym_entry(char *elf_name, char *name, uint64_t value, size_t code_size);
-
-/**
- * @brief 调整字符串表中的字符串顺序
- * adjust the string order in the string table
- * @param elf_name elf file name
- * @param strtab string table name
- * @return int error code {-1:error,0:sucess}
- */
-int confuse_symbol(char *elf_name, char *strtab);
-
 
 /* Non repetitive data structures */
 /* 不重复的数据结构 */

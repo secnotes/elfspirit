@@ -79,13 +79,15 @@ enum LONG_OPTION {
     REMOVE_SECTION,
     REMOVE_SHDR,
     REMOVE_STRIP,
-    CONFUSE_SYMBOL,
     REFRESH_HASH,
     INFECT_SILVIO,
     INFECT_SKEKSI,
     INFECT_DATA,
     SET_RPATH,
     SET_RUNPATH,
+    TO_EXE2SO,
+    TO_HEX2BIN,
+    TO_BIN2ELF,
 };
 
 /**
@@ -152,13 +154,15 @@ static const struct option longopts[] = {
     {"rm-section", no_argument, &g_long_option, REMOVE_SECTION},
     {"rm-shdr", no_argument, &g_long_option, REMOVE_SHDR},
     {"rm-strip", no_argument, &g_long_option, REMOVE_STRIP},
-    {"confuse-symbol", no_argument, &g_long_option, CONFUSE_SYMBOL},
     {"refresh-hash", no_argument, &g_long_option, REFRESH_HASH},
     {"infect-silvio", no_argument, &g_long_option, INFECT_SILVIO},
     {"infect-skeksi", no_argument, &g_long_option, INFECT_SKEKSI},
     {"infect-data", no_argument, &g_long_option, INFECT_DATA},
     {"set-rpath", no_argument, &g_long_option, SET_RPATH},
     {"set-runpath", no_argument, &g_long_option, SET_RUNPATH},
+    {"to-exe2so", no_argument, &g_long_option, TO_EXE2SO},
+    {"to-hex2bin", no_argument, &g_long_option, TO_HEX2BIN},
+    {"to-bin2elf", no_argument, &g_long_option, TO_BIN2ELF},
     {0, 0, 0, 0}
 };
 
@@ -207,11 +211,8 @@ static const char *help =
     "Detailed Usage: \n"
     "  elfspirit parse    [-A|H|S|P|B|D|R|I|G] ELF\n"
     "  elfspirit edit     [-H|S|P|B|D|R|I] [-i]<row> [-j]<column> [-m|-s]<int|string value> ELF\n" 
-    "  elfspirit hex2bin  [-s]<shellcode hex> [-z]<size>\n"
-    "  elfspirit bin2elf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-b]<base address> ELF\n"
     "  elfspirit joinelf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-c]<configuration file> OUT_ELF\n"
     "  elfspirit hook [-s]<hook symbol> [-f]<new function bin> [-o]<new function start offset> ELF\n"
-    "  elfspirit exe2so   [-s]<symbol> [-m]<function offset> [-z]<function size> ELF\n"
     "  elfspirit injectso [-n]<section name> [-f]<so name> [-c]<configure file>\n"
     "                     [-v]<libc version> ELF\n" 
     "  elfspirit checksec ELF\n"
@@ -227,7 +228,9 @@ static const char *help =
     "                          [-c]<multi section name> ELF\n"
     "  elfspirit --rm-shdr ELF\n"
     "  elfspirit --rm-strip ELF\n"
-    "  elfspirit --confuse-symbol [-n]<.strtab|.shstrtab|.dynstr> ELF\n"
+    "  elfspirit --to-hex2bin  [-s]<shellcode hex> [-z]<size> outfile\n"
+    "  elfspirit --to-bin2elf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-b]<base address> ELF\n"
+    "  elfspirit --to-exe2so   [-s]<symbol> [-m]<function offset> [-z]<function size> ELF\n"
     "  elfspirit --refresh-hash ELF\n"
     "  elfspirit --infect-silvio [-s]<shellcode> [-z]<size> ELF\n"
     "  elfspirit --infect-skeksi [-s]<shellcode> [-z]<size> ELF\n"
@@ -275,11 +278,8 @@ static const char *help_chinese =
     "细节: \n"
     "  elfspirit parse    [-A|H|S|P|B|D|R|I|G] ELF\n"
     "  elfspirit edit     [-H|S|P|B|D|R] [-i]<第几行> [-j]<第几列> [-m|-s]<int|str修改值> ELF\n"
-    "  elfspirit hex2bin  [-s]<shellcode> [-z]<size>\n" 
-    "  elfspirit bin2elf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-b]<基地址> ELF\n"
     "  elfspirit joinelf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-c]<配置文件> OUT_ELF\n"
     "  elfspirit hook [-s]<hook函数名> [-f]<新的函数二进制> [-o]<新函数偏移> ELF\n"
-    "  elfspirit exe2so   [-s]<函数名> [-m]<函数偏移> [-z]<函数大小> ELF\n"
     "  elfspirit injectso [-n]<节的名字> [-f]<so的名字> [-c]<配置文件>\n"
     "                     [-v]<libc的版本> ELF\n"
     "  elfspirit checksec ELF\n"
@@ -295,7 +295,9 @@ static const char *help_chinese =
     "                          [-c]<多个节的名字> ELF\n"
     "  elfspirit --rm-shdr ELF\n"
     "  elfspirit --rm-strip ELF\n"
-    "  elfspirit --confuse-symbol [-n]<.strtab|.shstrtab|.dynstr> ELF\n"
+    "  elfspirit --to-hex2bin  [-s]<shellcode> [-z]<size> outfile\n"
+    "  elfspirit --to-bin2elf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-b]<基地址> ELF\n"
+    "  elfspirit --to-exe2so   [-s]<函数名> [-m]<函数偏移> [-z]<函数大小> ELF\n"
     "  elfspirit --refresh-hash ELF\n"
     "  elfspirit --infect-silvio [-s]<shellcode> [-z]<size> ELF\n"
     "  elfspirit --infect-skeksi [-s]<shellcode> [-z]<size> ELF\n"
@@ -475,30 +477,9 @@ static void readcmdline(int argc, char *argv[]) {
         }
     }
 
-    /* save escapsed string to file */
-    if (optind == argc - 1 && !strcmp(argv[optind], "hex2bin")) {  
-        char *out = "/tmp/elfspirit_out.bin";
-        char * shellcode = calloc(size, 1);
-        err = escaped_str_to_mem(string, shellcode);
-        if (err != TRUE) {
-            free(shellcode);
-            print_error(err);
-            exit(-1);
-        }
-
-        err = mem_to_file(out, shellcode, size, 0);
-        if (err != TRUE) {
-            free(shellcode);
-            print_error(err);
-            exit(-1);
-        }
-        PRINT_INFO("shellcode has been saved to %s\n", out);
-        free(shellcode);
-        exit(0);
-    }
-
     /* handle additional long parameters */
     Elf elf;
+    char *shellcode;
     if (optind == argc - 1) {
         memcpy(elf_name, argv[optind], LENGTH);
         MODE = get_elf_class(elf_name);
@@ -516,7 +497,7 @@ static void readcmdline(int argc, char *argv[]) {
                 case EDIT_CONTENT:
                     /* set content */
                     init(elf_name, &elf);
-                    char * shellcode = calloc(size, 1);
+                    shellcode = calloc(size, 1);
                     err = escaped_str_to_mem(string, shellcode);
                     if (err != TRUE) {
                         free(shellcode);
@@ -596,14 +577,51 @@ static void readcmdline(int argc, char *argv[]) {
                     print_error(err);
                     finit(&elf);
                     break;
-
-                case CONFUSE_SYMBOL:
-                    confuse_symbol(elf_name, section_name);
-                    break;
                 
+                case TO_EXE2SO:
+                    /* convert exe to so */
+                    init(elf_name, &elf);
+                    err = add_dynsym_entry(&elf, string, value, size);
+                    print_error(err);
+                    finit(&elf);
+                    break;
+
+                case TO_HEX2BIN:
+                    /* save escapsed string to file */
+                    shellcode = calloc(size, 1);
+                    err = escaped_str_to_mem(string, shellcode);
+                    if (err != TRUE) {
+                        free(shellcode);
+                        print_error(err);
+                        exit(-1);
+                    }
+
+                    err = mem_to_file(elf_name, shellcode, size, 0);
+                    if (err != TRUE) {
+                        free(shellcode);
+                        print_error(err);
+                        exit(-1);
+                    }
+                    PRINT_INFO("shellcode has been saved to %s\n", elf_name);
+                    free(shellcode);
+                    break;
+
+                case TO_BIN2ELF:
+                    /* convert bin to elf */
+                    /* add elf info to firmware for IDA */
+                    err = add_elf_header(elf_name, arch, class, endian, base_addr);
+                    if (err != TRUE) {
+                        print_error(err);
+                        exit(-1);
+                    }
+                    break;
+
                 case REFRESH_HASH:
                     /* refresh gnu hash table */
-                    refresh_hash_table(elf_name);
+                    init(elf_name, &elf);
+                    err = refresh_hash_table(&elf);
+                    print_error(err);
+                    finit(&elf);
                     break;
 
                 case INFECT_SILVIO:
@@ -661,15 +679,6 @@ static void readcmdline(int argc, char *argv[]) {
         parse(elf_name, &po, length);
     }
 
-    /* add elf info to firmware for IDA */
-    if (!strcmp(function, "bin2elf")) {
-        err = add_elf_header(elf_name, arch, class, endian, base_addr);
-        if (err != TRUE) {
-            print_error(err);
-            exit(-1);
-        }
-    }
-
     /* connect each bin in firmware for IDA */
     if (!strcmp(function, "joinelf")) {
         join_elf(config_name, arch, class, endian, elf_name);
@@ -683,11 +692,6 @@ static void readcmdline(int argc, char *argv[]) {
     /* hook */
     if (!strcmp(function, "hook")) {
         hook_extern(elf_name, string, file, off);
-    }
-
-    /* change bin to so */
-    if (!strcmp(function, "exe2so")) {
-        add_dynsym_entry(elf_name, string, value, size);
     }
 
     /* convert file to script */
