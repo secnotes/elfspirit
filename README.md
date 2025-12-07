@@ -10,8 +10,8 @@
 
 You might be familiar with popular open-source tools like [LIEF](https://github.com/lief-project/LIEF), [libelfmaster](https://github.com/elfmaster/libelfmaster), and [patchelf](https://github.com/NixOS/patchelf) (**Thanks for the inspiration and innovation that these tools have bestowed upon us!**). **elfspirit** distinguishes itself by offering not only enhanced flexibility in editing but also a What You See Is What You Get (WYSIWYG) editing perspective and unique features. Its primary objective is to empower hackers to effortlessly manipulate every byte of an ELF file. 
 
-**For further information, refer to the [elfspirit wiki](https://github.com/secnotes/elfspirit/wiki) for a detailed exploration of its capabilities.**
-
+For further information, refer to the [elfspirit wiki](https://github.com/secnotes/elfspirit/wiki) for a detailed exploration of its capabilities. 
+We are refactoring the elfspirit code, and after more than three years of development, **elfspirit2 will introduce significant upgrades**. Please note that elfspirit remains in development, so we recommend using the latest stable version, 1.10.2.
 
 ## Building
 
@@ -19,13 +19,13 @@ You might be familiar with popular open-source tools like [LIEF](https://github.
 
 **Linux**
 ```shell
-git clone --recursive https://github.com/secnotes/elfspirit.git
+git clone --recursive -b v1.10.2 https://github.com/secnotes/elfspirit.git
 make
 ```
 
 **Cross build with aarch64-linux-gnu-gcc**
 ```shell
-CC=aarch64-linux-gnu-gcc make
+make CC=aarch64-linux-gnu-gcc 
 ```
 
 **Cross build with Android NDK**
