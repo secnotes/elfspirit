@@ -68,8 +68,8 @@ int main(int argc, char const *argv[])
 	// printf("offset=0x%x, addr=0x%x\n", offset, addr);
 	// int err = strip_t(&elf);
 	// int err = delete_section_by_name(&elf, ".strtab");
-
-	int err = add_elf_header((uint8_t *)argv[1], (uint8_t *)"x86", 64, (uint8_t *)"little", 0);
+	uint64_t offset = 0;
+	int err = add_shstr_name(&elf, ".new_section", &offset);
 	print_error(err);
 		
 	finit(&elf);

@@ -471,6 +471,17 @@ int set_rpath(Elf *elf, char *rpath);
  */
 int set_runpath(Elf *elf, char *runpath);
 
+/**
+ * @brief hook外部函数
+ * hook function by .got.plt
+ * @param elf_name elf file name
+ * @param symbol symbol name
+ * @param hookfile hook function file
+ * @param hook_offset hook function offset in hook file
+ * @return int error code {-1:error,0:sucess}
+ */
+int hook_extern(Elf *elf, char *symbol, char *hookfile, uint64_t hook_offset);
+
 /***********************file***********************/
 
 /**
@@ -481,17 +492,6 @@ int set_runpath(Elf *elf, char *runpath);
  * @return error code
  */
 int escaped_str_to_mem(char *sc_str, char *sc_mem);
-
-/**
- * @brief 创建文件
- * Create a file
- * @param file_name file name
- * @param map file content
- * @param map_size file size
- * @param is_new create new file or overwrite the old file
- * @return int error code {-1:error,0:sucess}
- */
-int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new);
 
 /**
  * @brief 编辑ELF文件的十六进制内容

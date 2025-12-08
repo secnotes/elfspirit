@@ -53,3 +53,23 @@ uint64_t align_offset(uint64_t p_offset, uint64_t p_vaddr);
  * @return ELF machine code
  */
 int arch_to_mach(uint8_t *arch, uint32_t class);
+
+/**
+ * @brief 创建文件
+ * Create a file
+ * @param file_name file name
+ * @param map file content
+ * @param map_size file size
+ * @param is_new create new file or overwrite the old file
+ * @return int error code {-1:error,0:sucess}
+ */
+int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new);
+
+/**
+ * @brief 读取文件内容到buf
+ * save file content
+ * @param filename file name
+ * @param buffer buffer, need to free
+ * @return error code {-1:false,0:success}
+ */
+int file_to_mem(const char* filename, char** buffer);

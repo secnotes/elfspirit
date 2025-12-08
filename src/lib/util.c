@@ -56,3 +56,62 @@ int arch_to_mach(uint8_t *arch, uint32_t class) {
     else
         return ERR_ARGS;
 }
+
+/**
+ * @brief 创建文件
+ * Create a file
+ * @param file_name file name
+ * @param map file content
+ * @param map_size file size
+ * @param is_new create new file or overwrite the old file
+ * @return int error code {-1:error,0:sucess}
+ */
+int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new) {
+    /* new file */
+    char new_name[MAX_PATH];
+    memset(new_name, 0, MAX_PATH);
+    if (is_new) 
+        snprintf(new_name, MAX_PATH, "%s.out", file_name);
+    else
+        strncpy(new_name, file_name, MAX_PATH);
+        
+    int fd_new = open(new_name, O_RDWR|O_CREAT|O_TRUNC, 0777);
+    if (fd_new < 0) {
+        return ERR_OPEN;
+    }
+    
+    write(fd_new, map, map_size);  
+    close(fd_new);
+    printf("[+] Create file: %s\n", new_name);
+    return TRUE;
+}
+
+/**
+ * @brief 读取文件内容到buf
+ * save file content
+ * @param filename file name
+ * @param buffer buffer, need to free
+ * @return error code {-1:false,0:success}
+ */
+int file_to_mem(const char* filename, char** buffer) {
+    FILE* file = fopen(filename, "rb");
+    if (file == NULL) {
+        return -1; 
+    }
+
+    fseek(file, 0, SEEK_END); // 将文件指针移动到文件末尾
+    long size = ftell(file); // 获取文件大小
+    fseek(file, 0, SEEK_SET); // 将文件指针移动回文件开头
+
+    *buffer = (char*)malloc(size + 1); // 分配足够的内存来存储文件内容
+    if (*buffer == NULL) {
+        fclose(file);
+        return -2; // 内存分配失败，返回-2表示错误
+    }
+
+    fread(*buffer, 1, size, file); // 读取文件内容到缓冲区
+    (*buffer)[size] = '\0'; // 在末尾添加字符串结束符
+
+    fclose(file); 
+    return size; 
+}

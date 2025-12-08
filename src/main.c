@@ -88,6 +88,7 @@ enum LONG_OPTION {
     TO_EXE2SO,
     TO_HEX2BIN,
     TO_BIN2ELF,
+    INJECT_HOOK,
 };
 
 /**
@@ -163,6 +164,7 @@ static const struct option longopts[] = {
     {"to-exe2so", no_argument, &g_long_option, TO_EXE2SO},
     {"to-hex2bin", no_argument, &g_long_option, TO_HEX2BIN},
     {"to-bin2elf", no_argument, &g_long_option, TO_BIN2ELF},
+    {"inject-hook", no_argument, &g_long_option, INJECT_HOOK},
     {0, 0, 0, 0}
 };
 
@@ -212,7 +214,6 @@ static const char *help =
     "  elfspirit parse    [-A|H|S|P|B|D|R|I|G] ELF\n"
     "  elfspirit edit     [-H|S|P|B|D|R|I] [-i]<row> [-j]<column> [-m|-s]<int|string value> ELF\n" 
     "  elfspirit joinelf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-c]<configuration file> OUT_ELF\n"
-    "  elfspirit hook [-s]<hook symbol> [-f]<new function bin> [-o]<new function start offset> ELF\n"
     "  elfspirit injectso [-n]<section name> [-f]<so name> [-c]<configure file>\n"
     "                     [-v]<libc version> ELF\n" 
     "  elfspirit checksec ELF\n"
@@ -228,6 +229,7 @@ static const char *help =
     "                          [-c]<multi section name> ELF\n"
     "  elfspirit --rm-shdr ELF\n"
     "  elfspirit --rm-strip ELF\n"
+    "  elfspirit --inject-hook [-s]<hook symbol> [-f]<new function bin> [-o]<new function start offset> ELF\n"
     "  elfspirit --to-hex2bin  [-s]<shellcode hex> [-z]<size> outfile\n"
     "  elfspirit --to-bin2elf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-b]<base address> ELF\n"
     "  elfspirit --to-exe2so   [-s]<symbol> [-m]<function offset> [-z]<function size> ELF\n"
@@ -279,7 +281,6 @@ static const char *help_chinese =
     "  elfspirit parse    [-A|H|S|P|B|D|R|I|G] ELF\n"
     "  elfspirit edit     [-H|S|P|B|D|R] [-i]<第几行> [-j]<第几列> [-m|-s]<int|str修改值> ELF\n"
     "  elfspirit joinelf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-c]<配置文件> OUT_ELF\n"
-    "  elfspirit hook [-s]<hook函数名> [-f]<新的函数二进制> [-o]<新函数偏移> ELF\n"
     "  elfspirit injectso [-n]<节的名字> [-f]<so的名字> [-c]<配置文件>\n"
     "                     [-v]<libc的版本> ELF\n"
     "  elfspirit checksec ELF\n"
@@ -295,6 +296,7 @@ static const char *help_chinese =
     "                          [-c]<多个节的名字> ELF\n"
     "  elfspirit --rm-shdr ELF\n"
     "  elfspirit --rm-strip ELF\n"
+    "  elfspirit --inject-hook [-s]<hook函数名> [-f]<新的函数二进制> [-o]<新函数偏移> ELF\n"
     "  elfspirit --to-hex2bin  [-s]<shellcode> [-z]<size> outfile\n"
     "  elfspirit --to-bin2elf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-b]<基地址> ELF\n"
     "  elfspirit --to-exe2so   [-s]<函数名> [-m]<函数偏移> [-z]<函数大小> ELF\n"
@@ -577,6 +579,14 @@ static void readcmdline(int argc, char *argv[]) {
                     print_error(err);
                     finit(&elf);
                     break;
+
+                case INJECT_HOOK:
+                    /* hook */
+                    init(elf_name, &elf);
+                    err = hook_extern(&elf, string, file, off);
+                    print_error(err);
+                    finit(&elf);
+                    break;
                 
                 case TO_EXE2SO:
                     /* convert exe to so */
@@ -687,11 +697,6 @@ static void readcmdline(int argc, char *argv[]) {
     /* edit elf */
     if (!strcmp(function, "edit")) {
         edit(elf_name, &po, row, column, value, section_name, string);
-    }
-
-    /* hook */
-    if (!strcmp(function, "hook")) {
-        hook_extern(elf_name, string, file, off);
     }
 
     /* convert file to script */

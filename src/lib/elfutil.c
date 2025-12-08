@@ -794,9 +794,8 @@ int get_segment_vaddr_by_index(Elf *elf, int index) {
         return elf->data.elf32.phdr[index].p_vaddr;
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.phdr[index].p_vaddr;
-    }
-    else {
-        return FALSE;
+    } else {
+        return ERR_CLASS;
     }
 }
 
@@ -966,10 +965,11 @@ int set_segment_flags_by_index(Elf *elf, int index, uint64_t flags) {
         elf->data.elf32.phdr[index].p_flags = flags;
     } else if (elf->class == ELFCLASS64) {
         elf->data.elf64.phdr[index].p_flags = flags;
+    } else {
+        return ERR_CLASS;
     }
-    else {
-        return FALSE;
-    }
+
+    return TRUE;
 }
 
 /**
@@ -1941,51 +1941,103 @@ int set_runpath(Elf *elf, char *runpath) {
 }
 
 static int mov_last_sections(Elf *elf, uint64_t expand_offset, size_t size) {
-    // mov section header table
-    void *src = (void *)elf->mem + elf->data.elf64.ehdr->e_shoff;
-    void *dst = (void *)elf->mem + elf->data.elf64.ehdr->e_shoff + size;
-    size_t src_len = elf->data.elf64.ehdr->e_shnum * elf->data.elf64.ehdr->e_shentsize;
-    if (copy_data(src, dst, src_len) == TRUE) {
-        elf->data.elf64.ehdr->e_shoff += size;
-        reinit(elf);
-    } else {
-        printf("error: mov section header\n");
-        return FALSE;
-    }
-
-    /* 按节偏移降序排序 */
-    /* Sort by section offset in descending order */
-    SectionManager *manager = section_manager_create();
-    if (!manager) {
-        printf("Failed to create section manager\n");
-        return FALSE;
-    }
-
-    for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
-        if (elf->data.elf64.shdr[i].sh_addr == 0 && elf->data.elf64.shdr[i].sh_offset != 0 && elf->data.elf64.shdr[i].sh_offset >= expand_offset) {
-            section_manager_add_64bit(manager, &elf->data.elf64.shdr[i], i);
-        }
-    }
-
-    section_manager_sort_by_offset_desc(manager);
-
-    /* 我们只移动节, 不移动段, 注意顺序，从大到小 */
-    /* we only move sections, not segments. */
-    SectionNode *cur_sec = manager->head;
-    int link_index = 0;
-    while (cur_sec) {
-        void *src = (void *)elf->mem + cur_sec->shdr64->sh_offset;
-        void *dst = (void *)elf->mem + cur_sec->shdr64->sh_offset + size;
-        if (copy_data(src, dst, cur_sec->shdr64->sh_size) == TRUE) {
-            cur_sec->shdr64->sh_offset += size;
+    if (elf->class == ELFCLASS32) {
+        // mov section header table
+        void *src = (void *)elf->mem + elf->data.elf32.ehdr->e_shoff;
+        void *dst = (void *)elf->mem + elf->data.elf32.ehdr->e_shoff + size;
+        size_t src_len = elf->data.elf32.ehdr->e_shnum * elf->data.elf32.ehdr->e_shentsize;
+        if (copy_data(src, dst, src_len) == TRUE) {
+            elf->data.elf32.ehdr->e_shoff += size;
+            reinit(elf);
         } else {
-            printf("error: mov section\n");
+            printf("error: mov section header\n");
             return FALSE;
-        }  
-        cur_sec = cur_sec->next;
-        link_index++;
+        }
+
+        /* 按节偏移降序排序 */
+        /* Sort by section offset in descending order */
+        SectionManager *manager = section_manager_create();
+        if (!manager) {
+            printf("Failed to create section manager\n");
+            return FALSE;
+        }
+
+        for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
+            if (elf->data.elf32.shdr[i].sh_addr == 0 && elf->data.elf32.shdr[i].sh_offset != 0 && elf->data.elf32.shdr[i].sh_offset >= expand_offset) {
+                section_manager_add_32bit(manager, &elf->data.elf32.shdr[i], i);
+            }
+        }
+
+        section_manager_sort_by_offset_desc(manager);
+
+        /* 我们只移动节, 不移动段, 注意顺序，从大到小 */
+        /* we only move sections, not segments. */
+        SectionNode *cur_sec = manager->head;
+        int link_index = 0;
+        while (cur_sec) {
+            void *src = (void *)elf->mem + cur_sec->shdr32->sh_offset;
+            void *dst = (void *)elf->mem + cur_sec->shdr32->sh_offset + size;
+            if (copy_data(src, dst, cur_sec->shdr32->sh_size) == TRUE) {
+                cur_sec->shdr32->sh_offset += size;
+            } else {
+                PRINT_ERROR("error: mov section\n");
+                return FALSE;
+            }  
+            cur_sec = cur_sec->next;
+            link_index++;
+        }
+        section_manager_destroy(manager);
+    } else if (elf->class == ELFCLASS64) {
+        // mov section header table
+        void *src = (void *)elf->mem + elf->data.elf64.ehdr->e_shoff;
+        void *dst = (void *)elf->mem + elf->data.elf64.ehdr->e_shoff + size;
+        size_t src_len = elf->data.elf64.ehdr->e_shnum * elf->data.elf64.ehdr->e_shentsize;
+        if (copy_data(src, dst, src_len) == TRUE) {
+            elf->data.elf64.ehdr->e_shoff += size;
+            reinit(elf);
+        } else {
+            printf("error: mov section header\n");
+            return FALSE;
+        }
+
+        /* 按节偏移降序排序 */
+        /* Sort by section offset in descending order */
+        SectionManager *manager = section_manager_create();
+        if (!manager) {
+            printf("Failed to create section manager\n");
+            return FALSE;
+        }
+
+        for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
+            if (elf->data.elf64.shdr[i].sh_addr == 0 && elf->data.elf64.shdr[i].sh_offset != 0 && elf->data.elf64.shdr[i].sh_offset >= expand_offset) {
+                section_manager_add_64bit(manager, &elf->data.elf64.shdr[i], i);
+            }
+        }
+
+        section_manager_sort_by_offset_desc(manager);
+
+        /* 我们只移动节, 不移动段, 注意顺序，从大到小 */
+        /* we only move sections, not segments. */
+        SectionNode *cur_sec = manager->head;
+        int link_index = 0;
+        while (cur_sec) {
+            void *src = (void *)elf->mem + cur_sec->shdr64->sh_offset;
+            void *dst = (void *)elf->mem + cur_sec->shdr64->sh_offset + size;
+            if (copy_data(src, dst, cur_sec->shdr64->sh_size) == TRUE) {
+                cur_sec->shdr64->sh_offset += size;
+            } else {
+                PRINT_ERROR("error: mov section\n");
+                return FALSE;
+            }  
+            cur_sec = cur_sec->next;
+            link_index++;
+        }
+        section_manager_destroy(manager);
+    } else {
+        return ERR_CLASS;
     }
-    section_manager_destroy(manager);
+    return TRUE;
+    
 }
 
 static void mapp_load(Elf *elf, MappingList *mapping_list) {
@@ -2914,6 +2966,49 @@ int add_segment_auto(Elf *elf, size_t size, uint64_t *added_index) {
     } else {
         return ERR_CLASS;
     }
+}
+
+/**
+ * @brief 增加一个段，并用文件填充内容
+ * add a paragraph and fill in the content with a file
+ * @param elf Elf custom structure 
+ * @param type segment type
+ * @param file file content
+ * @return error code
+ */
+int add_segment_with_file(Elf *elf, int type, char *file) {
+    int err = 0;
+    uint64_t i = 0;
+    char* buffer = NULL;
+    int file_size = file_to_mem(file, &buffer);
+    if (file_size > 0) {
+        PRINT_DEBUG("file size: 0x%x\n", file_size);
+    } else {
+        PRINT_ERROR("error: Unable to read file %s\n", file);
+        goto ERR_EXIT;
+    }
+
+    err = add_segment_auto(elf, file_size, &i);
+    if (err != TRUE) {
+        PRINT_DEBUG("add segment error: %d\n", err);
+        goto ERR_EXIT;
+    }
+    
+    if (elf->class == ELFCLASS32) {
+        memcpy(elf->mem + elf->data.elf32.phdr[i].p_offset, buffer, file_size);
+    } else if (elf->class == ELFCLASS64) {
+        memcpy(elf->mem + elf->data.elf64.phdr[i].p_offset, buffer, file_size);
+    } else {
+        PRINT_ERROR("error: Unsupported ELF class %d\n", elf->class);
+        goto ERR_EXIT;
+    }
+    
+    free(buffer);
+    return i;
+
+ERR_EXIT:
+    free(buffer);
+    return ERR_ADDSEG;
 }
 
 /**
@@ -3856,6 +3951,148 @@ int add_elf_header(uint8_t *bin, uint8_t *arch, uint32_t class, uint8_t *endian,
     return err;
 }
 
+int get_string_table(Elf *elf, char ***name, int *count) {
+    char **string;
+    int string_count = 0;
+    if (elf->class == ELFCLASS32) {
+        string_count = elf->data.elf32.dynsym_count;
+        if (string_count == 0) {
+            PRINT_ERROR("no symbols found in dynsym\n");
+            return FALSE;
+        }
+
+        string = (char **)malloc(sizeof(char*) * string_count);
+        if (string == NULL) {
+            PRINT_ERROR("memory allocation failed\n");
+            return FALSE;
+        }
+
+        for (int i = 0; i < string_count; ++i) {
+            string[i] = (char *)elf->mem + elf->data.elf32.dynstrtab->sh_offset + elf->data.elf32.dynsym_entry[i].st_name;
+            *count = string_count;
+        }
+    } else if (elf->class == ELFCLASS64) {
+        string_count = elf->data.elf64.dynsym_count;
+        if (string_count == 0) {
+            PRINT_ERROR("no symbols found in dynsym\n");
+            return FALSE;
+        }
+
+        string = (char **)malloc(sizeof(char*) * string_count);
+        if (string == NULL) {
+            PRINT_ERROR("memory allocation failed\n");
+            return FALSE;
+        }
+
+        for (int i = 0; i < string_count; ++i) {
+            string[i] = (char *)elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dynsym_entry[i].st_name;
+            *count = string_count;
+        }
+    } else {
+        return ERR_CLASS;
+    }
+
+    *name = string;
+    return TRUE;
+}
+
+/**
+ * @brief hook外部函数
+ * hook function by .got.plt
+ * @param elf_name elf file name
+ * @param symbol symbol name
+ * @param hookfile hook function file
+ * @param hook_offset hook function offset in hook file
+ * @return int error code {-1:error,0:sucess}
+ */
+int hook_extern(Elf *elf, char *symbol, char *hookfile, uint64_t hook_offset) {
+    int seg_i = 0;
+    int err = -1;
+    /* 1. fill new segment with .text */
+    seg_i = add_segment_with_file(elf, PT_LOAD, hookfile);
+    if (seg_i < 0) {
+        PRINT_ERROR("add segment with file error: %d\n", seg_i);
+        return seg_i;
+    }
+
+    err = set_segment_flags_by_index(elf, seg_i, 7);
+    if (err != TRUE) {
+        PRINT_ERROR("set segment flags error: %d\n", err);
+        return err;
+    }
+
+    int got_index = get_section_index_by_name(elf, ".got.plt");
+    if (got_index < 0) {
+        PRINT_ERROR(".got.plt section not found\n");
+        return ERR_SEC_NOTFOUND;
+    }
+
+    /* 2. get string table */
+    char **string = NULL;
+    int string_count = 0;
+    err = get_string_table(elf, &string, &string_count);
+    if (err != TRUE) {
+        PRINT_ERROR("get string table error\n");
+        return err;
+    }
+    /* 3.replace symbol with new segment address */
+    // We are trying to analyze and edit the content of the section 
+    // in a different way than before. Here is a case study
+    
+    if (elf->class == ELFCLASS32) {
+        /* attention: The 32-bit program has not been tested! */
+        /**
+         * The interaction between PLT and GOT in 32-bit ELF is practically proven to serve the purpose of lazy binding.
+         * This hook method is invalid.
+         */
+        int rel_index = get_section_index_by_name(elf, ".rel.plt");
+        if (rel_index < 0) {
+            PRINT_ERROR(".rel.plt section not found\n");
+            return ERR_SEC_NOTFOUND;
+        }
+        Elf32_Rel *rel = elf->mem + elf->data.elf32.shdr[rel_index].sh_offset;
+        PRINT_DEBUG(".rel.plt section offset: 0x%x\n", elf->data.elf32.shdr[rel_index].sh_offset);
+        for (int i = 0; i < elf->data.elf32.shdr[rel_index].sh_size / sizeof(Elf32_Rel); i++) {
+            int str_index = ELF32_R_SYM(rel[i].r_info);
+            if (!strncmp(string[str_index], symbol, strlen(symbol))) {
+                int diff = elf->data.elf32.shdr[got_index].sh_addr - elf->data.elf32.shdr[got_index].sh_offset;
+                int offset = rel[i].r_offset - diff;
+                PRINT_INFO("%s offset: 0x%x, new value: 0x%x\n", symbol, offset, elf->data.elf32.phdr[seg_i].p_vaddr + hook_offset);
+                uint32_t *p = (uint32_t *)(elf->mem + offset);
+                *p = elf->data.elf32.phdr[seg_i].p_vaddr + hook_offset;
+                free(string);
+                return TRUE;
+            }
+        }
+    } else if (elf->class == ELFCLASS64) {
+        int rela_index = get_section_index_by_name(elf, ".rela.plt");
+        if (rela_index < 0) {
+            PRINT_ERROR(".rela.plt section not found\n");
+            return ERR_SEC_NOTFOUND;
+        }
+        Elf64_Rela *rela = elf->mem + elf->data.elf64.shdr[rela_index].sh_offset;
+        PRINT_DEBUG(".rela.plt section offset: 0x%x\n", elf->data.elf64.shdr[rela_index].sh_offset);
+        for (int i = 0; i < elf->data.elf64.shdr[rela_index].sh_size / sizeof(Elf64_Rela); i++) {
+            int str_index = ELF64_R_SYM(rela[i].r_info);
+            if (!strncmp(string[str_index], symbol, strlen(symbol))) {
+                int diff = elf->data.elf64.shdr[got_index].sh_addr - elf->data.elf64.shdr[got_index].sh_offset;
+                int offset = rela[i].r_offset - diff;
+                PRINT_INFO("%s offset: 0x%x, new value: 0x%x\n", symbol, offset, elf->data.elf64.phdr[seg_i].p_vaddr + hook_offset);
+                uint64_t *p = (uint64_t *)(elf->mem + offset);
+                *p = elf->data.elf64.phdr[seg_i].p_vaddr + hook_offset;
+                free(string);
+                return TRUE;
+            }
+        }
+    } else {
+        free(string);
+        return ERR_CLASS;
+    }
+    
+    free(string);
+    return ERR_SEG_NOTFOUND;
+}
+
 /**
  * @brief 将命令行传入的shellcode，转化为内存实际值
  * convert the shellcode passed in from the command line to the actual value in memory
@@ -3876,35 +4113,6 @@ int escaped_str_to_mem(char *sc_str, char *sc_mem) {
         }
         printf("\n");
     }
-    return TRUE;
-}
-
-/**
- * @brief 创建文件
- * Create a file
- * @param file_name file name
- * @param map file content
- * @param map_size file size
- * @param is_new create new file or overwrite the old file
- * @return int error code {-1:error,0:sucess}
- */
-int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new) {
-    /* new file */
-    char new_name[MAX_PATH];
-    memset(new_name, 0, MAX_PATH);
-    if (is_new) 
-        snprintf(new_name, MAX_PATH, "%s.out", file_name);
-    else
-        strncpy(new_name, file_name, MAX_PATH);
-        
-    int fd_new = open(new_name, O_RDWR|O_CREAT|O_TRUNC, 0777);
-    if (fd_new < 0) {
-        return ERR_OPEN;
-    }
-    
-    write(fd_new, map, map_size);  
-    close(fd_new);
-    printf("[+] Create file: %s\n", new_name);
     return TRUE;
 }
 

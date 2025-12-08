@@ -249,17 +249,6 @@ int is_pie(char *elfname);
  */
 int set_content(char *elf_name, uint64_t offset, char *content, size_t size);
 
-/**
- * @brief hook外部函数
- * hook function by .got.plt
- * @param elf_name elf file name
- * @param symbol symbol name
- * @param hookfile hook function file
- * @param hook_offset hook function offset in hook file
- * @return int error code {-1:error,0:sucess}
- */
-int hook_extern(char *elf_name, char *symbol, char *hookfile, uint64_t hook_offset);
-
 /* Non repetitive data structures */
 /* 不重复的数据结构 */
 #ifndef UNIQUE_SEQUENCE_H
