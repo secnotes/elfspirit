@@ -119,7 +119,7 @@ int init(char *elf_name, Elf *elf) {
             if (!strcmp(section_name, ".dynsym")) {
                 elf->data.elf32.dynsym = (Elf32_Shdr *)&elf->data.elf32.shdr[i];
                 elf->data.elf32.dynsym_entry = (Elf32_Sym *)&elf->mem[elf->data.elf32.dynsym->sh_offset];
-                elf->data.elf32.dynsym_count = (Elf32_Sym *)(elf->data.elf32.dynsym->sh_size / sizeof(Elf32_Sym));
+                elf->data.elf32.dynsym_count = elf->data.elf32.dynsym->sh_size / sizeof(Elf32_Sym);
             }
             if (!strcmp(section_name, ".symtab")) {
                 elf->data.elf32.sym = (Elf32_Shdr *)&elf->data.elf32.shdr[i];
@@ -158,7 +158,7 @@ int init(char *elf_name, Elf *elf) {
             if (!strcmp(section_name, ".dynsym")) {
                 elf->data.elf64.dynsym = (Elf64_Shdr *)&elf->data.elf64.shdr[i];
                 elf->data.elf64.dynsym_entry = (Elf64_Sym *)&elf->mem[elf->data.elf64.dynsym->sh_offset];
-                elf->data.elf64.dynsym_count = (Elf64_Sym *)(elf->data.elf64.dynsym->sh_size / sizeof(Elf64_Sym));
+                elf->data.elf64.dynsym_count = elf->data.elf64.dynsym->sh_size / sizeof(Elf64_Sym);
             }
             if (!strcmp(section_name, ".symtab")) {
                 elf->data.elf64.sym = (Elf64_Shdr *)&elf->data.elf64.shdr[i];
@@ -3226,7 +3226,7 @@ int add_dynsym_entry(Elf *elf, char *name, uint64_t value, size_t code_size) {
         sym.st_other = STV_DEFAULT;
         sym.st_name = dynstr_size;
         sym.st_size = code_size;
-        seg_i = expand_segment_content(elf, old_offset, old_size, &sym, sizeof(Elf32_Sym));
+        seg_i = expand_segment_content(elf, old_offset, old_size, (void *)&sym, sizeof(Elf32_Sym));
         seg_addr = elf->data.elf32.phdr[seg_i].p_vaddr;
     } else if (elf->class == ELFCLASS64) {
         new_size = old_size + sizeof(Elf64_Sym);
@@ -3236,7 +3236,7 @@ int add_dynsym_entry(Elf *elf, char *name, uint64_t value, size_t code_size) {
         sym.st_other = STV_DEFAULT;
         sym.st_name = dynstr_size;
         sym.st_size = code_size;
-        seg_i = expand_segment_content(elf, old_offset, old_size, &sym, sizeof(Elf64_Sym));
+        seg_i = expand_segment_content(elf, old_offset, old_size, (void *)&sym, sizeof(Elf64_Sym));
         seg_addr = elf->data.elf64.phdr[seg_i].p_vaddr;
     } else {
         return ERR_CLASS;
@@ -3443,7 +3443,7 @@ int refresh_hash_table(Elf *elf) {
         PRINT_DEBUG("Bloom filter [%d]: 0x%x\n", idx, bloom_filters[idx]);
     }
 
-    uint64_t *bloom_filters_raw = raw_gnuhash->buckets;
+    void *bloom_filters_raw = raw_gnuhash->buckets;
     memcpy(bloom_filters_raw, bloom_filters, bloom_size);
 
     /* set buckets */
@@ -3491,7 +3491,7 @@ int refresh_hash_table(Elf *elf) {
     if (size > src_size) {
         /* add hash table*/
         PRINT_VERBOSE("add new .gnu.hash section\n");
-        seg_i = add_a_gnuhash(elf, raw_gnuhash, size);
+        seg_i = add_a_gnuhash(elf, (char *)raw_gnuhash, size);
     } else {
         /* update hash table*/
         PRINT_VERBOSE("update .gnu.hash section\n");
@@ -4054,7 +4054,7 @@ int hook_extern(Elf *elf, char *symbol, char *hookfile, uint64_t hook_offset) {
             PRINT_ERROR(".rel.plt section not found\n");
             return ERR_SEC_NOTFOUND;
         }
-        Elf32_Rel *rel = elf->mem + elf->data.elf32.shdr[rel_index].sh_offset;
+        Elf32_Rel *rel = (Elf32_Rel *)(elf->mem + elf->data.elf32.shdr[rel_index].sh_offset);
         PRINT_DEBUG(".rel.plt section offset: 0x%x\n", elf->data.elf32.shdr[rel_index].sh_offset);
         for (int i = 0; i < elf->data.elf32.shdr[rel_index].sh_size / sizeof(Elf32_Rel); i++) {
             int str_index = ELF32_R_SYM(rel[i].r_info);
@@ -4074,7 +4074,7 @@ int hook_extern(Elf *elf, char *symbol, char *hookfile, uint64_t hook_offset) {
             PRINT_ERROR(".rela.plt section not found\n");
             return ERR_SEC_NOTFOUND;
         }
-        Elf64_Rela *rela = elf->mem + elf->data.elf64.shdr[rela_index].sh_offset;
+        Elf64_Rela *rela = (Elf64_Rela *)(elf->mem + elf->data.elf64.shdr[rela_index].sh_offset);
         PRINT_DEBUG(".rela.plt section offset: 0x%x\n", elf->data.elf64.shdr[rela_index].sh_offset);
         for (int i = 0; i < elf->data.elf64.shdr[rela_index].sh_size / sizeof(Elf64_Rela); i++) {
             int str_index = ELF64_R_SYM(rela[i].r_info);

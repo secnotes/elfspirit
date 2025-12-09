@@ -34,7 +34,7 @@ typedef struct Elf32_Data {
     Elf32_Shdr *dynsym;
     Elf32_Sym *sym_entry;
     Elf32_Sym *dynsym_entry;
-    Elf32_Sym *dynsym_count;
+    int dynsym_count;
     Elf32_Dyn *dyn_segment_entry;
     size_t dyn_segment_count;
 } Elf32;
@@ -52,7 +52,7 @@ typedef struct Elf64_Data {
     Elf64_Shdr *dynsym;     // .dynsym->dynstr
     Elf64_Sym *sym_entry;
     Elf64_Sym *dynsym_entry;
-    Elf64_Sym *dynsym_count;
+    int dynsym_count;
     Elf64_Dyn *dyn_segment_entry;
     size_t dyn_segment_count;
 } Elf64;
