@@ -30,13 +30,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <stdint.h>
 
-#include "injectso.h"
-#include "delete.h"
 #include "parse.h"
 #include "common.h"
-#include "addelfinfo.h"
-#include "joinelf.h"
 #include "edit.h"
 #include "segment.h"
 #include "rel.h"
@@ -88,6 +85,7 @@ enum LONG_OPTION {
     TO_EXE2SO,
     TO_HEX2BIN,
     TO_BIN2ELF,
+    TO_SCRIPT,
     INJECT_HOOK,
 };
 
@@ -149,7 +147,7 @@ static const struct option longopts[] = {
     {"edit-pointer", no_argument, &g_long_option, EDIT_POINTER},
     {"edit-hex", no_argument, &g_long_option, EDIT_CONTENT},
     {"edit-extract", no_argument, &g_long_option, EDIT_EXTRACT},
-    {"set-interpreter", no_argument, &g_long_option, SET_INTERPRETER},
+    {"set-interp", no_argument, &g_long_option, SET_INTERPRETER},
     {"add-segment", no_argument, &g_long_option, ADD_SEGMENT},
     {"add-section", no_argument, &g_long_option, ADD_SECTION},
     {"rm-section", no_argument, &g_long_option, REMOVE_SECTION},
@@ -164,6 +162,7 @@ static const struct option longopts[] = {
     {"to-exe2so", no_argument, &g_long_option, TO_EXE2SO},
     {"to-hex2bin", no_argument, &g_long_option, TO_HEX2BIN},
     {"to-bin2elf", no_argument, &g_long_option, TO_BIN2ELF},
+    {"to-script", no_argument, &g_long_option, TO_SCRIPT},
     {"inject-hook", no_argument, &g_long_option, INJECT_HOOK},
     {0, 0, 0, 0}
 };
@@ -182,7 +181,6 @@ static const char *help =
     "  confuse      Obfuscate ELF symbols. [--rm-section, --rm-shdr, --rm-strip, confuse]\n"
     "  infect       Infect ELF like virus. [--infect-silvio, --infect-skeksi, --infect-data, exe2so]\n"
     "  forensic     Analyze the Legitimacy of ELF File Structure. [checksec]\n"
-    "  other        Deprecated cmd. [addsec, injectso(deprecate)]\n"
     "Currently defined options:\n"
     "  -n, --section-name=<section name>         Set section name\n"
     "  -z, --section-size=<section size>         Set section size\n"
@@ -213,18 +211,16 @@ static const char *help =
     "Detailed Usage: \n"
     "  elfspirit parse    [-A|H|S|P|B|D|R|I|G] ELF\n"
     "  elfspirit edit     [-H|S|P|B|D|R|I] [-i]<row> [-j]<column> [-m|-s]<int|string value> ELF\n" 
-    "  elfspirit joinelf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-c]<configuration file> OUT_ELF\n"
-    "  elfspirit injectso [-n]<section name> [-f]<so name> [-c]<configure file>\n"
-    "                     [-v]<libc version> ELF\n" 
     "  elfspirit checksec ELF\n"
     "  elfspirit --edit-hex      [-o]<offset> [-s]<hex string> [-z]<size> file\n"
     "  elfspirit --edit-pointer  [-o]<offset> [-m]<pointer value> file\n"
     "  elfspirit --edit-extract  [-o]<file offset> [-z]<size> file\n"
-    "  elfspirit --set-interpreter [-s]<new interpreter> ELF\n"
-    "  elfspirit --set-rpath [-s]<rpath> ELF\n"
+    "  elfspirit --set-interp  [-s]<new interpreter> ELF\n"
+    "  elfspirit --set-rpath   [-s]<rpath> ELF\n"
     "  elfspirit --set-runpath [-s]<runpath> ELF\n"
     "  elfspirit --add-section [-z]<size> [-n]<section name> ELF\n"
     "  elfspirit --add-segment [-z]<size> ELF\n"
+    "                          [-f]<segment file> ELF\n"
     "  elfspirit --rm-section  [-n]<section name> ELF\n"
     "                          [-c]<multi section name> ELF\n"
     "  elfspirit --rm-shdr ELF\n"
@@ -233,10 +229,11 @@ static const char *help =
     "  elfspirit --to-hex2bin  [-s]<shellcode hex> [-z]<size> outfile\n"
     "  elfspirit --to-bin2elf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-b]<base address> ELF\n"
     "  elfspirit --to-exe2so   [-s]<symbol> [-m]<function offset> [-z]<function size> ELF\n"
+    "  elfspirit --to-script   file\n"
     "  elfspirit --refresh-hash ELF\n"
     "  elfspirit --infect-silvio [-s]<shellcode> [-z]<size> ELF\n"
     "  elfspirit --infect-skeksi [-s]<shellcode> [-z]<size> ELF\n"
-    "  elfspirit --infect-data [-s]<shellcode> [-z]<size> ELF\n";
+    "  elfspirit --infect-data   [-s]<shellcode> [-z]<size> ELF\n";
 
 static const char *help_chinese = 
     "用法: elfspirit [功能] [选项]<参数>... ELF\n"
@@ -249,7 +246,6 @@ static const char *help_chinese =
     "  confuse      删除节、过滤符号表、删除节头表，混淆ELF符号. [--rm-section, --rm-shdr, --rm-strip, confuse]\n"
     "  infect       ELF文件感染. [--infect-silvio, --infect-skeksi, --infect-data, exe2so]\n"
     "  forensic     分析ELF文件结构的合法性. [checksec]\n"
-    "  other        即将弃用的功能. [addsec, injectso(deprecate)]\n"
     "支持的选项:\n"
     "  -n, --section-name=<section name>         设置节名\n"
     "  -z, --section-size=<section size>         设置节大小\n"
@@ -280,18 +276,16 @@ static const char *help_chinese =
     "细节: \n"
     "  elfspirit parse    [-A|H|S|P|B|D|R|I|G] ELF\n"
     "  elfspirit edit     [-H|S|P|B|D|R] [-i]<第几行> [-j]<第几列> [-m|-s]<int|str修改值> ELF\n"
-    "  elfspirit joinelf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-c]<配置文件> OUT_ELF\n"
-    "  elfspirit injectso [-n]<节的名字> [-f]<so的名字> [-c]<配置文件>\n"
-    "                     [-v]<libc的版本> ELF\n"
     "  elfspirit checksec ELF\n"
     "  elfspirit --edit-hex      [-o]<偏移> [-s]<hex string> [-z]<size> file\n"
     "  elfspirit --edit-pointer  [-o]<偏移> [-m]<指针值> file\n"
     "  elfspirit --edit-extract  [-o]<节的偏移> [-z]<size> file\n"
-    "  elfspirit --set-interpreter [-s]<新的链接器> ELF\n"
-    "  elfspirit --set-rpath [-s]<rpath> ELF\n"
+    "  elfspirit --set-interp  [-s]<新的链接器> ELF\n"
+    "  elfspirit --set-rpath   [-s]<rpath> ELF\n"
     "  elfspirit --set-runpath [-s]<runpath> ELF\n"
     "  elfspirit --add-section [-z]<size> [-n]<节的名字> ELF\n"
     "  elfspirit --add-segment [-z]<size> ELF\n"
+    "                          [-f]<segment file> ELF\n"
     "  elfspirit --rm-section  [-n]<节的名字> ELF\n"
     "                          [-c]<多个节的名字> ELF\n"
     "  elfspirit --rm-shdr ELF\n"
@@ -300,10 +294,11 @@ static const char *help_chinese =
     "  elfspirit --to-hex2bin  [-s]<shellcode> [-z]<size> outfile\n"
     "  elfspirit --to-bin2elf  [-a]<arm|x86> [-m]<32|64> [-e]<little|big> [-b]<基地址> ELF\n"
     "  elfspirit --to-exe2so   [-s]<函数名> [-m]<函数偏移> [-z]<函数大小> ELF\n"
+    "  elfspirit --to-script   file\n"
     "  elfspirit --refresh-hash ELF\n"
     "  elfspirit --infect-silvio [-s]<shellcode> [-z]<size> ELF\n"
     "  elfspirit --infect-skeksi [-s]<shellcode> [-z]<size> ELF\n"
-    "  elfspirit --infect-data [-s]<shellcode> [-z]<size> ELF\n";
+    "  elfspirit --infect-data   [-s]<shellcode> [-z]<size> ELF\n";
 
 static void readcmdline(int argc, char *argv[]) {
     int opt;
@@ -546,7 +541,10 @@ static void readcmdline(int argc, char *argv[]) {
                 case ADD_SEGMENT:
                     init(elf_name, &elf);
                     uint64_t index = 0;
-                    err = add_segment_auto(&elf, size, &index);
+                    if (strlen(file) == 0)
+                        err = add_segment_auto(&elf, size, &index);
+                    else
+                        err = add_segment_with_file(&elf, PT_LOAD, file);
                     print_error(err);
                     finit(&elf);
                     break;
@@ -626,6 +624,12 @@ static void readcmdline(int argc, char *argv[]) {
                     }
                     break;
 
+                case TO_SCRIPT:
+                    /* convert file to script */
+                    bin_to_cmd(elf_name);
+                    bin_to_sh(elf_name);
+                    break;
+
                 case REFRESH_HASH:
                     /* refresh gnu hash table */
                     init(elf_name, &elf);
@@ -678,31 +682,14 @@ static void readcmdline(int argc, char *argv[]) {
         MODE = get_elf_class(elf_name);
     }
 
-    /* inject so */
-    if (!strcmp(function, "injectso")) {
-        char *so_name = file;
-        inject_so(elf_name, section_name, so_name, config_name, ver);
-    }
-
     /* ELF parser */
     if (!strcmp(function, "parse")) {
         parse(elf_name, &po, length);
     }
 
-    /* connect each bin in firmware for IDA */
-    if (!strcmp(function, "joinelf")) {
-        join_elf(config_name, arch, class, endian, elf_name);
-    }
-
     /* edit elf */
     if (!strcmp(function, "edit")) {
         edit(elf_name, &po, row, column, value, section_name, string);
-    }
-
-    /* convert file to script */
-    if (!strcmp(function, "bin2script")) {
-        bin_to_cmd(elf_name);
-        bin_to_sh(elf_name);
     }
 
     /* forensics */

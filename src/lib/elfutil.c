@@ -18,6 +18,10 @@
  * @param code error code
  */
 void print_error(enum ErrorCode code) {
+    if (code >= 0 ) {
+        PRINT_INFO("success\n");
+        return ;
+    }
     switch (code) {
         case ERR_SEC_NOTFOUND:
             PRINT_ERROR("error: cannot find section\n");
@@ -4206,4 +4210,133 @@ int extract_fragment(const char *file_name, long offset, size_t size, char *outp
     mem_to_file(file_name, buffer, size, 1);
     free(buffer);
     fclose(input_fp);
+}
+
+/**
+ * @brief 将二进制文件转换为Windows cmd脚本
+ * convert binary file to Windows cmd script
+ * @param input_path input file name with path
+ * @return error code
+ */
+void bin_to_cmd(const char* input_path) {
+    char basename[MAX_PATH_LEN];
+    char filename[MAX_PATH_LEN];
+    char output[MAX_PATH_LEN + 10];
+    
+    get_filename_with_ext(input_path, filename);
+    get_filename_without_ext(input_path, basename);
+    sprintf(output, "%s.cmd", basename);
+    
+    FILE *bin_file = fopen(input_path, "rb");
+    FILE *txt_file = fopen(output, "w");
+    
+    if (!bin_file || !txt_file) {
+        PRINT_ERROR("open failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // create null file
+    fprintf(txt_file, "echo|set /p=\"\">%s.%s\n", basename, "hex");
+
+    unsigned char buffer[READ_CHUNK];
+    char hex_str[MAX_LINE_LEN + 1] = {0};
+    int hex_pos = 0;
+
+    while (1) {
+        size_t bytes_read = fread(buffer, 1, READ_CHUNK, bin_file);
+        if (bytes_read == 0) break;
+
+        for (size_t i = 0; i < bytes_read; i++) {
+            // 每个字节转为2个十六进制字符
+            int written = snprintf(hex_str + hex_pos, 3, "%02x", buffer[i]);
+            hex_pos += written;
+
+            // 达到行长度限制时换行
+            if (hex_pos >= MAX_LINE_LEN) {
+                fprintf(txt_file, "echo|set /p=\"%.*s\">>%s.%s\n", MAX_LINE_LEN + 20, hex_str, basename, "hex");
+                hex_pos = 0;
+            }
+        }
+    }
+
+    // write the remaining characterw 
+    // 写入剩余内容
+    if (hex_pos > 0) {
+        fprintf(txt_file, "echo|set /p=\"%.*s\">>%s.%s\n", hex_pos, hex_str, basename, "hex");
+    }
+
+    // write powershell cmd
+    char s1[MAX_LINE_LEN];
+    sprintf(s1, "powershell -Command \"$h=Get-Content -readcount 0 -path './%s.%s';", basename, "hex");
+    char s2[MAX_LINE_LEN] = "$l=$h[0].length;$b=New-Object byte[] ($l/2);$x=0;for ($i=0;$i -le $l-1;$i+=2){$b[$x]=[byte]::Parse($h[0].Substring($i,2),[System.Globalization.NumberStyles]::HexNumber);$x+=1};";
+    char s3[MAX_LINE_LEN];
+    sprintf(s3, "set-content -encoding byte '%s' -value $b;", filename);
+    char s4[MAX_LINE_LEN] = "Remove-Item -force test.hex;\"";
+    char s[1024];
+    strcat(s, s1);
+    strcat(s, s2);
+    strcat(s, s3);
+    strcat(s, s4);
+    fprintf(txt_file, s);
+    PRINT_INFO("write to %s\n", output);
+    fclose(bin_file);
+    fclose(txt_file);
+}
+
+/**
+ * @brief 将二进制文件转换为Linux shell脚本
+ * convert binary file to Linux shell script
+ * @param input_path input file name with path
+ * @return error code
+ */
+void bin_to_sh(const char* input_path) {
+    char basename[MAX_PATH_LEN];
+    char filename[MAX_PATH_LEN];
+    char output[MAX_PATH_LEN + 10];
+    
+    get_filename_with_ext(input_path, filename);
+    get_filename_without_ext(input_path, basename);
+    sprintf(output, "%s.sh", basename);
+    
+    FILE *bin_file = fopen(input_path, "rb");
+    FILE *txt_file = fopen(output, "w");
+    
+    if (!bin_file || !txt_file) {
+        PRINT_ERROR("open failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // create null file
+    fprintf(txt_file, "echo \"\"| xxd -r -p > %s\n", filename);
+
+    unsigned char buffer[MAX_LINE_LEN];
+    char hex_str[MAX_LINE_LEN + 1] = {0};
+    int hex_pos = 0;
+
+    while (1) {
+        size_t bytes_read = fread(buffer, 1, READ_CHUNK, bin_file);
+        if (bytes_read == 0) break;
+
+        for (size_t i = 0; i < bytes_read; i++) {
+            // 每个字节转为2个十六进制字符
+            int written = snprintf(hex_str + hex_pos, 3, "%02x", buffer[i]);
+            hex_pos += written;
+
+            // 达到行长度限制时换行
+            if (hex_pos >= MAX_LINE_LEN) {
+                fprintf(txt_file, "echo \"%.*s\" | xxd -r -p >>%s\n", MAX_LINE_LEN + 40, hex_str, filename);
+                hex_pos = 0;
+            }
+        }
+    }
+
+    // write the remaining characterw 
+    // 写入剩余内容
+    if (hex_pos > 0) {
+        fprintf(txt_file, "echo \"%.*s\" | xxd -r -p >>%s\n", hex_pos, hex_str, filename);
+    }
+
+    PRINT_INFO("write to %s\n", output);
+    fclose(bin_file);
+    fclose(txt_file);
 }

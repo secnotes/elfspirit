@@ -1,8 +1,6 @@
 #include <elf.h>
 #include <stddef.h>
 
-#define MAX_PATH 4096
-
 enum ErrorCode {
     /* ELF file error */
     ERR_DYN_NOTFOUND = -20,
@@ -349,6 +347,16 @@ int add_segment_difficult(Elf *elf, size_t size, size_t *added_index);
 int add_segment_auto(Elf *elf, size_t size, size_t *added_index);
 
 /**
+ * @brief 增加一个段，并用文件填充内容
+ * add a paragraph and fill in the content with a file
+ * @param elf Elf custom structure 
+ * @param type segment type
+ * @param file file content
+ * @return error code
+ */
+int add_segment_with_file(Elf *elf, int type, char *file);
+
+/**
  * @brief 增加一个节，自动选择增加方式
  * Add a section, automatically choose the addition method
  * @param elf Elf custom structure
@@ -524,3 +532,19 @@ int edit_pointer(Elf *elf, uint64_t offset, uint64_t value);
  * @return error code
  */
 int extract_fragment(const char *file_name, long offset, size_t size, char *output);
+
+/**
+ * @brief 将二进制文件转换为Windows cmd脚本
+ * convert binary file to Windows cmd script
+ * @param input_path input file name with path
+ * @return error code
+ */
+void bin_to_cmd(const char* input_path);
+
+/**
+ * @brief 将二进制文件转换为Linux shell脚本
+ * convert binary file to Linux shell script
+ * @param input_path input file name with path
+ * @return error code
+ */
+void bin_to_sh(const char* input_path);

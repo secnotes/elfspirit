@@ -1,3 +1,7 @@
+#define MAX_PATH_LEN 4096
+#define MAX_LINE_LEN 256  // 每行最大字符数
+#define READ_CHUNK 128    // 每次读取128字节(对应256字符)
+
 #define NONE         "\033[m"
 #define RED          "\033[0;32;31m"
 #define LIGHT_RED    "\033[1;31m"
@@ -73,3 +77,21 @@ int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new);
  * @return error code {-1:false,0:success}
  */
 int file_to_mem(const char* filename, char** buffer);
+
+/**
+ * @brief 从路径中提取文件名
+ * extract file name from path
+ * @param path path
+ * @param result
+ * @return error code
+ */
+void get_filename_with_ext(const char* path, char* result);
+
+/**
+ * @brief 从路径中提取文件名（不带扩展名）
+ * extract file name from path (without extension)
+ * @param path path
+ * @param result
+ * @return error code
+ */
+void get_filename_without_ext(const char* path, char* result);

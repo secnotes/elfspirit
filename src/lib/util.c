@@ -68,12 +68,12 @@ int arch_to_mach(uint8_t *arch, uint32_t class) {
  */
 int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new) {
     /* new file */
-    char new_name[MAX_PATH];
-    memset(new_name, 0, MAX_PATH);
+    char new_name[MAX_PATH_LEN];
+    memset(new_name, 0, MAX_PATH_LEN);
     if (is_new) 
-        snprintf(new_name, MAX_PATH, "%s.out", file_name);
+        snprintf(new_name, MAX_PATH_LEN, "%s.out", file_name);
     else
-        strncpy(new_name, file_name, MAX_PATH);
+        strncpy(new_name, file_name, MAX_PATH_LEN);
         
     int fd_new = open(new_name, O_RDWR|O_CREAT|O_TRUNC, 0777);
     if (fd_new < 0) {
@@ -114,4 +114,38 @@ int file_to_mem(const char* filename, char** buffer) {
 
     fclose(file); 
     return size; 
+}
+
+/**
+ * @brief 从路径中提取文件名
+ * extract file name from path
+ * @param path path
+ * @param result
+ * @return error code
+ */
+void get_filename_with_ext(const char* path, char* result) {
+    const char* p = strrchr(path, '/');
+    if (p == NULL) p = strrchr(path, '\\');
+    if (p == NULL) p = path - 1;
+    strcpy(result, p + 1);
+}
+
+/**
+ * @brief 从路径中提取文件名（不带扩展名）
+ * extract file name from path (without extension)
+ * @param path path
+ * @param result
+ * @return error code
+ */
+void get_filename_without_ext(const char* path, char* result) {
+    char with_ext[256];
+    get_filename_with_ext(path, with_ext);
+    
+    char* dot = strrchr(with_ext, '.');
+    if (dot != NULL) {
+        strncpy(result, with_ext, dot - with_ext);
+        result[dot - with_ext] = '\0';
+    } else {
+        strcpy(result, with_ext);
+    }
 }
