@@ -127,16 +127,6 @@ int hex2str(unsigned int hex, char *ret, unsigned int len);
 char *str_reverse(char *str, int offset, int length);
 
 /**
- * @brief Compare string
- * 
- * @param str1 
- * @param str2 
- * @param n 
- * @return int 
- */
-int compare_firstN_chars(const char *str1, const char *str2, int n);
-
-/**
  * @brief 计算一个地址的4K对齐地址
  * align 4k address
  * @param address input address
@@ -248,32 +238,3 @@ int is_pie(char *elfname);
  * @return int error code {-1:error,0:sucess}
  */
 int set_content(char *elf_name, uint64_t offset, char *content, size_t size);
-
-/* Non repetitive data structures */
-/* 不重复的数据结构 */
-#ifndef UNIQUE_SEQUENCE_H
-#define UNIQUE_SEQUENCE_H
-
-#define true 1
-#define false 0
-
-typedef struct {
-    int *data;
-    int size;
-    int capacity;
-} UniqueSequence;
-
-UniqueSequence* sequence_create(int initial_capacity);
-void sequence_destroy(UniqueSequence *seq);
-int sequence_insert(UniqueSequence *seq, int value);
-int sequence_remove(UniqueSequence *seq, int value);
-int sequence_contains(const UniqueSequence *seq, int value);
-int sequence_size(const UniqueSequence *seq);
-int sequence_is_empty(const UniqueSequence *seq);
-void sequence_clear(UniqueSequence *seq);
-void sequence_print(const UniqueSequence *seq);
-int sequence_get(const UniqueSequence *seq, int index);
-int sequence_union(UniqueSequence *result, const UniqueSequence *seq1, const UniqueSequence *seq2);
-int sequence_intersection(UniqueSequence *result, const UniqueSequence *seq1, const UniqueSequence *seq2);
-
-#endif

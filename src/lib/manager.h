@@ -109,3 +109,29 @@ void print_all_mappings(MappingList* list);
 void free_list(ListNode* head);
 void free_mapping(IndexMapping* mapping);
 void free_mapping_list(MappingList* list);
+
+#define INITIAL_CAPACITY 10
+
+typedef struct {
+    int *data;
+    int size;
+    int capacity;
+} Set;
+
+// 创建集合
+Set* create_set();
+
+// 检查元素是否在集合中
+int contains_element(Set *set, int value);
+
+// 增加元素
+void add_element(Set *set, int value);
+
+// 移除元素
+void remove_element(Set *set, int value);
+
+// 打印集合
+void print_set(Set *set);
+
+// 释放集合
+void free_set(Set *set);

@@ -31,7 +31,7 @@
 #include <stdarg.h>
 #include "common.h"
 #include "parse.h"
-#include "lib/elfutil.h"
+#include "lib/manager.h"
 
 #ifdef ANDROID
 #define ELF32_ST_VISIBILITY(o)	((o) & 0x03)
@@ -42,8 +42,16 @@
 #define PRINT_HEADER(Nr, key, value) printf ("    [%2d] %-20s %10p\n", Nr, key, value)
 /* print section header table */
 #define PRINT_SECTION(Nr, name, type, addr, off, size, es, flg, lk, inf, al) \
-    printf("    [%2d] %-15s %-15s %08x %06x %06x %02x %4s %3u %3u %3u\n", \
-    Nr, name, type, addr, off, size, es, flg, lk, inf, al)
+    do { \
+        char truncated_name[256]; \
+        strncpy(truncated_name, name, sizeof(truncated_name) - 1); \
+        truncated_name[sizeof(truncated_name) - 1] = '\0'; \
+        if (strlen(truncated_name) > truncated_length) { \
+            strcpy(&truncated_name[truncated_length - 6], "[...]"); \
+        } \
+        printf("    [%2d] %-15s %-15s %08x %06x %06x %02x %4s %3u %3u %3u\n", \
+            Nr, truncated_name, type, addr, off, size, es, flg, lk, inf, al); \
+    } while (0)
 #define PRINT_SECTION_TITLE(Nr, name, type, addr, off, size, es, flg, lk, inf, al) \
     printf("    [%2s] %-15s %-15s %8s %6s %6s %2s %4s %3s %3s %3s\n", \
     Nr, name, type, addr, off, size, es, flg, lk, inf, al)
@@ -58,8 +66,16 @@
 
 /* print dynamic symbol table*/
 #define PRINT_DYNSYM(Nr, value, size, type, bind, vis, ndx, name) \
-    printf("    [%2d] %08x %4d %-8s %-8s %-8s %4d %-20s\n", \
-    Nr, value, size, type, bind, vis, ndx, name)
+    do { \
+        char truncated_name[256]; \
+        strncpy(truncated_name, name, sizeof(truncated_name) - 1); \
+        truncated_name[sizeof(truncated_name) - 1] = '\0'; \
+        if (strlen(truncated_name) > truncated_length) { \
+            strcpy(&truncated_name[truncated_length - 6], "[...]"); \
+        } \
+        printf("    [%2d] %08x %4d %-8s %-8s %-8s %4d %-20s\n", \
+               Nr, value, size, type, bind, vis, ndx, truncated_name); \
+    } while (0)
 #define PRINT_DYNSYM_TITLE(Nr, value, size, type, bind, vis, ndx, name) \
     printf("    [%2s] %8s %4s %-8s %-8s %-8s %4s %-20s\n", \
     Nr, value, size, type, bind, vis, ndx, name)
@@ -94,13 +110,6 @@
 #define PRINT_POINTER64_TITLE(Nr, value, name) \
     printf("    [%2s] %-016s %-16s\n", \
     Nr, value, name);
-
-#define IF_PRINT(is_display, format, ...) \
-    do { \
-        if (is_display) { \
-            printf(format, ##__VA_ARGS__); \
-        } \
-    } while(0)
 
 int flag2str(int flag, char *flag_str) {
     if (flag & 0x1)
@@ -146,28 +155,14 @@ int get_option(parser_opt_t *po, PARSE_OPT_T option){
     return -1;
 }
 
-struct ElfData g_dynsym;
-struct ElfData g_symtab;
-struct ElfData g_secname;
-struct ElfData g_relplt;
-struct ElfData g_unmapped_section;
-uint32_t g_strlength;
-
-void static init_t() {
-    memset(&g_dynsym, 0, sizeof(struct ElfData));
-    memset(&g_symtab, 0, sizeof(struct ElfData));
-    memset(&g_secname, 0, sizeof(struct ElfData));
-    memset(&g_relplt, 0, sizeof(struct ElfData));
-    memset(&g_unmapped_section, 0, sizeof(struct ElfData));
-    g_strlength = 0;
-}
+uint32_t truncated_length;
 
 /**
  * @description: ELF Header information
  * @param {handle_t32} h
  * @return {void}
  */
-static void display_header32(handle_t32 *h) {
+static void display_header32(Elf *h) {
     char *tmp;
     int nr = 0;
     INFO("ELF32 Header\n");
@@ -175,7 +170,7 @@ static void display_header32(handle_t32 *h) {
     printf("     0 ~ 15bit ----------------------------------------------\n");
     printf("     Magic: ");
     for (int i = 0; i < EI_NIDENT; i++) {
-        printf(" %02x", h->ehdr->e_ident[i]);
+        printf(" %02x", h->data.elf32.ehdr->e_ident[i]);
     }    
     printf("\n");
     printf("            %3s %c  %c  %c  %c  %c  %c  %c  %c\n", "ELF", 'E', 'L', 'F', '|', '|', '|', '|', '|');
@@ -186,7 +181,7 @@ static void display_header32(handle_t32 *h) {
     printf("            %26s\n", "byte index of padding bytes");
     printf("     16 ~ 63bit ---------------------------------------------\n");
 
-    switch (h->ehdr->e_type) {
+    switch (h->data.elf32.ehdr->e_type) {
         case ET_NONE:
             tmp = "An unknown type";
             break;
@@ -211,9 +206,9 @@ static void display_header32(handle_t32 *h) {
             tmp = UNKOWN;
             break;
     }
-    PRINT_HEADER_EXP(nr++, "e_type:", h->ehdr->e_type, tmp);
+    PRINT_HEADER_EXP(nr++, "e_type:", h->data.elf32.ehdr->e_type, tmp);
 
-    switch (h->ehdr->e_machine) {
+    switch (h->data.elf32.ehdr->e_machine) {
         case EM_NONE:
             tmp = "An unknown machine";
             break;
@@ -926,9 +921,9 @@ static void display_header32(handle_t32 *h) {
             tmp = UNKOWN;
             break;
     }
-    PRINT_HEADER_EXP(nr++, "e_machine:", h->ehdr->e_machine, tmp);
+    PRINT_HEADER_EXP(nr++, "e_machine:", h->data.elf32.ehdr->e_machine, tmp);
 
-    switch (h->ehdr->e_version) {
+    switch (h->data.elf32.ehdr->e_version) {
         case EV_NONE:
             tmp = "Invalid version";
             break;
@@ -941,20 +936,20 @@ static void display_header32(handle_t32 *h) {
             tmp = UNKOWN;
             break;
     }
-    PRINT_HEADER_EXP(nr++, "e_version:", h->ehdr->e_version, tmp);
-    PRINT_HEADER_EXP(nr++, "e_entry:", h->ehdr->e_entry, "Entry point address");
-    PRINT_HEADER_EXP(nr++, "e_phoff:", h->ehdr->e_phoff, "Start of program headers");
-    PRINT_HEADER_EXP(nr++, "e_shoff:", h->ehdr->e_shoff, "Start of section headers");
-    PRINT_HEADER(nr++, "e_flags:", h->ehdr->e_flags);
-    PRINT_HEADER_EXP(nr++, "e_ehsize:", h->ehdr->e_ehsize, "Size of this header");
-    PRINT_HEADER_EXP(nr++, "e_phentsize:", h->ehdr->e_phentsize, "Size of program headers");
-    PRINT_HEADER_EXP(nr++, "e_phnum:", h->ehdr->e_phnum, "Number of program headers");
-    PRINT_HEADER_EXP(nr++, "e_shentsize:", h->ehdr->e_shentsize, "Size of section headers");
-    PRINT_HEADER_EXP(nr++, "e_shnum:", h->ehdr->e_shnum, "Number of section headers");
-    PRINT_HEADER_EXP(nr++, "e_shstrndx:", h->ehdr->e_shstrndx, "Section header string table index");
+    PRINT_HEADER_EXP(nr++, "e_version:", h->data.elf32.ehdr->e_version, tmp);
+    PRINT_HEADER_EXP(nr++, "e_entry:", h->data.elf32.ehdr->e_entry, "Entry point address");
+    PRINT_HEADER_EXP(nr++, "e_phoff:", h->data.elf32.ehdr->e_phoff, "Start of program headers");
+    PRINT_HEADER_EXP(nr++, "e_shoff:", h->data.elf32.ehdr->e_shoff, "Start of section headers");
+    PRINT_HEADER(nr++, "e_flags:", h->data.elf32.ehdr->e_flags);
+    PRINT_HEADER_EXP(nr++, "e_ehsize:", h->data.elf32.ehdr->e_ehsize, "Size of this header");
+    PRINT_HEADER_EXP(nr++, "e_phentsize:", h->data.elf32.ehdr->e_phentsize, "Size of program headers");
+    PRINT_HEADER_EXP(nr++, "e_phnum:", h->data.elf32.ehdr->e_phnum, "Number of program headers");
+    PRINT_HEADER_EXP(nr++, "e_shentsize:", h->data.elf32.ehdr->e_shentsize, "Size of section headers");
+    PRINT_HEADER_EXP(nr++, "e_shnum:", h->data.elf32.ehdr->e_shnum, "Number of section headers");
+    PRINT_HEADER_EXP(nr++, "e_shstrndx:", h->data.elf32.ehdr->e_shstrndx, "Section header string table index");
 }
 
-static void display_header64(handle_t64 *h) {
+static void display_header64(Elf *h) {
     char *tmp;
     int nr = 0;
     INFO("ELF64 Header\n");
@@ -962,7 +957,7 @@ static void display_header64(handle_t64 *h) {
     printf("     0 ~ 15bit ----------------------------------------------\n");
     printf("     Magic: ");
     for (int i = 0; i < EI_NIDENT; i++) {
-        printf(" %02x", h->ehdr->e_ident[i]);
+        printf(" %02x", h->data.elf64.ehdr->e_ident[i]);
     }   
     printf("\n");
     printf("            %3s %c  %c  %c  %c  %c  %c  %c  %c\n", "ELF", 'E', 'L', 'F', '|', '|', '|', '|', '|');
@@ -973,7 +968,7 @@ static void display_header64(handle_t64 *h) {
     printf("            %26s\n", "byte index of padding bytes");
     printf("     16 ~ 63bit ---------------------------------------------\n");
 
-    switch (h->ehdr->e_type) {
+    switch (h->data.elf64.ehdr->e_type) {
         case ET_NONE:
             tmp = "An unknown type";
             break;
@@ -998,9 +993,9 @@ static void display_header64(handle_t64 *h) {
             tmp = UNKOWN;
             break;
     }
-    PRINT_HEADER_EXP(nr++, "e_type:", h->ehdr->e_type, tmp);
+    PRINT_HEADER_EXP(nr++, "e_type:", h->data.elf64.ehdr->e_type, tmp);
 
-    switch (h->ehdr->e_machine) {
+    switch (h->data.elf64.ehdr->e_machine) {
         case EM_NONE:
             tmp = "An unknown machine";
             break;
@@ -1713,9 +1708,9 @@ static void display_header64(handle_t64 *h) {
             tmp = UNKOWN;
             break;
     }
-    PRINT_HEADER_EXP(nr++, "e_machine:", h->ehdr->e_machine, tmp);
+    PRINT_HEADER_EXP(nr++, "e_machine:", h->data.elf64.ehdr->e_machine, tmp);
 
-    switch (h->ehdr->e_version) {
+    switch (h->data.elf64.ehdr->e_version) {
         case EV_NONE:
             tmp = "Invalid version";
             break;
@@ -1728,17 +1723,17 @@ static void display_header64(handle_t64 *h) {
             tmp = UNKOWN;
             break;
     }
-    PRINT_HEADER_EXP(nr++, "e_version:", h->ehdr->e_version, tmp);
-    PRINT_HEADER_EXP(nr++, "e_entry:", h->ehdr->e_entry, "Entry point address");
-    PRINT_HEADER_EXP(nr++, "e_phoff:", h->ehdr->e_phoff, "Start of program headers");
-    PRINT_HEADER_EXP(nr++, "e_shoff:", h->ehdr->e_shoff, "Start of section headers");
-    PRINT_HEADER(nr++, "e_flags:", h->ehdr->e_flags);
-    PRINT_HEADER_EXP(nr++, "e_ehsize:", h->ehdr->e_ehsize, "Size of this header");
-    PRINT_HEADER_EXP(nr++, "e_phentsize:", h->ehdr->e_phentsize, "Size of program headers");
-    PRINT_HEADER_EXP(nr++, "e_phnum:", h->ehdr->e_phnum, "Number of program headers");
-    PRINT_HEADER_EXP(nr++, "e_shentsize:", h->ehdr->e_shentsize, "Size of section headers");
-    PRINT_HEADER_EXP(nr++, "e_shnum:", h->ehdr->e_shnum, "Number of section headers");
-    PRINT_HEADER_EXP(nr++, "e_shstrndx:", h->ehdr->e_shstrndx, "Section header string table index");
+    PRINT_HEADER_EXP(nr++, "e_version:", h->data.elf64.ehdr->e_version, tmp);
+    PRINT_HEADER_EXP(nr++, "e_entry:", h->data.elf64.ehdr->e_entry, "Entry point address");
+    PRINT_HEADER_EXP(nr++, "e_phoff:", h->data.elf64.ehdr->e_phoff, "Start of program headers");
+    PRINT_HEADER_EXP(nr++, "e_shoff:", h->data.elf64.ehdr->e_shoff, "Start of section headers");
+    PRINT_HEADER(nr++, "e_flags:", h->data.elf64.ehdr->e_flags);
+    PRINT_HEADER_EXP(nr++, "e_ehsize:", h->data.elf64.ehdr->e_ehsize, "Size of this header");
+    PRINT_HEADER_EXP(nr++, "e_phentsize:", h->data.elf64.ehdr->e_phentsize, "Size of program headers");
+    PRINT_HEADER_EXP(nr++, "e_phnum:", h->data.elf64.ehdr->e_phnum, "Number of program headers");
+    PRINT_HEADER_EXP(nr++, "e_shentsize:", h->data.elf64.ehdr->e_shentsize, "Size of section headers");
+    PRINT_HEADER_EXP(nr++, "e_shnum:", h->data.elf64.ehdr->e_shnum, "Number of section headers");
+    PRINT_HEADER_EXP(nr++, "e_shstrndx:", h->data.elf64.ehdr->e_shstrndx, "Section header string table index");
 }
 
 /**
@@ -1746,28 +1741,21 @@ static void display_header64(handle_t64 *h) {
  * @param {handle_t32} h
  * @return {void}
  */
-static void display_section32(handle_t32 *h, int is_display) {
+static void display_section32(Elf *elf) {
     char *name;
     char *tmp;
     char flag[4];
-    if (is_display) {
-        INFO("Section Header Table\n");
-        PRINT_SECTION_TITLE("Nr", "Name", "Type", "Addr", "Off", "Size", "Es", "Flg", "Lk", "Inf", "Al");
-    }
+    INFO("Section Header Table\n");
+    PRINT_SECTION_TITLE("Nr", "Name", "Type", "Addr", "Off", "Size", "Es", "Flg", "Lk", "Inf", "Al");
 
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+    for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             exit(-1);
         }
-        /* store section name */
-        if (i < SECTION_NUM_MAX && strlen(name) < STR_LEN_MAX){
-            g_secname.count++;
-            strcpy(g_secname.name[i], name);
-        }
 
-        switch (h->shdr[i].sh_type) {
+        switch (elf->data.elf32.shdr[i].sh_type) {
             case SHT_NULL:
                 tmp = "SHT_NULL";
                 break;
@@ -1837,39 +1825,28 @@ static void display_section32(handle_t32 *h, int is_display) {
                 break;
         }
 
-        if (strlen(name) > g_strlength) {
-            strcpy(&name[g_strlength - 6], "[...]");
-        }
         strcpy(flag, "   ");
-        flag2str_sh(h->shdr[i].sh_flags, flag);
-        if (is_display)
-        PRINT_SECTION(i, name, tmp, h->shdr[i].sh_addr, h->shdr[i].sh_offset, h->shdr[i].sh_size, h->shdr[i].sh_entsize, \
-                        flag, h->shdr[i].sh_link, h->shdr[i].sh_info, h->shdr[i].sh_addralign);
+        flag2str_sh(elf->data.elf32.shdr[i].sh_flags, flag);
+        PRINT_SECTION(i, name, tmp, elf->data.elf32.shdr[i].sh_addr, elf->data.elf32.shdr[i].sh_offset, elf->data.elf32.shdr[i].sh_size, elf->data.elf32.shdr[i].sh_entsize, \
+                        flag, elf->data.elf32.shdr[i].sh_link, elf->data.elf32.shdr[i].sh_info, elf->data.elf32.shdr[i].sh_addralign);
     }
 }
 
-static void display_section64(handle_t64 *h, int is_display) {
+static void display_section64(Elf *elf) {
     char *name;
     char *tmp;
     char flag[4];
-    if (is_display) {
-        INFO("Section Header Table\n");
-        PRINT_SECTION_TITLE("Nr", "Name", "Type", "Addr", "Off", "Size", "Es", "Flg", "Lk", "Inf", "Al");
-    }
+    INFO("Section Header Table\n");
+    PRINT_SECTION_TITLE("Nr", "Name", "Type", "Addr", "Off", "Size", "Es", "Flg", "Lk", "Inf", "Al");
     
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+    for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             exit(-1);
         }
-        /* store section name */
-        if (i < SECTION_NUM_MAX && strlen(name) < STR_LEN_MAX){
-            g_secname.count++;
-            strcpy(g_secname.name[i], name);
-        }
 
-        switch (h->shdr[i].sh_type) {
+        switch (elf->data.elf64.shdr[i].sh_type) {
             case SHT_NULL:
                 tmp = "SHT_NULL";
                 break;
@@ -1939,14 +1916,10 @@ static void display_section64(handle_t64 *h, int is_display) {
                 break;
         }
 
-        if (strlen(name) > g_strlength) {
-            strcpy(&name[g_strlength - 6], "[...]");
-        }
         strcpy(flag, "   ");
-        flag2str_sh(h->shdr[i].sh_flags, flag);
-        if (is_display)
-        PRINT_SECTION(i, name, tmp, h->shdr[i].sh_addr, h->shdr[i].sh_offset, h->shdr[i].sh_size, h->shdr[i].sh_entsize, \
-                        flag, h->shdr[i].sh_link, h->shdr[i].sh_info, h->shdr[i].sh_addralign);
+        flag2str_sh(elf->data.elf64.shdr[i].sh_flags, flag);
+        PRINT_SECTION(i, name, tmp, elf->data.elf64.shdr[i].sh_addr, elf->data.elf64.shdr[i].sh_offset, elf->data.elf64.shdr[i].sh_size, elf->data.elf64.shdr[i].sh_entsize, \
+                        flag, elf->data.elf64.shdr[i].sh_link, elf->data.elf64.shdr[i].sh_info, elf->data.elf64.shdr[i].sh_addralign);
     }
 }
 
@@ -1955,16 +1928,15 @@ static void display_section64(handle_t64 *h, int is_display) {
  * @param {handle_t32} h
  * @return {void}
  */
-void display_segment32(handle_t32 *h, int is_display) {
+void display_segment32(Elf *elf) {
     char *name;
     char *tmp;
     char flag[4];
-    if (is_display) {
-        INFO("Program Header Table\n");
-        PRINT_PROGRAM_TITLE("Nr", "Type", "Offset", "Virtaddr", "Physaddr", "Filesiz", "Memsiz", "Flg", "Align");
-    }
-    for (int i = 0; i < h->ehdr->e_phnum; i++) {
-        switch (h->phdr[i].p_type) {
+    INFO("Program Header Table\n");
+    PRINT_PROGRAM_TITLE("Nr", "Type", "Offset", "Virtaddr", "Physaddr", "Filesiz", "Memsiz", "Flg", "Align");
+
+    for (int i = 0; i < elf->data.elf32.ehdr->e_phnum; i++) {
+        switch (elf->data.elf32.phdr[i].p_type) {
             case PT_NULL:
                 tmp = "PT_NULL";
                 break;
@@ -1979,9 +1951,7 @@ void display_segment32(handle_t32 *h, int is_display) {
 
             case PT_INTERP:
                 tmp = "PT_INTERP";
-                if (is_display) {
-                    printf("\t\t[Requesting program interpreter: %s]\n", h->mem + h->phdr[i].p_offset);
-                }
+                printf("\t\t[Requesting program interpreter: %s]\n", elf->mem + elf->data.elf32.phdr[i].p_offset);
                 break;
 
             case PT_NOTE:
@@ -2013,62 +1983,51 @@ void display_segment32(handle_t32 *h, int is_display) {
                 break;
         }
         strcpy(flag, "   ");
-        flag2str(h->phdr[i].p_flags, flag);
-        if (is_display) {
-            PRINT_PROGRAM(i, tmp, h->phdr[i].p_offset, h->phdr[i].p_vaddr, h->phdr[i].p_paddr, h->phdr[i].p_filesz, h->phdr[i].p_memsz, flag, h->phdr[i].p_align); 
-        }
+        flag2str(elf->data.elf32.phdr[i].p_flags, flag);
+        PRINT_PROGRAM(i, tmp, elf->data.elf32.phdr[i].p_offset, elf->data.elf32.phdr[i].p_vaddr, elf->data.elf32.phdr[i].p_paddr, elf->data.elf32.phdr[i].p_filesz, elf->data.elf32.phdr[i].p_memsz, flag, elf->data.elf32.phdr[i].p_align); 
     }
 
-    if (is_display) {
-        INFO("Section to segment mapping\n");
-    }
-    UniqueSequence *seq_section_index = sequence_create(SECTION_NUM_MAX);
-    for (int i = 0; i < h->ehdr->e_phnum; i++) {
-        IF_PRINT(is_display, "    [%2d]", i);
-        for (int j = 0; j < h->ehdr->e_shnum; j++) {
-            name = h->mem + h->shstrtab->sh_offset + h->shdr[j].sh_name;
-            if (h->shdr[j].sh_addr >= h->phdr[i].p_vaddr && h->shdr[j].sh_addr + h->shdr[j].sh_size <= h->phdr[i].p_vaddr + h->phdr[i].p_memsz && h->shdr[j].sh_type != SHT_NULL) {
-                if (h->shdr[j].sh_flags >> 1 & 0x1) {
+
+    INFO("Section to segment mapping\n");
+    Set *set = create_set();
+    for (int i = 0; i < elf->data.elf32.ehdr->e_phnum; i++) {
+        printf("    [%2d]", i);
+        for (int j = 0; j < elf->data.elf32.ehdr->e_shnum; j++) {
+            name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[j].sh_name;
+            if (elf->data.elf32.shdr[j].sh_addr >= elf->data.elf32.phdr[i].p_vaddr && elf->data.elf32.shdr[j].sh_addr + elf->data.elf32.shdr[j].sh_size <= elf->data.elf32.phdr[i].p_vaddr + elf->data.elf32.phdr[i].p_memsz && elf->data.elf32.shdr[j].sh_type != SHT_NULL) {
+                if (elf->data.elf32.shdr[j].sh_flags >> 1 & 0x1) {
                     if (name != NULL) {
-                        sequence_insert(seq_section_index, j);
-                        IF_PRINT(is_display, " %s", name);
+                        add_element(set, j);
+                        printf(" %s", name);
                     }                    
                 }
             }    
         }
-        IF_PRINT(is_display, "\n");
+        printf("\n");
     }
 
-    if (is_display) {
-        INFO("Unmapped sections\n");
-    }
-    IF_PRINT(is_display, "   ");
-    for (int j = 0; j < h->ehdr->e_shnum; j++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[j].sh_name;
-        if (!sequence_contains(seq_section_index, j)) {
-            IF_PRINT(is_display, " [%d]%s", j, name);
-            /* init g_unmapped_section data*/
-            if (!is_display & strlen(name) != 0) {
-                strcpy(g_unmapped_section.name[g_unmapped_section.count], name);
-                g_unmapped_section.count++;
-            }
+    INFO("Unmapped sections\n");
+    printf("   ");
+    for (int j = 0; j < elf->data.elf32.ehdr->e_shnum; j++) {
+        name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[j].sh_name;
+        if (contains_element(set, j) == FALSE) {
+            printf(" [%d]%s", j, name);
         }
     }
 
-    IF_PRINT(is_display, "\n");
-    sequence_destroy(seq_section_index);
+    printf("\n");
+    free_set(set);
 }
 
-void display_segment64(handle_t64 *h, int is_display) {
+void display_segment64(Elf *elf) {
     char *name;
     char *tmp;
     char flag[4];
-    if (is_display) {
-        INFO("Program Header Table\n");
-        PRINT_PROGRAM_TITLE("Nr", "Type", "Offset", "Virtaddr", "Physaddr", "Filesiz", "Memsiz", "Flg", "Align");
-    }
-    for (int i = 0; i < h->ehdr->e_phnum; i++) {
-        switch (h->phdr[i].p_type) {
+    INFO("Program Header Table\n");
+    PRINT_PROGRAM_TITLE("Nr", "Type", "Offset", "Virtaddr", "Physaddr", "Filesiz", "Memsiz", "Flg", "Align");
+
+    for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
+        switch (elf->data.elf64.phdr[i].p_type) {
             case PT_NULL:
                 tmp = "PT_NULL";
                 break;
@@ -2083,9 +2042,7 @@ void display_segment64(handle_t64 *h, int is_display) {
 
             case PT_INTERP:
                 tmp = "PT_INTERP";
-                if (is_display) {
-                    printf("\t\t[Requesting program interpreter: %s]\n", h->mem + h->phdr[i].p_offset);
-                }
+                printf("\t\t[Requesting program interpreter: %s]\n", elf->mem + elf->data.elf64.phdr[i].p_offset);
                 break;
 
             case PT_NOTE:
@@ -2117,50 +2074,39 @@ void display_segment64(handle_t64 *h, int is_display) {
                 break;
         }
         strcpy(flag, "   ");
-        flag2str(h->phdr[i].p_flags, flag);
-        if (is_display) {
-            PRINT_PROGRAM(i, tmp, h->phdr[i].p_offset, h->phdr[i].p_vaddr, h->phdr[i].p_paddr, h->phdr[i].p_filesz, h->phdr[i].p_memsz, flag, h->phdr[i].p_align); 
-        }
+        flag2str(elf->data.elf64.phdr[i].p_flags, flag);
+        PRINT_PROGRAM(i, tmp, elf->data.elf64.phdr[i].p_offset, elf->data.elf64.phdr[i].p_vaddr, elf->data.elf64.phdr[i].p_paddr, elf->data.elf64.phdr[i].p_filesz, elf->data.elf64.phdr[i].p_memsz, flag, elf->data.elf64.phdr[i].p_align); 
     }
 
-    if (is_display) {
-        INFO("Section to segment mapping\n");
-    }
-    UniqueSequence *seq_section_index = sequence_create(SECTION_NUM_MAX);
-    for (int i = 0; i < h->ehdr->e_phnum; i++) {
-        IF_PRINT(is_display, "    [%2d]", i);
-        for (int j = 0; j < h->ehdr->e_shnum; j++) {
-            name = h->mem + h->shstrtab->sh_offset + h->shdr[j].sh_name;
-            if (h->shdr[j].sh_addr >= h->phdr[i].p_vaddr && h->shdr[j].sh_addr + h->shdr[j].sh_size <= h->phdr[i].p_vaddr + h->phdr[i].p_memsz && h->shdr[j].sh_type != SHT_NULL) {
-                if (h->shdr[j].sh_flags >> 1 & 0x1) {
+    INFO("Section to segment mapping\n");
+    Set *set = create_set();
+    for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
+        printf("    [%2d]", i);
+        for (int j = 0; j < elf->data.elf64.ehdr->e_shnum; j++) {
+            name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[j].sh_name;
+            if (elf->data.elf64.shdr[j].sh_addr >= elf->data.elf64.phdr[i].p_vaddr && elf->data.elf64.shdr[j].sh_addr + elf->data.elf64.shdr[j].sh_size <= elf->data.elf64.phdr[i].p_vaddr + elf->data.elf64.phdr[i].p_memsz && elf->data.elf64.shdr[j].sh_type != SHT_NULL) {
+                if (elf->data.elf64.shdr[j].sh_flags >> 1 & 0x1) {
                     if (name != NULL) {
-                        sequence_insert(seq_section_index, j);
-                        IF_PRINT(is_display, " %s", name);
+                        add_element(set, j);
+                        printf(" %s", name);
                     }                    
                 }
             }    
         }
-        IF_PRINT(is_display, "\n");
+        printf("\n");
     }
 
-    if (is_display) {
-        INFO("Unmapped sections\n");
-    }
-    IF_PRINT(is_display, "   ");
-    for (int j = 0; j < h->ehdr->e_shnum; j++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[j].sh_name;
-        if (!sequence_contains(seq_section_index, j)) {
-            IF_PRINT(is_display, " [%d]%s", j, name);
-            /* init g_unmapped_section data*/
-            if (!is_display & strlen(name) != 0) {
-                strcpy(g_unmapped_section.name[g_unmapped_section.count], name);
-                g_unmapped_section.count++;
-            }
+    INFO("Unmapped sections\n");
+    printf("   ");
+    for (int j = 0; j < elf->data.elf64.ehdr->e_shnum; j++) {
+        name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[j].sh_name;
+        if (contains_element(set, j) == FALSE) {
+            printf(" [%d]%s", j, name);
         }
     }
 
-    IF_PRINT(is_display, "\n");
-    sequence_destroy(seq_section_index);
+    printf("\n");
+    free_set(set);
 }
 
 /**
@@ -2168,7 +2114,7 @@ void display_segment64(handle_t64 *h, int is_display) {
  * @param {handle_t32} h
  * @return int error code {-1:error,0:sucess}
  */
-static int display_dynsym32(handle_t32 *h, char *section_name, char *str_tab, int is_display) {
+static int display_dynsym32(Elf *elf, char *section_name, char *str_tab) {
     char *name = NULL;
     char *type;
     char *bind;
@@ -2176,52 +2122,50 @@ static int display_dynsym32(handle_t32 *h, char *section_name, char *str_tab, in
     // The following variables must be initialized 
     // because they need to be used to determine whether sections exist or not.
     // 以下些变量必须初始化，因为要根据他们判节是否存在
-    int dynstr_index = 0;
-    int dynsym_index = 0;
+    int str_index = 0;
+    int sym_index = 0;
     size_t count;
     Elf32_Sym *sym;
 
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+    for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             exit(-1);
         }
 
         if (!strcmp(name, str_tab)) {
-            dynstr_index = i;
+            str_index = i;
         }
 
         if (!strcmp(name, section_name)) {
-            dynsym_index = i;
+            sym_index = i;
         }
     }
 
-    if (!dynstr_index) {
+    if (!str_index) {
         DEBUG("This file does not have a %s\n", str_tab);
         return -1;
     }
 
-    if (!dynsym_index) {
+    if (!sym_index) {
         DEBUG("This file does not have a %s\n", section_name);
         return -1;
     }
 
-    if (is_display) {
-        INFO("%s table\n", section_name);
-        PRINT_DYNSYM_TITLE("Nr", "Value", "Size", "Type", "Bind", "Vis", "Ndx", "Name");
-    }
+    INFO("%s table\n", section_name);
+    PRINT_DYNSYM_TITLE("Nr", "Value", "Size", "Type", "Bind", "Vis", "Ndx", "Name");
     
-    name = h->mem + h->shstrtab->sh_offset + h->shdr[dynsym_index].sh_name;
+    name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[sym_index].sh_name;
     /* security check start*/
-    if (validated_offset(name, h->mem, h->mem + h->size)) {
+    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
         ERROR("Corrupt file format\n");
         exit(-1);
     }
 
     if (!strcmp(section_name, name)) {
-        sym = (Elf32_Sym *)&h->mem[h->shdr[dynsym_index].sh_offset];
-        count = h->shdr[dynsym_index].sh_size / sizeof(Elf32_Sym);
+        sym = (Elf32_Sym *)&elf->mem[elf->data.elf32.shdr[sym_index].sh_offset];
+        count = elf->data.elf32.shdr[sym_index].sh_size / sizeof(Elf32_Sym);
         for(int i = 0; i < count; i++) {
             switch (ELF32_ST_TYPE(sym[i].st_info))
             {
@@ -2339,23 +2283,7 @@ static int display_dynsym32(handle_t32 *h, char *section_name, char *str_tab, in
                     other = UNKOWN;
                     break;
             }
-            name = h->mem + h->shdr[dynstr_index].sh_offset + sym[i].st_name;
-            /* store */
-            if (!strcmp(".symtab", section_name) && i < SECTION_NUM_MAX && strlen(name) < STR_LEN_MAX) {
-                g_symtab.count++;
-                g_symtab.value[i] = sym[i].st_value;
-                strcpy(g_symtab.name[i], name);
-            } 
-            else if (!strcmp(".dynsym", section_name) &&  i < SECTION_NUM_MAX && strlen(name) < STR_LEN_MAX){
-                g_dynsym.count++;
-                g_dynsym.value[i] = sym[i].st_value;
-                strcpy(g_dynsym.name[i], name);
-            }
-            /* hide long strings */
-            if (strlen(name) > g_strlength) {
-                strcpy(&name[g_strlength - 6], "[...]");
-            }
-            if (is_display)
+            name = elf->mem + elf->data.elf32.shdr[str_index].sh_offset + sym[i].st_name;
             PRINT_DYNSYM(i, sym[i].st_value, sym[i].st_size, type, bind, \
                 other, sym[i].st_shndx, name);
         }
@@ -2368,7 +2296,7 @@ static int display_dynsym32(handle_t32 *h, char *section_name, char *str_tab, in
  * @param {handle_t64} h
  * @return int error code {-1:error,0:sucess}
  */
-static int display_dynsym64(handle_t64 *h, char *section_name, char *str_tab, int is_display) {
+static int display_sym64(Elf *elf, char *section_name, char *str_tab) {
     char *name = NULL;
     char *type;
     char *bind;
@@ -2376,52 +2304,50 @@ static int display_dynsym64(handle_t64 *h, char *section_name, char *str_tab, in
     // The following variables must be initialized 
     // because they need to be used to determine whether sections exist or not.
     // 以下些变量必须初始化，因为要根据他们判节是否存在
-    int dynstr_index = 0;
-    int dynsym_index = 0;
+    int str_index = 0;
+    int sym_index = 0;
     size_t count;
     Elf64_Sym *sym;
 
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+    for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             exit(-1);
         }
 
         if (!strcmp(name, str_tab)) {
-            dynstr_index = i;
+            str_index = i;
         }
 
         if (!strcmp(name, section_name)) {
-            dynsym_index = i;
+            sym_index = i;
         }
     }
 
-    if (!dynstr_index) {
+    if (!str_index) {
         DEBUG("This file does not have a %s\n", str_tab);
         return -1;
     }
 
-    if (!dynsym_index) {
+    if (!sym_index) {
         DEBUG("This file does not have a %s\n", section_name);
         return -1;
     }
 
-    if (is_display) {
-        INFO("%s table\n", section_name);
-        PRINT_DYNSYM_TITLE("Nr", "Value", "Size", "Type", "Bind", "Vis", "Ndx", "Name");
-    }
+    INFO("%s table\n", section_name);
+    PRINT_DYNSYM_TITLE("Nr", "Value", "Size", "Type", "Bind", "Vis", "Ndx", "Name");
     
-    name = h->mem + h->shstrtab->sh_offset + h->shdr[dynsym_index].sh_name;
+    name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[sym_index].sh_name;
     /* security check start*/
-    if (validated_offset(name, h->mem, h->mem + h->size)) {
+    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
         ERROR("Corrupt file format\n");
         exit(-1);
     }
 
     if (!strcmp(section_name, name)) {
-        sym = (Elf64_Sym *)&h->mem[h->shdr[dynsym_index].sh_offset];
-        count = h->shdr[dynsym_index].sh_size / sizeof(Elf64_Sym);
+        sym = (Elf64_Sym *)&elf->mem[elf->data.elf64.shdr[sym_index].sh_offset];
+        count = elf->data.elf64.shdr[sym_index].sh_size / sizeof(Elf64_Sym);
         for(int i = 0; i < count; i++) {
             switch (ELF64_ST_TYPE(sym[i].st_info))
             {
@@ -2539,23 +2465,7 @@ static int display_dynsym64(handle_t64 *h, char *section_name, char *str_tab, in
                     other = UNKOWN;
                     break;
             }
-            name = h->mem + h->shdr[dynstr_index].sh_offset + sym[i].st_name;
-            /* store */
-            if (!strcmp(".symtab", section_name) && i < SECTION_NUM_MAX && strlen(name) < STR_LEN_MAX) {
-                g_symtab.count++;
-                g_symtab.value[i] = sym[i].st_value;
-                strcpy(g_symtab.name[i], name);
-            } 
-            else if (!strcmp(".dynsym", section_name) &&  i < SECTION_NUM_MAX && strlen(name) < STR_LEN_MAX){
-                g_dynsym.count++;
-                g_dynsym.value[i] = sym[i].st_value;
-                strcpy(g_dynsym.name[i], name);
-            }
-            /* hide long strings */
-            if (strlen(name) > g_strlength) {
-                strcpy(&name[g_strlength - 6], "[...]");
-            }
-            if (is_display)
+            name = elf->mem + elf->data.elf64.shdr[str_index].sh_offset + sym[i].st_name;
             PRINT_DYNSYM(i, sym[i].st_value, sym[i].st_size, type, bind, \
                 other, sym[i].st_shndx, name);
         }
@@ -2568,7 +2478,7 @@ static int display_dynsym64(handle_t64 *h, char *section_name, char *str_tab, in
  * @param {handle_t32} h
  * @return int error code {-1:error,0:sucess}
  */
-static int display_dyninfo32(handle_t32 *h) {
+static int display_dyninfo32(Elf *elf) {
     INFO("Dynamic link information\n");
     char *name = NULL;
     char *tmp = NULL;
@@ -2576,10 +2486,10 @@ static int display_dyninfo32(handle_t32 *h) {
     int dynstr = 0;
     int dynamic = 0;
     Elf32_Dyn *dyn;
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
+    for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
 
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             exit(-1);
         }
@@ -2605,15 +2515,15 @@ static int display_dyninfo32(handle_t32 *h) {
 
     char value[50];
     name = "";
-    dyn = (Elf32_Dyn *)&h->mem[h->shdr[dynamic].sh_offset];
-    count = h->shdr[dynamic].sh_size / sizeof(Elf32_Dyn);
-    INFO("Dynamic section at offset 0x%x contains %d entries\n", h->shdr[dynamic].sh_offset, count);
+    dyn = (Elf32_Dyn *)&elf->mem[elf->data.elf32.shdr[dynamic].sh_offset];
+    count = elf->data.elf32.shdr[dynamic].sh_size / sizeof(Elf32_Dyn);
+    INFO("Dynamic section at offset 0x%x contains %d entries\n", elf->data.elf32.shdr[dynamic].sh_offset, count);
     PRINT_DYN_TITLE("Nr", "Tag", "Type", "Name/Value");
     
     for(int i = 0; i < count; i++) {
         memset(value, 0, 50);
         snprintf(value, 50, "0x%x", dyn[i].d_un.d_val);
-        name = h->mem + h->shdr[dynstr].sh_offset + dyn[i].d_un.d_val;
+        name = elf->mem + elf->data.elf32.shdr[dynstr].sh_offset + dyn[i].d_un.d_val;
         switch (dyn[i].d_tag) {
             /* Legal values for d_tag (dynamic entry type).  */
             case DT_NULL:
@@ -2972,7 +2882,7 @@ static int display_dyninfo32(handle_t32 *h) {
     return 0;
 }
 
-static int display_dyninfo64(handle_t64 *h) {
+static int display_dyninfo64(Elf *elf) {
     INFO("Dynamic link information\n");
     char *name = NULL;
     char *tmp = NULL;
@@ -2980,9 +2890,9 @@ static int display_dyninfo64(handle_t64 *h) {
     int dynstr = 0;
     int dynamic = 0;
     Elf64_Dyn *dyn;
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+    for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             exit(-1);
         }
@@ -3008,15 +2918,15 @@ static int display_dyninfo64(handle_t64 *h) {
 
     char value[50];
     name = "";
-    dyn = (Elf64_Dyn *)&h->mem[h->shdr[dynamic].sh_offset];
-    count = h->shdr[dynamic].sh_size / sizeof(Elf64_Dyn);
-    INFO("Dynamic section at offset 0x%x contains %d entries\n", h->shdr[dynamic].sh_offset, count);
+    dyn = (Elf64_Dyn *)&elf->mem[elf->data.elf64.shdr[dynamic].sh_offset];
+    count = elf->data.elf64.shdr[dynamic].sh_size / sizeof(Elf64_Dyn);
+    INFO("Dynamic section at offset 0x%x contains %d entries\n", elf->data.elf64.shdr[dynamic].sh_offset, count);
     PRINT_DYN_TITLE("Nr", "Tag", "Type", "Name/Value");
     
     for(int i = 0; i < count; i++) {
         memset(value, 0, 50);
         snprintf(value, 50, "0x%x", dyn[i].d_un.d_val);
-        name = h->mem + h->shdr[dynstr].sh_offset + dyn[i].d_un.d_val;
+        name = elf->mem + elf->data.elf64.shdr[dynstr].sh_offset + dyn[i].d_un.d_val;
         switch (dyn[i].d_tag) {
             /* Legal values for d_tag (dynamic entry type).  */
             case DT_NULL:
@@ -3380,7 +3290,7 @@ static int display_dyninfo64(handle_t64 *h) {
  * @param section_name 
  * @return int error code {-1:error,0:sucess}
  */
-static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
+static int display_rel32(Elf *elf, char *section_name) {
     char *name = NULL;
     char *type = NULL;
     char *bind = NULL;
@@ -3390,9 +3300,9 @@ static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
     size_t count = 0;
     Elf32_Rel *rel_section;
     int has_component = 0;
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+    for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             return -1;
         }
@@ -3408,17 +3318,25 @@ static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
         return -1;
     }
     
-    if (validated_offset(name, h->mem, h->mem + h->size)) {
+    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
         ERROR("Corrupt file format\n");
         return -1;
     }
-    
-    rel_section = (Elf32_Rel *)&h->mem[h->shdr[rela_dyn_index].sh_offset];
-    count = h->shdr[rela_dyn_index].sh_size / sizeof(Elf32_Rel);
-    if (is_display) {
-        INFO("Relocation section '%s' at offset 0x%x contains %d entries:\n", section_name, h->shdr[rela_dyn_index].sh_offset, count);
-        PRINT_RELA_TITLE("Nr", "Addr", "Info", "Type", "Sym.Index", "Sym.Name");
+
+    /* **********  get dyn string ********** */
+    char **dyn_string = NULL;
+    int string_count = 0;
+    int err = get_dyn_string_table(elf, &dyn_string, &string_count);
+    if (err != TRUE) {
+        ERROR("get dynamic symbol string table error\n");
+        return err;
     }
+    char **sym_string = NULL;
+    err = get_sym_string_table(elf, &sym_string, &string_count);
+    if (err != TRUE) {
+        WARNING("get symbol string table error\n");
+    }
+    /* **********  get dyn string ********** */
 
     for (int i = 0; i < count; i++) {
         switch (ELF32_R_TYPE(rel_section[i].r_info))
@@ -3629,23 +3547,17 @@ static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
         }
         
         str_index = ELF32_R_SYM(rel_section[i].r_info);
-        if (str_index >= STR_NUM_MAX) {
-            WARNING("Unknown file format or too many strings\n");
-            break;
-        }
-        if (is_display) {
-            if (strlen(g_dynsym.name[str_index]) == 0) {
-                /* .o file .rel.text */
-                PRINT_RELA(i, rel_section[i].r_offset, rel_section[i].r_info, type, str_index, g_symtab.name[str_index]);
-            } else
-                PRINT_RELA(i, rel_section[i].r_offset, rel_section[i].r_info, type, str_index, g_dynsym.name[str_index]); 
-        }
 
-        if (i < SECTION_NUM_MAX && !strcmp(section_name, ".rel.plt")){
-            g_relplt.count++;
-            g_relplt.value[i] = rel_section[i].r_offset;
-        }
+        if (strlen(dyn_string[str_index]) == 0) {
+            /* .o file .rel.text */
+            PRINT_RELA(i, rel_section[i].r_offset, rel_section[i].r_info, type, str_index, sym_string[str_index]);
+        } else
+            PRINT_RELA(i, rel_section[i].r_offset, rel_section[i].r_info, type, str_index, dyn_string[str_index]); 
+        
     }
+
+    if (dyn_string) free(dyn_string);
+    if (sym_string) free(sym_string);
 }
 
 /** 
@@ -3655,7 +3567,7 @@ static int display_rel32(handle_t32 *h, char *section_name, int is_display) {
  * @param section_name 
  * @return int error code {-1:error,0:sucess}
  */
-static int display_rel64(handle_t64 *h, char *section_name) {
+static int display_rel64(Elf *elf, char *section_name) {
     char *name = NULL;
     char *type = NULL;
     char *bind = NULL;
@@ -3665,9 +3577,9 @@ static int display_rel64(handle_t64 *h, char *section_name) {
     size_t count = 0;
     Elf64_Rel *rel_section;
     int has_component = 0;
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+    for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             return -1;
         }
@@ -3683,14 +3595,29 @@ static int display_rel64(handle_t64 *h, char *section_name) {
         return -1;
     }
     
-    if (validated_offset(name, h->mem, h->mem + h->size)) {
+    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
         ERROR("Corrupt file format\n");
         return -1;
     }
-    
-    rel_section = (Elf64_Rel *)&h->mem[h->shdr[rela_dyn_index].sh_offset];
-    count = h->shdr[rela_dyn_index].sh_size / sizeof(Elf64_Rel);
-    INFO("Relocation section '%s' at offset 0x%x contains %d entries:\n", section_name, h->shdr[rela_dyn_index].sh_offset, count);
+
+    /* **********  get dyn string ********** */
+    char **dyn_string = NULL;
+    int string_count = 0;
+    int err = get_dyn_string_table(elf, &dyn_string, &string_count);
+    if (err != TRUE) {
+        ERROR("get dynamic symbol string table error\n");
+        return err;
+    }
+    char **sym_string = NULL;
+    err = get_sym_string_table(elf, &sym_string, &string_count);
+    if (err != TRUE) {
+        WARNING("get symbol string table error\n");
+    }
+    /* **********  get dyn string ********** */
+
+    rel_section = (Elf64_Rel *)&elf->mem[elf->data.elf64.shdr[rela_dyn_index].sh_offset];
+    count = elf->data.elf64.shdr[rela_dyn_index].sh_size / sizeof(Elf64_Rel);
+    INFO("Relocation section '%s' at offset 0x%x contains %d entries:\n", section_name, elf->data.elf64.shdr[rela_dyn_index].sh_offset, count);
     PRINT_RELA_TITLE("Nr", "Addr", "Info", "Type", "Sym.Index", "Sym.Name");
     for (int i = 0; i < count; i++) {
         switch (ELF64_R_TYPE(rel_section[i].r_info))
@@ -4246,16 +4173,15 @@ static int display_rel64(handle_t64 *h, char *section_name) {
         }
         
         str_index = ELF64_R_SYM(rel_section[i].r_info);
-        if (str_index >= STR_NUM_MAX) {
-            WARNING("Unknown file format or too many strings\n");
-            break;
-        }
-        if (strlen(g_dynsym.name[str_index]) == 0) {
+        if (strlen(dyn_string[str_index]) == 0) {
             /* .o file .rel.text */
-            PRINT_RELA(i, rel_section[i].r_offset, rel_section[i].r_info, type, str_index, g_symtab.name[str_index]);
+            PRINT_RELA(i, rel_section[i].r_offset, rel_section[i].r_info, type, str_index, sym_string[str_index]);
         } else
-            PRINT_RELA(i, rel_section[i].r_offset, rel_section[i].r_info, type, str_index, g_dynsym.name[str_index]);
+            PRINT_RELA(i, rel_section[i].r_offset, rel_section[i].r_info, type, str_index, dyn_string[str_index]);
+
     }
+    if (dyn_string) free(dyn_string);
+    if (sym_string) free(sym_string);
 }
 
 /** 
@@ -4265,7 +4191,7 @@ static int display_rel64(handle_t64 *h, char *section_name) {
  * @param section_name 
  * @return int error code {-1:error,0:sucess}
  */
-static int display_rela32(handle_t32 *h, char *section_name) {
+static int display_rela32(Elf *elf, char *section_name) {
     char *name = NULL;
     char *type = NULL;
     char *bind = NULL;
@@ -4275,9 +4201,9 @@ static int display_rela32(handle_t32 *h, char *section_name) {
     size_t count = 0;
     Elf32_Rela *rela_dyn;
     int has_component = 0;
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+    for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             return -1;
         }
@@ -4293,14 +4219,29 @@ static int display_rela32(handle_t32 *h, char *section_name) {
         return -1;
     }
     
-    if (validated_offset(name, h->mem, h->mem + h->size)) {
+    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
         ERROR("Corrupt file format\n");
         return -1;
     }
+
+    /* **********  get dyn string ********** */
+    char **dyn_string = NULL;
+    int string_count = 0;
+    int err = get_dyn_string_table(elf, &dyn_string, &string_count);
+    if (err != TRUE) {
+        ERROR("get dynamic symbol string table error\n");
+        return err;
+    }
+    char **sym_string = NULL;
+    err = get_sym_string_table(elf, &sym_string, &string_count);
+    if (err != TRUE) {
+        WARNING("get symbol string table error\n");
+    }
+    /* **********  get dyn string ********** */
     
-    rela_dyn = (Elf32_Rela *)&h->mem[h->shdr[rela_dyn_index].sh_offset];
-    count = h->shdr[rela_dyn_index].sh_size / sizeof(Elf32_Rela);
-    INFO("Relocation section '%s' at offset 0x%x contains %d entries:\n", section_name, h->shdr[rela_dyn_index].sh_offset, count);
+    rela_dyn = (Elf32_Rela *)&elf->mem[elf->data.elf32.shdr[rela_dyn_index].sh_offset];
+    count = elf->data.elf32.shdr[rela_dyn_index].sh_size / sizeof(Elf32_Rela);
+    INFO("Relocation section '%s' at offset 0x%x contains %d entries:\n", section_name, elf->data.elf32.shdr[rela_dyn_index].sh_offset, count);
     PRINT_RELA_TITLE("Nr", "Addr", "Info", "Type", "Sym.Index", "Sym.Name + Addend");
     for (int i = 0; i < count; i++) {
         switch (ELF32_R_TYPE(rela_dyn[i].r_info))
@@ -4511,27 +4452,25 @@ static int display_rela32(handle_t32 *h, char *section_name) {
         }
         
         str_index = ELF32_R_SYM(rela_dyn[i].r_info);
-        if (str_index >= STR_NUM_MAX) {
-            WARNING("Unknown file format or too many strings\n");
-            break;
-        }
-        if (strlen(g_dynsym.name[str_index]) == 0) {
+        if (strlen(dyn_string[str_index]) == 0) {
             /* .rela.dyn */
             if (str_index == 0) {
-                snprintf(name, STR_LEN_MAX, "%x", rela_dyn[i].r_addend);
+                snprintf(name, MAX_PATH_LEN, "%x", rela_dyn[i].r_addend);
             } 
             /* .o file .rela.text */
             else {
-                snprintf(name, STR_LEN_MAX, "%s %d", g_symtab.name[str_index], rela_dyn[i].r_addend);
+                snprintf(name, MAX_PATH_LEN, "%s %d", sym_string[str_index], rela_dyn[i].r_addend);
             }
         }
         /* .rela.plt */
         else if (rela_dyn[i].r_addend >= 0)
-            snprintf(name, STR_LEN_MAX, "%s + %d", g_dynsym.name[str_index], rela_dyn[i].r_addend);
+            snprintf(name, MAX_PATH_LEN, "%s + %d", dyn_string[str_index], rela_dyn[i].r_addend);
         else
-            snprintf(name, STR_LEN_MAX, "%s %d", g_dynsym.name[str_index], rela_dyn[i].r_addend);
+            snprintf(name, MAX_PATH_LEN, "%s %d", dyn_string[str_index], rela_dyn[i].r_addend);
         PRINT_RELA(i, rela_dyn[i].r_offset, rela_dyn[i].r_info, type, str_index, name);
     }
+    if (dyn_string) free(dyn_string);
+    if (sym_string) free(sym_string);
 }
 
 /** 
@@ -4541,7 +4480,7 @@ static int display_rela32(handle_t32 *h, char *section_name) {
  * @param section_name 
  * @return int error code {-1:error,0:sucess}
  */
-static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
+static int display_rela64(Elf *elf, char *section_name) {
     char *name = NULL;
     char *type = NULL;
     char *bind = NULL;
@@ -4551,9 +4490,9 @@ static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
     size_t count = 0;
     Elf64_Rela *rela_dyn;
     int has_component = 0;
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+    for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             return -1;
         }
@@ -4569,17 +4508,30 @@ static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
         return -1;
     }
     
-    if (validated_offset(name, h->mem, h->mem + h->size)) {
+    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
         ERROR("Corrupt file format\n");
         return -1;
     }
-    
-    rela_dyn = (Elf64_Rela *)&h->mem[h->shdr[rela_dyn_index].sh_offset];
-    count = h->shdr[rela_dyn_index].sh_size / sizeof(Elf64_Rela);
-    if (is_display) {
-        INFO("Relocation section '%s' at offset 0x%x contains %d entries:\n", section_name, h->shdr[rela_dyn_index].sh_offset, count);
-        PRINT_RELA_TITLE("Nr", "Addr", "Info", "Type", "Sym.Index", "Sym.Name + Addend");
+
+    /* **********  get dyn string ********** */
+    char **dyn_string = NULL;
+    int string_count = 0;
+    int err = get_dyn_string_table(elf, &dyn_string, &string_count);
+    if (err != TRUE) {
+        ERROR("get dynamic symbol string table error\n");
+        return err;
     }
+    char **sym_string = NULL;
+    err = get_sym_string_table(elf, &sym_string, &string_count);
+    if (err != TRUE) {
+        WARNING("get symbol string table error\n");
+    }
+    /* **********  get dyn string ********** */
+    
+    rela_dyn = (Elf64_Rela *)&elf->mem[elf->data.elf64.shdr[rela_dyn_index].sh_offset];
+    count = elf->data.elf64.shdr[rela_dyn_index].sh_size / sizeof(Elf64_Rela);
+    INFO("Relocation section '%s' at offset 0x%x contains %d entries:\n", section_name, elf->data.elf64.shdr[rela_dyn_index].sh_offset, count);
+    PRINT_RELA_TITLE("Nr", "Addr", "Info", "Type", "Sym.Index", "Sym.Name + Addend");
 
     for (int i = 0; i < count; i++) {
         switch (ELF64_R_TYPE(rela_dyn[i].r_info))
@@ -5135,33 +5087,27 @@ static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
         }
         
         str_index = ELF64_R_SYM(rela_dyn[i].r_info);
-        if (str_index >= STR_NUM_MAX) {
-            WARNING("Unknown file format or too many strings\n");
-            break;
-        }
-        if (strlen(g_dynsym.name[str_index]) == 0) {
+        if (strlen(dyn_string[str_index]) == 0) {
             /* .rela.dyn */
             if (str_index == 0) {
-                snprintf(name, STR_LEN_MAX, "%x", rela_dyn[i].r_addend);
+                snprintf(name, MAX_PATH_LEN, "%x", rela_dyn[i].r_addend);
             } 
             /* .o file .rela.text */
             else {
-                snprintf(name, STR_LEN_MAX, "%s %d", g_symtab.name[str_index], rela_dyn[i].r_addend);
+                snprintf(name, MAX_PATH_LEN, "%s %d", sym_string[str_index], rela_dyn[i].r_addend);
             }
         }
         /* .rela.plt */
         else if (rela_dyn[i].r_addend >= 0)
-            snprintf(name, STR_LEN_MAX, "%s + %d", g_dynsym.name[str_index], rela_dyn[i].r_addend);
+            snprintf(name, MAX_PATH_LEN, "%s + %d", dyn_string[str_index], rela_dyn[i].r_addend);
         else
-            snprintf(name, STR_LEN_MAX, "%s %d", g_dynsym.name[str_index], rela_dyn[i].r_addend);
-        if (is_display)
-            PRINT_RELA(i, rela_dyn[i].r_offset, rela_dyn[i].r_info, type, str_index, name);
-    
-        if (i < SECTION_NUM_MAX && !strcmp(section_name, ".rela.plt")){
-            g_relplt.count++;
-            g_relplt.value[i] = rela_dyn[i].r_offset;
-        }
+            snprintf(name, MAX_PATH_LEN, "%s %d", dyn_string[str_index], rela_dyn[i].r_addend);
+
+        PRINT_RELA(i, rela_dyn[i].r_offset, rela_dyn[i].r_info, type, str_index, name);
     }
+
+    if (dyn_string) free(dyn_string);
+    if (sym_string) free(sym_string);
 }
 
 /** 
@@ -5171,7 +5117,7 @@ static int display_rela64(handle_t64 *h, char *section_name, int is_display) {
  * @param section_name 
  * @return int error code {-1:error,0:sucess}
  */
-static int display_pointer32(handle_t32 *h, int num, ...) {
+static int display_pointer32(Elf *elf, int num, ...) {
     char *name = NULL;
     int index[10];
     int strtab_index = 0;
@@ -5181,9 +5127,9 @@ static int display_pointer32(handle_t32 *h, int num, ...) {
         index[i] = 0;
     }
 
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+    for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             return -1;
         }
@@ -5213,25 +5159,38 @@ static int display_pointer32(handle_t32 *h, int num, ...) {
     for (int j = 0; j < num; j++) {
         char *section_name = va_arg(args, char *);
         if (index[j] == 0) {
-            WARNING("This file does not have a %s\n", section_name);
+            DEBUG("This file does not have a %s\n", section_name);
         } else {
-            uint32_t offset = h->shdr[index[j]].sh_offset;
-            size_t size = h->shdr[index[j]].sh_size;
-            uint32_t *addr = h->mem + offset;
+            uint32_t offset = elf->data.elf32.shdr[index[j]].sh_offset;
+            size_t size = elf->data.elf32.shdr[index[j]].sh_size;
+            uint32_t *addr = elf->mem + offset;
             int count = size / sizeof(uint32_t);
             INFO("%s section at offset 0x%x contains %d pointers:\n", section_name, offset, count);
             PRINT_POINTER32_TITLE("Nr", "Pointer", "Symbol");
             for (int i = 0; i < count; i++) {
                 if (strtab_index) {
-                    int find_sym = 0;
-                    for (int k = 0; k < g_symtab.count; k++) {
-                        if (addr[i] == g_symtab.value[k]) {
-                            PRINT_POINTER32(i, addr[i], g_symtab.name[k]);
+                                        int find_sym = 0;
+                    char *name = NULL;
+                    for (int k = 0; k < elf->data.elf32.sym_count; k++) {
+                        if (elf->data.elf32.sym_entry[k].st_value == addr[k]) {
+                            name = elf->mem + elf->data.elf32.strtab->sh_offset + elf->data.elf32.sym_entry[k].st_name;
                             find_sym = 1;
                             break;
                         }
                     }
                     if (!find_sym) {
+                        for (int k = 0; k < elf->data.elf32.dynsym_count; k++) {
+                            if (elf->data.elf32.dynsym_entry[k].st_value == addr[k]) {
+                                name = elf->mem + elf->data.elf32.dynstrtab->sh_offset + elf->data.elf32.dynsym_entry[k].st_name;
+                                find_sym = 1;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (find_sym) {
+                        PRINT_POINTER32(i, addr[i], name);
+                    } else {
                         PRINT_POINTER32(i, addr[i], "0");
                     }
                 } else {
@@ -5251,7 +5210,7 @@ static int display_pointer32(handle_t32 *h, int num, ...) {
  * @param section_name 
  * @return int error code {-1:error,0:sucess}
  */
-static int display_pointer64(handle_t64 *h, int num, ...) {
+static int display_pointer64(Elf *elf, int num, ...) {
     char *name = NULL;
     int index[10];
     int strtab_index = 0;
@@ -5261,9 +5220,9 @@ static int display_pointer64(handle_t64 *h, int num, ...) {
         index[i] = 0;
     }
 
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+    for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             return -1;
         }
@@ -5293,25 +5252,38 @@ static int display_pointer64(handle_t64 *h, int num, ...) {
     for (int j = 0; j < num; j++) {
         char *section_name = va_arg(args, char *);
         if (index[j] == 0) {
-            WARNING("This file does not have a %s\n", section_name);
+            DEBUG("This file does not have a %s\n", section_name);
         } else {
-            uint64_t offset = h->shdr[index[j]].sh_offset;
-            size_t size = h->shdr[index[j]].sh_size;
-            uint64_t *addr = h->mem + offset;
+            uint64_t offset = elf->data.elf64.shdr[index[j]].sh_offset;
+            size_t size = elf->data.elf64.shdr[index[j]].sh_size;
+            uint64_t *addr = elf->mem + offset;
             int count = size / sizeof(uint64_t);
             INFO("%s section at offset 0x%x contains %d pointers:\n", section_name, offset, count);
             PRINT_POINTER64_TITLE("Nr", "Pointer", "Symbol");
             for (int i = 0; i < count; i++) {
                 if (strtab_index) {
                     int find_sym = 0;
-                    for (int k = 0; k < g_symtab.count; k++) {
-                        if (addr[i] == g_symtab.value[k]) {
-                            PRINT_POINTER64(i, addr[i], g_symtab.name[k]);
+                    char *name = NULL;
+                    for (int k = 0; k < elf->data.elf64.sym_count; k++) {
+                        if (elf->data.elf64.sym_entry[k].st_value == addr[k]) {
+                            name = elf->mem + elf->data.elf64.strtab->sh_offset + elf->data.elf64.sym_entry[k].st_name;
                             find_sym = 1;
                             break;
                         }
                     }
                     if (!find_sym) {
+                        for (int k = 0; k < elf->data.elf64.dynsym_count; k++) {
+                            if (elf->data.elf64.dynsym_entry[k].st_value == addr[k]) {
+                                name = elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dynsym_entry[k].st_name;
+                                find_sym = 1;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (find_sym) {
+                        PRINT_POINTER64(i, addr[i], name);
+                    } else {
                         PRINT_POINTER64(i, addr[i], "0");
                     }
                 } else {
@@ -5330,13 +5302,13 @@ static int display_pointer64(handle_t64 *h, int num, ...) {
  * @param h
  * @return int error code {-1:error,0:sucess}
  */
-int display_hash32(handle_t32 *h) {
+int display_hash32(Elf *elf) {
     char *name = NULL;
     int hash_index = 0;
 
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+    for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             exit(-1);
         }
@@ -5351,15 +5323,24 @@ int display_hash32(handle_t32 *h) {
         return -1;
     }
     
-    name = h->mem + h->shdr[hash_index].sh_offset;
+    name = elf->mem + elf->data.elf32.shdr[hash_index].sh_offset;
     /* security check start*/
-    if (validated_offset(name, h->mem, h->mem + h->size)) {
+    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
         ERROR("Corrupt file format\n");
         exit(-1);
     }
 
-    gnuhash_t *hash = (gnuhash_t *)&h->mem[h->shdr[hash_index].sh_offset];
-    INFO(".gnu.hash table at offset 0x%x\n", h->shdr[hash_index].sh_offset);
+    char **dyn_string = NULL;
+    int string_count = 0;
+    int err = get_dyn_string_table(elf, &dyn_string, &string_count);
+    if (err != TRUE) {
+        ERROR("get dynamic symbol string table error\n");
+        return err;
+    }
+    free(dyn_string);
+
+    gnuhash_t *hash = (gnuhash_t *)&elf->mem[elf->data.elf32.shdr[hash_index].sh_offset];
+    INFO(".gnu.hash table at offset 0x%x\n", elf->data.elf32.shdr[hash_index].sh_offset);
     printf("    |-------------Header-------------|\n");
     printf("    |nbuckets:             0x%08x|\n", hash->nbuckets);
     printf("    |symndx:               0x%08x|\n", hash->symndx);
@@ -5381,7 +5362,7 @@ int display_hash32(handle_t32 *h) {
 
     printf("    |-----------Hash Chain-----------|\n");
     uint32_t *value = &buckets[i];
-    for (i = 0; i < g_dynsym.count - hash->symndx; i++) {
+    for (i = 0; i < string_count - hash->symndx; i++) {
         printf("    |           0x%08x           |\n", value[i]);
     }
     printf("    |--------------------------------|\n");
@@ -5393,13 +5374,13 @@ int display_hash32(handle_t32 *h) {
  * @param h
  * @return int error code {-1:error,0:sucess}
  */
-int display_hash64(handle_t64 *h) {
+int display_hash64(Elf *elf) {
     char *name = NULL;
     int hash_index = 0;
 
-    for (int i = 0; i < h->ehdr->e_shnum; i++) {
-        name = h->mem + h->shstrtab->sh_offset + h->shdr[i].sh_name;
-        if (validated_offset(name, h->mem, h->mem + h->size)) {
+    for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
+        name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
+        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
             ERROR("Corrupt file format\n");
             exit(-1);
         }
@@ -5414,15 +5395,24 @@ int display_hash64(handle_t64 *h) {
         return -1;
     }
     
-    name = h->mem + h->shdr[hash_index].sh_offset;
+    name = elf->mem + elf->data.elf64.shdr[hash_index].sh_offset;
     /* security check start*/
-    if (validated_offset(name, h->mem, h->mem + h->size)) {
+    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
         ERROR("Corrupt file format\n");
         exit(-1);
     }
 
-    gnuhash_t *hash = (gnuhash_t *)&h->mem[h->shdr[hash_index].sh_offset];
-    INFO(".gnu.hash table at offset 0x%x\n", h->shdr[hash_index].sh_offset);
+    char **dyn_string = NULL;
+    int string_count = 0;
+    int err = get_dyn_string_table(elf, &dyn_string, &string_count);
+    if (err != TRUE) {
+        ERROR("get dynamic symbol string table error\n");
+        return err;
+    }
+    free(dyn_string);
+
+    gnuhash_t *hash = (gnuhash_t *)&elf->mem[elf->data.elf64.shdr[hash_index].sh_offset];
+    INFO(".gnu.hash table at offset 0x%x\n", elf->data.elf64.shdr[hash_index].sh_offset);
     printf("    |-------------Header-------------|\n");
     printf("    |nbuckets:             0x%08x|\n", hash->nbuckets);
     printf("    |symndx:               0x%08x|\n", hash->symndx);
@@ -5444,209 +5434,122 @@ int display_hash64(handle_t64 *h) {
 
     printf("    |-----------Hash Chain-----------|\n");
     uint32_t *value = &buckets[i];
-    for (i = 0; i < g_dynsym.count - hash->symndx; i++) {
+    for (i = 0; i < string_count - hash->symndx; i++) {
         printf("    |           0x%08x           |\n", value[i]);
     }
     printf("    |--------------------------------|\n");
 }
 
-int parse(char *elf, parser_opt_t *po, uint32_t length) {
-    int fd;
-    struct stat st;
-    uint8_t *elf_map = NULL;
-    int count = 0;
-    char *tmp = NULL;
-    char *name = NULL;
-    char flag[4] = "\0";
-
-    init_t();
-
+int parse(Elf *elf, parser_opt_t *po, uint32_t length) {
     if (!length) {
-        g_strlength = 15;
+        truncated_length = 15;
     } else {
-        g_strlength = length;
-    }
-
-    if (MODE == -1) {
-        return -1;
-    }
-
-    fd = open(elf, O_RDONLY);
-    if (fd < 0) {
-        perror("open");
-        return -1;
-    }
-
-    if (fstat(fd, &st) < 0) {
-        perror("fstat");
-        return -1;
-    }
-
-    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-    if (elf_map == MAP_FAILED) {
-        perror("mmap");
-        return -1;
+        truncated_length = length;
     }
 
     /* 32bit */
-    if (MODE == ELFCLASS32) {
-        handle_t32 h;
-        h.mem = elf_map;
-        h.ehdr = (Elf32_Ehdr *)h.mem;
-        h.shdr = (Elf32_Shdr *)&h.mem[h.ehdr->e_shoff];
-        h.phdr = (Elf32_Phdr *)&h.mem[h.ehdr->e_phoff];
-        h.shstrtab = (Elf32_Shdr *)&h.shdr[h.ehdr->e_shstrndx];
-        h.size = st.st_size;
-
+    if (elf->class == ELFCLASS32) {
         /* ELF Header Information */
         if (!get_option(po, HEADERS) || !get_option(po, ALL))    
-            display_header32(&h);
+            display_header32(elf);
         
         /* Section Information */
         if (!get_option(po, SECTIONS) || !get_option(po, ALL))
-            display_section32(&h, 1);
+            display_section32(elf);
 
         /* Segmentation Information */
         if (!get_option(po, SEGMENTS) || !get_option(po, ALL))
-            display_segment32(&h, 1);
+            display_segment32(elf);
 
         /* .dynsym information */
         if (!get_option(po, DYNSYM) || !get_option(po, ALL)){
-            display_dynsym32(&h, ".dynsym", ".dynstr", 1);
+            display_dynsym32(elf, ".dynsym", ".dynstr");
         }
 
         /* .symtab information */
         if (!get_option(po, SYMTAB) || !get_option(po, ALL)){
-            display_dynsym32(&h, ".symtab", ".strtab", 1);
+            display_dynsym32(elf, ".symtab", ".strtab");
         }
 
         /* .dynamic Infomation */
         if (!get_option(po, LINK) || !get_option(po, ALL))
-            display_dyninfo32(&h);  
+            display_dyninfo32(elf);  
 
         /* .rela.dyn .rela.plt Infomation */
         if (!get_option(po, RELA) || !get_option(po, ALL)) {
-            if (g_dynsym.count == 0)
-                display_dynsym32(&h, ".dynsym", ".dynstr", 0);  // get dynamic symbol name
-            if (g_symtab.count == 0)
-                display_dynsym32(&h, ".symtab", ".strtab", 0);  // get symbol name
-            if (g_secname.count == 0)
-                display_section32(&h, 0);                       // get section name
-            for (int i = 0; i < g_secname.count; i++) {
-                if (compare_firstN_chars(g_secname.name[i], ".rela", 5)) {
-                    display_rela32(&h, g_secname.name[i]);
-                } else if (compare_firstN_chars(g_secname.name[i], ".rel", 4)){
-                    display_rel32(&h, g_secname.name[i], 1);
-                }
-            }
-        } 
-
-        /* elf pointer */
-        if (!get_option(po, POINTER) || !get_option(po, ALL)) {
-            if (g_symtab.count == 0)
-                display_dynsym32(&h, ".symtab", ".strtab", 0);  // get symbol name
-            display_pointer32(&h, 5, ".init_array", ".fini_array", ".ctors", ".dtors", ".eh_frame_hdr");  
-        }
-
-            /* elf .gnu.hash */
-        if (!get_option(po, GNUHASH) || !get_option(po, ALL)) {
-            if (g_dynsym.count == 0)
-                display_dynsym32(&h, ".dynsym", ".dynstr", 0);
-            display_hash32(&h);
-        }
-
-        /* init symbol name */
-        else {
-            if (!g_unmapped_section.count) {
-                display_segment32(&h, 0);
-            }
-            display_dynsym32(&h, ".dynsym", ".dynstr", 0);
-            display_dynsym32(&h, ".symtab", ".strtab", 0);
-            display_section32(&h, 0);
-            display_rel32(&h, ".rel.plt", 0);
-        }        
-    }
-
-    /* 64bit */
-    if (MODE == ELFCLASS64) {
-        handle_t64 h;
-        h.mem = elf_map;
-        h.ehdr = (Elf64_Ehdr *)h.mem;
-        h.shdr = (Elf64_Shdr *)&h.mem[h.ehdr->e_shoff];
-        h.phdr = (Elf64_Phdr *)&h.mem[h.ehdr->e_phoff];
-        h.shstrtab = (Elf64_Shdr *)&h.shdr[h.ehdr->e_shstrndx];
-        h.size = st.st_size;
-
-        /* ELF Header Information */
-        if (!get_option(po, HEADERS) || !get_option(po, ALL)) 
-            display_header64(&h);
-
-        /* Section Information */
-        if (!get_option(po, SECTIONS) || !get_option(po, ALL))
-            display_section64(&h, 1);
-
-        /* Segmentation Information */
-        if (!get_option(po, SEGMENTS) || !get_option(po, ALL))
-            display_segment64(&h, 1);
-
-        /* .dynsym information */
-        if (!get_option(po, DYNSYM) || !get_option(po, ALL)){
-            display_dynsym64(&h, ".dynsym", ".dynstr", 1);
-        }
-
-        /* .symtab information */
-        if (!get_option(po, SYMTAB) || !get_option(po, ALL)){
-            display_dynsym64(&h, ".symtab", ".strtab", 1);
-        }
-
-        /* .dynamic Infomation */
-        if (!get_option(po, LINK) || !get_option(po, ALL))
-            display_dyninfo64(&h);      
-
-        /* .rela.dyn .rela.plt Infomation */
-        if (!get_option(po, RELA) || !get_option(po, ALL)) {
-            if (g_dynsym.count == 0)
-                display_dynsym64(&h, ".dynsym", ".dynstr", 0);  // get dynamic symbol name
-            if (g_symtab.count == 0)
-                display_dynsym64(&h, ".symtab", ".strtab", 0);  // get symbol name
-            if (g_secname.count == 0)
-                display_section64(&h, 0);                       // get section name
-            for (int i = 0; i < g_secname.count; i++) {
-                if (compare_firstN_chars(g_secname.name[i], ".rela", 5)) {
-                    display_rela64(&h, g_secname.name[i], 1);
-                } else if (compare_firstN_chars(g_secname.name[i], ".rel", 4)){
-                    display_rel64(&h, g_secname.name[i]);
+            for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
+                char *section_name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
+                if (compare_firstN_chars(section_name, ".rela", 5)) {
+                    display_rela32(elf, section_name);
+                } else if (compare_firstN_chars(section_name, ".rel", 4)){
+                    display_rel32(elf, section_name);
                 }
             }
         }
-        
+
         /* elf pointer */
         if (!get_option(po, POINTER) || !get_option(po, ALL)) {
-            if (g_symtab.count == 0)
-                display_dynsym64(&h, ".symtab", ".strtab", 0);  // get symbol name
-            display_pointer64(&h, 5, ".init_array", ".fini_array", ".ctors", ".dtors", ".eh_frame_hdr");
+            display_pointer32(elf, 5, ".init_array", ".fini_array", ".ctors", ".dtors", ".eh_frame_hdr");  
         }
 
         /* elf .gnu.hash */
         if (!get_option(po, GNUHASH) || !get_option(po, ALL)) {
-            if (g_dynsym.count == 0)
-                display_dynsym64(&h, ".dynsym", ".dynstr", 0);
-            display_hash64(&h);
-        }
-
-        /* init elfdata */
-        else {
-            if (!g_unmapped_section.count) {
-                display_segment64(&h, 0);
-            }
-            display_dynsym64(&h, ".dynsym", ".dynstr", 0);
-            display_dynsym64(&h, ".symtab", ".strtab", 0);
-            display_section64(&h, 0);
-            display_rela64(&h, ".rela.plt", 0);
-        }   
+            display_hash32(elf);
+        }       
     }
 
-    munmap(elf_map, st.st_size);
-    close(fd);
-    return 0;
+    /* 64bit */
+    if (elf->class == ELFCLASS64) {
+        /* ELF Header Information */
+        if (!get_option(po, HEADERS) || !get_option(po, ALL)) 
+            display_header64(elf);
+
+        /* Section Information */
+        if (!get_option(po, SECTIONS) || !get_option(po, ALL))
+            display_section64(elf);
+
+        /* Segmentation Information */
+        if (!get_option(po, SEGMENTS) || !get_option(po, ALL))
+            display_segment64(elf);
+
+        /* .dynsym information */
+        if (!get_option(po, DYNSYM) || !get_option(po, ALL)){
+            display_sym64(elf, ".dynsym", ".dynstr");
+        }
+
+        /* .symtab information */
+        if (!get_option(po, SYMTAB) || !get_option(po, ALL)){
+            display_sym64(elf, ".symtab", ".strtab");
+        }
+
+        /* .dynamic Infomation */
+        if (!get_option(po, LINK) || !get_option(po, ALL))
+            display_dyninfo64(elf);      
+
+        /* .rela.dyn .rela.plt Infomation */
+        if (!get_option(po, RELA) || !get_option(po, ALL)) {
+            for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
+                char *section_name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
+                if (compare_firstN_chars(section_name, ".rela", 5)) {
+                    display_rela64(elf, section_name);
+                } else if (compare_firstN_chars(section_name, ".rel", 4)){
+                    display_rel64(elf, section_name);
+                }
+            }
+        }
+        
+        /* elf pointer */
+        if (!get_option(po, POINTER) || !get_option(po, ALL)) {
+            display_pointer64(elf, 5, ".init_array", ".fini_array", ".ctors", ".dtors", ".eh_frame_hdr");
+        }
+
+        /* elf .gnu.hash */
+        if (!get_option(po, GNUHASH) || !get_option(po, ALL)) {
+            display_hash64(elf);
+        }
+    } else {
+        return ERR_CLASS;
+    }
+
+    return TRUE;
 }

@@ -32,6 +32,7 @@
 #include <elf.h>
 #include "common.h"
 #include "parse.h"
+#include "lib/util.h"
 
 enum HeaderLabel {
     E_IDENT,        /* Magic number and other info */

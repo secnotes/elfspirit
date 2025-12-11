@@ -172,24 +172,6 @@ int hex2str(unsigned int hex, char *ret, unsigned int len) {
 }
 
 /**
- * @brief Compare string
- * 比较两个字符串的前n位是否相同
- * @param str1 
- * @param str2 
- * @param n 
- * @return int 
- */
-int compare_firstN_chars(const char *str1, const char *str2, int n) {
-    // 检查字符串长度是否小于n，如果是，则返回0（不相同）
-    if (strlen(str1) < n || strlen(str2) < n) {
-        return 0;
-    }
-
-    // 比较两个字符串的前n位是否相同
-    return strncmp(str1, str2, n) == 0;
-}
-
-/**
  * @brief 计算一个地址的4K对齐地址
  * align 4k address
  * @param address input address
@@ -731,25 +713,6 @@ uint64_t get_phdr_offset(char *elf_name) {
 }
 
 /**
- * @brief 获取程序入口
- * get program entry
- * @return uint64_t program entry
- */
-uint64_t get_entry(char *elf_name) {
-    if (MODE == ELFCLASS32) {
-        Elf32_Ehdr ehdr;
-        get_header(elf_name, &ehdr);
-        return ehdr.e_entry;
-    } else if (MODE == ELFCLASS64) {
-        Elf64_Ehdr ehdr;
-        get_header(elf_name, &ehdr);
-        return ehdr.e_entry;
-    } else {
-        return -1;
-    }
-}
-
-/**
  * @brief 向ELF文件特定偏移处，写入一段数据
  * Write a piece of data to a specific offset in the ELF file
  * @param elf_name elf file name
@@ -839,135 +802,4 @@ int add_dynamic_item(char *elf_name, int dt_tag, char *dt_value) {
     } else {
         return 0;
     }
-}
-
-// Non repetitive data structures
-// 不重复的数据结构
-UniqueSequence* sequence_create(int initial_capacity) {
-    if (initial_capacity <= 0) initial_capacity = 10;
-    
-    UniqueSequence *seq = (UniqueSequence*)malloc(sizeof(UniqueSequence));
-    if (!seq) return NULL;
-    
-    seq->data = (int*)malloc(initial_capacity * sizeof(int));
-    if (!seq->data) {
-        free(seq);
-        return NULL;
-    }
-    
-    seq->size = 0;
-    seq->capacity = initial_capacity;
-    return seq;
-}
-
-// free sequence
-void sequence_destroy(UniqueSequence *seq) {
-    if (seq) {
-        free(seq->data);
-        free(seq);
-    }
-}
-
-static int sequence_resize(UniqueSequence *seq, int new_capacity) {
-    if (new_capacity <= seq->size) return false;
-    
-    int *new_data = (int*)realloc(seq->data, new_capacity * sizeof(int));
-    if (!new_data) return false;
-    
-    seq->data = new_data;
-    seq->capacity = new_capacity;
-    return true;
-}
-
-int sequence_insert(UniqueSequence *seq, int value) {
-    if (!seq || sequence_contains(seq, value)) return false;
-    
-    if (seq->size >= seq->capacity) {
-        if (!sequence_resize(seq, seq->capacity * 2)) return false;
-    }
-    
-    seq->data[seq->size++] = value;
-    return true;
-}
-
-int sequence_remove(UniqueSequence *seq, int value) {
-    if (!seq || sequence_is_empty(seq)) return false;
-    
-    for (int i = 0; i < seq->size; i++) {
-        if (seq->data[i] == value) {
-            seq->data[i] = seq->data[seq->size - 1];
-            seq->size--;
-            return true;
-        }
-    }
-    return false;
-}
-
-int sequence_contains(const UniqueSequence *seq, int value) {
-    if (!seq) return false;
-    for (int i = 0; i < seq->size; i++) {
-        if (seq->data[i] == value) return true;
-    }
-    return false;
-}
-
-int sequence_size(const UniqueSequence *seq) {
-    return seq ? seq->size : 0;
-}
-
-int sequence_is_empty(const UniqueSequence *seq) {
-    return !seq || seq->size == 0;
-}
-
-void sequence_clear(UniqueSequence *seq) {
-    if (seq) seq->size = 0;
-}
-
-void sequence_print(const UniqueSequence *seq) {
-    if (!seq) {
-        printf("Sequence is NULL\n");
-        return;
-    }
-    
-    printf("Sequence [size=%d, capacity=%d]: ", seq->size, seq->capacity);
-    if (sequence_is_empty(seq)) {
-        printf("Empty\n");
-        return;
-    }
-    
-    for (int i = 0; i < seq->size; i++) {
-        printf("%d", seq->data[i]);
-        if (i < seq->size - 1) printf(", ");
-    }
-    printf("\n");
-}
-
-int sequence_get(const UniqueSequence *seq, int index) {
-    if (!seq || index < 0 || index >= seq->size) return -1;
-    return seq->data[index];
-}
-
-int sequence_union(UniqueSequence *result, const UniqueSequence *seq1, const UniqueSequence *seq2) {
-    if (!result || !seq1 || !seq2) return false;
-    
-    sequence_clear(result);
-    for (int i = 0; i < seq1->size; i++) {
-        if (!sequence_insert(result, seq1->data[i])) return false;
-    }
-    for (int i = 0; i < seq2->size; i++) {
-        sequence_insert(result, seq2->data[i]);
-    }
-    return true;
-}
-
-int sequence_intersection(UniqueSequence *result, const UniqueSequence *seq1, const UniqueSequence *seq2) {
-    if (!result || !seq1 || !seq2) return false;
-    
-    sequence_clear(result);
-    for (int i = 0; i < seq1->size; i++) {
-        if (sequence_contains(seq2, seq1->data[i])) {
-            if (!sequence_insert(result, seq1->data[i])) return false;
-        }
-    }
-    return true;
 }

@@ -36,9 +36,6 @@
 #include "common.h"
 #include "edit.h"
 #include "segment.h"
-#include "rel.h"
-#include "lib/elfutil.h"
-#include "lib/util.h"
 
 #define VERSION "1.10.2"
 #define CONTENT_LENGTH 1024 * 1024
@@ -684,7 +681,9 @@ static void readcmdline(int argc, char *argv[]) {
 
     /* ELF parser */
     if (!strcmp(function, "parse")) {
-        parse(elf_name, &po, length);
+        init(elf_name, &elf);
+        parse(&elf, &po, length);
+        finit(&elf);
     }
 
     /* edit elf */
@@ -694,7 +693,9 @@ static void readcmdline(int argc, char *argv[]) {
 
     /* forensics */
     if (!strcmp(function, "checksec")) {
-        checksec(elf_name);
+        init(elf_name, &elf);
+        checksec(&elf);
+        finit(&elf);
     }
 }
 

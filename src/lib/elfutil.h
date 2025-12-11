@@ -33,10 +33,11 @@ typedef struct Elf32_Data {
     Elf32_Shdr *sym;        // .symtab->strtab
     Elf32_Shdr *dynsym;
     Elf32_Sym *sym_entry;
+    int sym_count;
     Elf32_Sym *dynsym_entry;
     int dynsym_count;
     Elf32_Dyn *dyn_segment_entry;
-    size_t dyn_segment_count;
+    int dyn_segment_count;
 } Elf32;
 
 typedef struct Elf64_Data {
@@ -51,10 +52,11 @@ typedef struct Elf64_Data {
     Elf64_Shdr *sym;        // .symtab->strtab
     Elf64_Shdr *dynsym;     // .dynsym->dynstr
     Elf64_Sym *sym_entry;
+    int sym_count;
     Elf64_Sym *dynsym_entry;
     int dynsym_count;
     Elf64_Dyn *dyn_segment_entry;
-    size_t dyn_segment_count;
+    int dyn_segment_count;
 } Elf64;
 
 typedef struct Elf_Data{
@@ -548,3 +550,23 @@ void bin_to_cmd(const char* input_path);
  * @return error code
  */
 void bin_to_sh(const char* input_path);
+
+/**
+ * @brief 得到字符串
+ * get symbol name
+ * @param elf elf custom structure
+ * @param name symbol name
+ * @param count symbol count
+ * @return int error code {-1:error,0:sucess}
+ */
+int get_sym_string_table(Elf *elf, char ***name, int *count);
+
+/**
+ * @brief 得到字符串
+ * get symbol name
+ * @param elf elf custom structure
+ * @param name symbol name
+ * @param count symbol count
+ * @return int error code {-1:error,0:sucess}
+ */
+int get_dyn_string_table(Elf *elf, char ***name, int *count);

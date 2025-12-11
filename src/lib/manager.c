@@ -3,8 +3,9 @@
  * prompt: 请使用链表实现，因为我不知道initial_capacity会有几个
  * prompt: 能否修改ELF节管理器，使其不是通过深拷贝方式独立存储的，而是直接引用原始section的地址，这样我就可以直接对section中的属性变量赋值了
 */
-#include "manager.h"
 #include <stdio.h>
+#include "manager.h"
+#include "elfutil.h"
 
 // 创建节管理器
 SectionManager* section_manager_create() {
@@ -608,4 +609,79 @@ void free_mapping_list(MappingList* list) {
         free_mapping(temp);
     }
     free(list);
+}
+
+
+/**
+ * @brief Compare string
+ * 比较两个字符串的前n位是否相同
+ * @param str1 
+ * @param str2 
+ * @param n 
+ * @return int 
+ */
+int compare_firstN_chars(const char *str1, const char *str2, int n) {
+    // 检查字符串长度是否小于n，如果是，则返回0（不相同）
+    if (strlen(str1) < n || strlen(str2) < n) {
+        return 0;
+    }
+
+    // 比较两个字符串的前n位是否相同
+    return strncmp(str1, str2, n) == 0;
+}
+
+// 创建集合
+Set* create_set() {
+    Set *set = malloc(sizeof(Set));
+    set->data = malloc(INITIAL_CAPACITY * sizeof(int));
+    set->size = 0;
+    set->capacity = INITIAL_CAPACITY;
+    return set;
+}
+
+// 检查元素是否在集合中
+int contains_element(Set *set, int value) {
+    for (int i = 0; i < set->size; i++) {
+        if (set->data[i] == value) {
+            return TRUE; // 找到
+        }
+    }
+    return FALSE; // 未找到
+}
+
+// 增加元素
+void add_element(Set *set, int value) {
+    if (contains_element(set, value) == TRUE) {
+        return; // 元素已存在
+    }
+    if (set->size >= set->capacity) {
+        set->capacity *= 2;
+        set->data = realloc(set->data, set->capacity * sizeof(int));
+    }
+    set->data[set->size++] = value;
+}
+
+// 移除元素
+void remove_element(Set *set, int value) {
+    for (int i = 0; i < set->size; i++) {
+        if (set->data[i] == value) {
+            set->data[i] = set->data[--set->size]; // 用最后一个元素替换已删除的元素
+            return;
+        }
+    }
+}
+
+// 打印集合
+void print_set(Set *set) {
+    printf("{ ");
+    for (int i = 0; i < set->size; i++) {
+        printf("%d ", set->data[i]);
+    }
+    printf("}\n");
+}
+
+// 释放集合
+void free_set(Set *set) {
+    free(set->data);
+    free(set);
 }

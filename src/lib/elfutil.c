@@ -124,6 +124,7 @@ int init(char *elf_name, Elf *elf) {
             if (!strcmp(section_name, ".symtab")) {
                 elf->data.elf32.sym = (Elf32_Shdr *)&elf->data.elf32.shdr[i];
                 elf->data.elf32.sym_entry = (Elf32_Sym *)&elf->mem[elf->data.elf32.sym->sh_offset];
+                elf->data.elf32.sym_count = elf->data.elf32.sym->sh_size / sizeof(Elf32_Sym);
             }
         }
 
@@ -163,6 +164,7 @@ int init(char *elf_name, Elf *elf) {
             if (!strcmp(section_name, ".symtab")) {
                 elf->data.elf64.sym = (Elf64_Shdr *)&elf->data.elf64.shdr[i];
                 elf->data.elf64.sym_entry = (Elf64_Sym *)&elf->mem[elf->data.elf64.sym->sh_offset];
+                elf->data.elf64.sym_count = elf->data.elf64.sym->sh_size / sizeof(Elf64_Sym);
             }
         }
 
@@ -1293,6 +1295,7 @@ void reinit(Elf *elf) {
             if (!strcmp(section_name, ".symtab")) {
                 elf->data.elf32.sym = (Elf32_Shdr *)&elf->data.elf32.shdr[i];
                 elf->data.elf32.sym_entry = (Elf32_Sym *)&elf->mem[elf->data.elf32.sym->sh_offset];
+                elf->data.elf32.sym_count = elf->data.elf32.sym->sh_size / sizeof(Elf32_Sym);
             }
         }
 
@@ -1335,6 +1338,7 @@ void reinit(Elf *elf) {
             if (!strcmp(section_name, ".symtab")) {
                 elf->data.elf64.sym = (Elf64_Shdr *)&elf->data.elf64.shdr[i];
                 elf->data.elf64.sym_entry = (Elf64_Sym *)&elf->mem[elf->data.elf64.sym->sh_offset];
+                elf->data.elf64.sym_count = elf->data.elf64.sym->sh_size / sizeof(Elf64_Sym);
             }
         }
 
@@ -3955,51 +3959,6 @@ int add_elf_header(uint8_t *bin, uint8_t *arch, uint32_t class, uint8_t *endian,
     return err;
 }
 
-int get_string_table(Elf *elf, char ***name, int *count) {
-    char **string;
-    int string_count = 0;
-    if (elf->class == ELFCLASS32) {
-        string_count = elf->data.elf32.dynsym_count;
-        if (string_count == 0) {
-            PRINT_ERROR("no symbols found in dynsym\n");
-            return FALSE;
-        }
-
-        string = (char **)malloc(sizeof(char*) * string_count);
-        if (string == NULL) {
-            PRINT_ERROR("memory allocation failed\n");
-            return FALSE;
-        }
-
-        for (int i = 0; i < string_count; ++i) {
-            string[i] = (char *)elf->mem + elf->data.elf32.dynstrtab->sh_offset + elf->data.elf32.dynsym_entry[i].st_name;
-            *count = string_count;
-        }
-    } else if (elf->class == ELFCLASS64) {
-        string_count = elf->data.elf64.dynsym_count;
-        if (string_count == 0) {
-            PRINT_ERROR("no symbols found in dynsym\n");
-            return FALSE;
-        }
-
-        string = (char **)malloc(sizeof(char*) * string_count);
-        if (string == NULL) {
-            PRINT_ERROR("memory allocation failed\n");
-            return FALSE;
-        }
-
-        for (int i = 0; i < string_count; ++i) {
-            string[i] = (char *)elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dynsym_entry[i].st_name;
-            *count = string_count;
-        }
-    } else {
-        return ERR_CLASS;
-    }
-
-    *name = string;
-    return TRUE;
-}
-
 /**
  * @brief hook外部函数
  * hook function by .got.plt
@@ -4034,7 +3993,7 @@ int hook_extern(Elf *elf, char *symbol, char *hookfile, uint64_t hook_offset) {
     /* 2. get string table */
     char **string = NULL;
     int string_count = 0;
-    err = get_string_table(elf, &string, &string_count);
+    err = get_dyn_string_table(elf, &string, &string_count);
     if (err != TRUE) {
         PRINT_ERROR("get string table error\n");
         return err;
@@ -4339,4 +4298,110 @@ void bin_to_sh(const char* input_path) {
     PRINT_INFO("write to %s\n", output);
     fclose(bin_file);
     fclose(txt_file);
+}
+
+/**
+ * @brief 得到字符串
+ * get symbol name
+ * @param elf elf custom structure
+ * @param name symbol name
+ * @param count symbol count
+ * @return int error code {-1:error,0:sucess}
+ */
+int get_sym_string_table(Elf *elf, char ***name, int *count) {
+    char **string;
+    int string_count = 0;
+    if (elf->class == ELFCLASS32) {
+        string_count = elf->data.elf32.sym_count;
+        if (string_count == 0) {
+            PRINT_ERROR("no symbols found in dynsym\n");
+            return FALSE;
+        }
+
+        string = (char **)malloc(sizeof(char*) * string_count);
+        if (string == NULL) {
+            PRINT_ERROR("memory allocation failed\n");
+            return FALSE;
+        }
+
+        for (int i = 0; i < string_count; ++i) {
+            string[i] = (char *)elf->mem + elf->data.elf32.strtab->sh_offset + elf->data.elf32.sym_entry[i].st_name;
+            *count = string_count;
+        }
+    } else if (elf->class == ELFCLASS64) {
+        string_count = elf->data.elf64.sym_count;
+        if (string_count == 0) {
+            PRINT_ERROR("no symbols found in dynsym\n");
+            return FALSE;
+        }
+
+        string = (char **)malloc(sizeof(char*) * string_count);
+        if (string == NULL) {
+            PRINT_ERROR("memory allocation failed\n");
+            return FALSE;
+        }
+
+        for (int i = 0; i < string_count; ++i) {
+            string[i] = (char *)elf->mem + elf->data.elf64.strtab->sh_offset + elf->data.elf64.sym_entry[i].st_name;
+            *count = string_count;
+        }
+    } else {
+        return ERR_CLASS;
+    }
+
+    *name = string;
+    return TRUE;
+}
+
+/**
+ * @brief 得到字符串
+ * get symbol name
+ * @param elf elf custom structure
+ * @param name symbol name
+ * @param count symbol count
+ * @return int error code {-1:error,0:sucess}
+ */
+int get_dyn_string_table(Elf *elf, char ***name, int *count) {
+    char **string;
+    int string_count = 0;
+    if (elf->class == ELFCLASS32) {
+        string_count = elf->data.elf32.dynsym_count;
+        if (string_count == 0) {
+            PRINT_ERROR("no symbols found in dynsym\n");
+            return FALSE;
+        }
+
+        string = (char **)malloc(sizeof(char*) * string_count);
+        if (string == NULL) {
+            PRINT_ERROR("memory allocation failed\n");
+            return FALSE;
+        }
+
+        for (int i = 0; i < string_count; ++i) {
+            string[i] = (char *)elf->mem + elf->data.elf32.dynstrtab->sh_offset + elf->data.elf32.dynsym_entry[i].st_name;
+            *count = string_count;
+        }
+    } else if (elf->class == ELFCLASS64) {
+        string_count = elf->data.elf64.dynsym_count;
+        if (string_count == 0) {
+            PRINT_ERROR("no symbols found in dynsym\n");
+            return FALSE;
+        }
+
+        string = (char **)malloc(sizeof(char*) * string_count);
+        if (string == NULL) {
+            PRINT_ERROR("memory allocation failed\n");
+            return FALSE;
+        }
+
+        for (int i = 0; i < string_count; ++i) {
+            string[i] = (char *)elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dynsym_entry[i].st_name;
+            *count = string_count;
+        }
+    } else {
+        return ERR_CLASS;
+    }
+
+    *name = string;
+    return TRUE;
 }

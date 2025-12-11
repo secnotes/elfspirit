@@ -21,11 +21,11 @@
 
 #define PRINT_WARNING(format, ...) printf (""YELLOW"[!] "format""NONE"", ##__VA_ARGS__)
 #define PRINT_ERROR(format, ...) printf (""RED"[-] "format""NONE"", ##__VA_ARGS__)
-#define PRINT_INFO(format, ...) printf (""NONE"[+] "format""NONE"", ##__VA_ARGS__)
-#define PRINT_VERBOSE(format, ...) printf (""DARY_GRAY"[*] "format""NONE"", ##__VA_ARGS__)
+#define PRINT_INFO(format, ...) printf (""LIGHT_GREEN"[+] "format""NONE"", ##__VA_ARGS__)
+#define PRINT_VERBOSE(format, ...) printf (""NONE"[*] "format""NONE"", ##__VA_ARGS__)
 
 #ifdef debug
-    #define PRINT_DEBUG(...)  do{printf(BROWN "[D] %s#%d: " NONE, __FILE__,__LINE__); printf(BROWN __VA_ARGS__);}while(0)
+    #define PRINT_DEBUG(...)  do{printf(BROWN "[D] %s#%d: " NONE, __FILE__,__LINE__); printf(BROWN __VA_ARGS__);printf(NONE);}while(0)
 #else
     #define PRINT_DEBUG(format, ...)
 #endif
@@ -95,3 +95,13 @@ void get_filename_with_ext(const char* path, char* result);
  * @return error code
  */
 void get_filename_without_ext(const char* path, char* result);
+
+/**
+ * @brief Compare string
+ * 比较两个字符串的前n位是否相同
+ * @param str1 
+ * @param str2 
+ * @param n 
+ * @return int 
+ */
+int compare_firstN_chars(const char *str1, const char *str2, int n);
