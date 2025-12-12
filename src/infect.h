@@ -22,8 +22,6 @@
  SOFTWARE.
 */
 
-#include "common.h"
-
 /**
  * @brief 使用silvio感染算法，填充text段
  * use the Silvio infection algorithm to fill in text segments

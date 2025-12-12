@@ -36,7 +36,7 @@ typedef struct Elf32_Data {
     int sym_count;
     Elf32_Sym *dynsym_entry;
     int dynsym_count;
-    Elf32_Dyn *dyn_segment_entry;
+    Elf32_Dyn *dyn;
     int dyn_segment_count;
 } Elf32;
 
@@ -55,7 +55,7 @@ typedef struct Elf64_Data {
     int sym_count;
     Elf64_Sym *dynsym_entry;
     int dynsym_count;
-    Elf64_Dyn *dyn_segment_entry;
+    Elf64_Dyn *dyn;
     int dyn_segment_count;
 } Elf64;
 
@@ -96,6 +96,15 @@ void print_error(enum ErrorCode code);
 int init(char *elf_name, Elf *elf);
 int finit(Elf *elf);
 void reinit(Elf *elf);
+
+/**
+ * @brief 根据节的名称，获取节的下标
+ * Obtain the index of the section based on its name.
+ * @param elf Elf custom structure
+ * @param name Elf section name
+ * @return section index
+ */
+int get_section_index_by_name(Elf *elf, char *name);
 
 /**
  * @brief 根据节的名称，获取节的信息

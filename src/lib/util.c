@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include "elfutil.h"
 #include "util.h"
 
@@ -149,4 +150,102 @@ void get_filename_without_ext(const char* path, char* result) {
     } else {
         strcpy(result, with_ext);
     }
+}
+
+/**
+ * @description: 判断内存是否越界
+ * Judge whether the memory address is legal
+ * @param addr object address
+ * @param start start address
+ * @param end end adddress
+ * @return bool
+ */
+int validated_offset(uint64_t addr, uint64_t start, uint64_t end){
+    return addr <= end && addr >= start? 0:-1;
+}
+
+/**
+ * @description: 将十六进制字符串转换为整型(int)数值
+ * hex string to int.
+ * @param {char} *hex
+ * @return {*}
+ */
+unsigned int hex2int(char *hex) {  
+    int len;
+    int num = 0;
+    int temp;
+    int bits;
+    int i;
+
+    if (strlen(hex) <= 2) {
+        return -1;
+    }
+
+    char *new_hex = hex + 2;
+    len = strlen(new_hex);
+
+    for (i = 0, temp = 0; i < len; i++, temp = 0)  
+    {
+        temp = c2i(*(new_hex + i));  
+        bits = (len - i - 1) * 4;  
+        temp = temp << bits;  
+        num = num | temp;  
+    }
+    
+    return num;  
+}
+
+/**
+ * @brief 计算一个地址的4K对齐地址
+ * align 4k address
+ * @param address input address
+ * @return uint64_t output 4k address
+ */
+uint64_t align_to_4k(uint64_t address) {
+    return ((address + ONE_PAGE - 1) & ~(ONE_PAGE- 1));
+}
+
+/**
+ * @brief 将命令行传入的shellcode，转化为内存实际值
+ * convert the shellcode passed in from the command line to the actual value in memory
+ * @param sc_str input shellcode string
+ * @param sc_mem output shellcode memory
+ */
+int cmdline_shellcode(char *sc_str, char *sc_mem) {
+    if (strlen(sc_str) % 4 != 0) 
+        return -1;
+    else {
+        printf("shellcode: ");
+        for (size_t i = 0; i < strlen(sc_str); i += 4) {
+            unsigned char value;
+            sscanf(&sc_str[i], "\\x%2hhx", &value);
+            *(sc_mem+i/4) = value;
+            printf("%02x ", value);
+        }
+        printf("\n");
+    }
+}
+
+/**
+ * @description: 将字符转换为数值
+ * char to int
+ * @param {char} ch
+ * @return {*}
+ */
+int c2i(char ch) {
+    if(isdigit(ch))
+        return ch - 48;
+ 
+    if( ch < 'A' || (ch > 'F' && ch < 'a') || ch > 'z' )
+        return -1;
+ 
+    if(isalpha(ch))
+        return isupper(ch) ? ch - 55 : ch - 87;
+
+    return -1;
+}
+
+// 函数用于检查整数是否包含特定的宏标志位
+int has_flag(int num, int flag) {
+    return (num & flag) == flag;
 }

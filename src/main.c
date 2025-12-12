@@ -33,23 +33,24 @@
 #include <stdint.h>
 
 #include "parse.h"
-#include "common.h"
 #include "edit.h"
-#include "segment.h"
+#include "infect.h"
+#include "forensic.h"
 
 #define VERSION "1.10.2"
 #define CONTENT_LENGTH 1024 * 1024
+#define LENGTH 64
 
-char section_name[LENGTH];
-char string[PAGE_SIZE];
-char file[PAGE_SIZE];
-char config_name[PAGE_SIZE];
-char arch[LENGTH];
-char endian[LENGTH];
-char ver[LENGTH];
-char ver_elfspirt[LENGTH];
-char elf_name[LENGTH];
-char function[LENGTH];
+char section_name[MAX_PATH_LEN];
+char string[ONE_PAGE];
+char file[ONE_PAGE];
+char config_name[ONE_PAGE];
+char arch[MAX_PATH_LEN];
+char endian[MAX_PATH_LEN];
+char ver[MAX_PATH_LEN];
+char ver_elfspirt[MAX_PATH_LEN];
+char elf_name[MAX_PATH_LEN];
+char function[MAX_PATH_LEN];
 char *g_shellcode;
 int err;
 uint64_t base_addr;
@@ -87,37 +88,18 @@ enum LONG_OPTION {
 };
 
 /**
- * @description: obtain tool version
- */
-static int get_version(char *ver, size_t len) {
-    int fd;
-    int ret;
-
-    fd = open("./VERSION", O_RDONLY);
-    if (fd < 0) {
-        ret = strcpy(ver, VERSION);
-        return ret;
-    }
-
-    ret = read(fd, ver, len);
-    close(fd);
-    return ret;
-}
-
-/**
  * @description: initialize arguments
  */
 static void main_init() {
-    memset(section_name, 0, LENGTH);
-    memset(string, 0, PAGE_SIZE);
-    memset(file, 0, PAGE_SIZE);
-    memset(config_name, 0, LENGTH);
-    memset(elf_name, 0, LENGTH);
-    memset(function, 0, LENGTH);
+    memset(section_name, 0, MAX_PATH_LEN);
+    memset(string, 0, ONE_PAGE);
+    memset(file, 0, ONE_PAGE);
+    memset(config_name, 0, MAX_PATH_LEN);
+    memset(elf_name, 0, MAX_PATH_LEN);
+    memset(function, 0, MAX_PATH_LEN);
     size = 0;
     off = 0;
     err = 0;
-    get_version(ver_elfspirt, LENGTH);
     po.index = 0;
     memset(po.options, 0, sizeof(po.options));
 }
@@ -311,7 +293,7 @@ static void readcmdline(int argc, char *argv[]) {
         switch (opt) {
             // set section name
             case 'n':
-                memcpy(section_name, optarg, LENGTH);
+                memcpy(section_name, optarg, MAX_PATH_LEN);
                 break;
             
             // set section size
@@ -336,13 +318,13 @@ static void readcmdline(int argc, char *argv[]) {
 
             // configure
             case 'c':
-                memcpy(config_name, optarg, LENGTH);
+                memcpy(config_name, optarg, MAX_PATH_LEN);
                 break;
 
             /***** add elf info to firmware for IDA - STRT*****/
             // set architecture
             case 'a':
-                memcpy(arch, optarg, LENGTH);
+                memcpy(arch, optarg, MAX_PATH_LEN);
                 break;
 
             // set class
@@ -358,7 +340,7 @@ static void readcmdline(int argc, char *argv[]) {
             
             // set endian
             case 'e':
-                memcpy(endian, optarg, LENGTH);
+                memcpy(endian, optarg, MAX_PATH_LEN);
                 break;
 
             // set base address
@@ -384,7 +366,7 @@ static void readcmdline(int argc, char *argv[]) {
 
             // set libc version
             case 'v':
-                memcpy(ver, optarg, LENGTH);
+                memcpy(ver, optarg, MAX_PATH_LEN);
                 break;
             
             case 'h':
@@ -475,8 +457,7 @@ static void readcmdline(int argc, char *argv[]) {
     Elf elf;
     char *shellcode;
     if (optind == argc - 1) {
-        memcpy(elf_name, argv[optind], LENGTH);
-        MODE = get_elf_class(elf_name);
+        memcpy(elf_name, argv[optind], strlen(argv[optind]));
         if (g_long_option) {
             switch (g_long_option)
             {
@@ -676,7 +657,6 @@ static void readcmdline(int argc, char *argv[]) {
     else {
         memcpy(function, argv[optind], LENGTH);
         memcpy(elf_name, argv[++optind], LENGTH);
-        MODE = get_elf_class(elf_name);
     }
 
     /* ELF parser */
@@ -688,7 +668,9 @@ static void readcmdline(int argc, char *argv[]) {
 
     /* edit elf */
     if (!strcmp(function, "edit")) {
-        edit(elf_name, &po, row, column, value, section_name, string);
+        init(elf_name, &elf);
+        edit(&elf, &po, row, column, value, section_name, string);
+        finit(&elf);
     }
 
     /* forensics */

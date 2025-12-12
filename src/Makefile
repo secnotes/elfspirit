@@ -24,10 +24,10 @@ endif
 
 # if gcc version is larger than 14, add new flags
 # 如果GCC版本>=14，添加额外警告抑制选项
-ifeq ($(shell test $(GCC_VERSION) -ge 14; echo $$?),0)
-    CFLAGS += -Wno-int-conversion -Wno-incompatible-pointer-types \
-                -Wno-int-conversion -Wno-implicit-function-declaration
-endif
+# ifeq ($(shell test $(GCC_VERSION) -ge 14; echo $$?),0)
+#     CFLAGS += -Wno-int-conversion -Wno-incompatible-pointer-types \
+#                 -Wno-int-conversion -Wno-implicit-function-declaration
+# endif
 
 # HarmonyOS cross build: aarch64-linux-ohos
 ifeq ($(findstring aarch64-linux-ohos,$(CC)),aarch64-linux-ohos)

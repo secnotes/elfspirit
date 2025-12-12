@@ -30,1981 +30,129 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <elf.h>
-#include "common.h"
+#include <stdlib.h>
 #include "parse.h"
-#include "lib/util.h"
 
-enum HeaderLabel {
-    E_IDENT,        /* Magic number and other info */
-    E_TYPE,         /* Object file type */
-    E_MACHINE,      /* Architecture */
-    E_VERSION,      /* Object file version */
-    E_ENTRY,        /* Entry point virtual address */
-    E_PHOFF,        /* Program header table file offset */
-    E_SHOFF,        /* Section header table file offset */
-    E_FLAGS,        /* Processor-specific flags */
-    E_EHSIZE,       /* ELF header size in bytes */
-    E_PHENTSIZE,    /* Program header table entry size */
-    E_PHNUM,        /* Program header table entry count */
-    E_SHENTSIZE,    /* Section header table entry size */
-    E_SHNUM,        /* Section header table entry count */
-    E_SHSTRNDX,     /* Section header table entry count */
-};
-
-enum SectionLabel {
-    S_NAME,         /* Section name (string tbl index) */
-    S_TYPE,         /* Section type */
-    S_FLAGS,        /* Section flags */
-    S_ADDR,         /* Section virtual addr at execution */
-    S_OFF,          /* Section file offset */
-    S_SIZE,         /* Section size in bytes */
-    S_LINK,         /* Link to another section */
-    S_INFO,         /* Additional section information */
-    S_ALIGN,        /* Section alignment */
-    S_ENTSIZE,      /* Entry size if section holds table */
-};
-
-enum SegmentLabel {
-    P_TYPE,         /* Segment type */
-    P_FLAGS,        /* Segment flags */
-    P_OFFSET,       /* Segment file offset */
-    P_VADDR,        /* Segment virtual address */
-    P_PADDR,        /* Segment physical address */
-    P_FILESZ,       /* Segment size in file */
-    P_MEMSZ,        /* Segment size in memory */
-    P_ALIGN,        /* Segment alignment */
-};
-
-enum SymbolLabel {
-    ST_NAME,        /* Symbol name (string tbl index) */
-    ST_VALUE,       /* Symbol value */
-    ST_SIZE,        /* Symbol size */
-    ST_INFO,        /* Symbol type and binding */
-    ST_TYPE,
-    ST_BIND,
-    ST_OTHER,       /* Symbol visibility */
-    ST_SHNDX,       /* Section index */
-};
-
-enum RelocationLabel {
-    R_OFFSET,       /* Address */
-    R_INFO,         /* Relocation type and symbol index */
-    R_TYPE,
-    R_INDEX,
-    R_ADDEND,       /* Addend */
-};
-
-enum DynamicLabel {
-    D_TAG,
-    D_VALUE,
-};
-
-/**
- * @brief Set the elf header information object
- * 
- * @param elf_name elf file name
- * @param value 
- * @param label readelf elf header column
- * @return error code {-1:error,0:sucess}
- */
-static int set_header(char *elf_name, int value, enum HeaderLabel label) {
-    int fd;
-    struct stat st;
-    uint8_t *elf_map;
-
-    fd = open(elf_name, O_RDWR);
-    if (fd < 0) {
-        perror("open");
-        return -1;
-    }
-
-    if (fstat(fd, &st) < 0) {
-        perror("fstat");
-        return -1;
-    }
-
-    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (elf_map == MAP_FAILED) {
-        perror("mmap");
-        return -1;
-    }
-   
-    /* 32bit */
-    if (MODE == ELFCLASS32) {
-        Elf32_Ehdr *ehdr;
-        ehdr = (Elf32_Ehdr *)elf_map;
-
-        switch (label)
-        {
-            case E_IDENT:
-                break;
-
-            case E_TYPE:
-                printf("%x->%x\n", ehdr->e_type, value);
-                ehdr->e_type = value;
-                break;
-
-            case E_MACHINE:
-                printf("%x->%x\n", ehdr->e_machine, value);
-                ehdr->e_machine = value;
-                break;
-            
-            case E_VERSION:
-                printf("%x->%x\n", ehdr->e_version, value);
-                ehdr->e_version = value;
-                break;
-
-            case E_ENTRY:
-                printf("%x->%x\n", ehdr->e_entry, value);
-                ehdr->e_entry= value;
-                break;
-
-            case E_PHOFF:
-                printf("%x->%x\n", ehdr->e_phoff, value);
-                ehdr->e_phoff = value;
-                break;
-
-            case E_SHOFF:
-                printf("%x->%x\n", ehdr->e_shoff, value);
-                ehdr->e_shoff = value;
-                break;
-
-            case E_FLAGS:
-                printf("%x->%x\n", ehdr->e_flags, value);
-                ehdr->e_flags = value;
-                break;
-
-            case E_EHSIZE:
-                printf("%x->%x\n", ehdr->e_ehsize, value);
-                ehdr->e_ehsize = value;
-                break;
-
-            case E_PHENTSIZE:
-                printf("%x->%x\n", ehdr->e_phentsize, value);
-                ehdr->e_phentsize = value;
-                break;
-
-            case E_PHNUM:
-                printf("%x->%x\n", ehdr->e_phnum, value);
-                ehdr->e_phnum = value;
-                break;
-
-            case E_SHENTSIZE:
-                printf("%x->%x\n", ehdr->e_shentsize, value);
-                ehdr->e_shentsize = value;
-                break;
-
-            case E_SHNUM:
-                printf("%x->%x\n", ehdr->e_shnum, value);
-                ehdr->e_shnum = value;
-                break;
-
-            case E_SHSTRNDX:
-                printf("%x->%x\n", ehdr->e_shstrndx, value);
-                ehdr->e_shstrndx = value;
-                break;
-            
-            default:
-                break;
-        }
-    }
-
-    /* 64bit */
-    if (MODE == ELFCLASS64) {
-        Elf64_Ehdr *ehdr;
-        ehdr = (Elf64_Ehdr *)elf_map;
-
-        switch (label)
-        {
-            case E_IDENT:
-                break;
-
-            case E_TYPE:
-                printf("%x->%x\n", ehdr->e_type, value);
-                ehdr->e_type = value;
-                break;
-
-            case E_MACHINE:
-                printf("%x->%x\n", ehdr->e_machine, value);
-                ehdr->e_machine = value;
-                break;
-            
-            case E_VERSION:
-                printf("%x->%x\n", ehdr->e_version, value);
-                ehdr->e_version = value;
-                break;
-
-            case E_ENTRY:
-                printf("%x->%x\n", ehdr->e_entry, value);
-                ehdr->e_entry= value;
-                break;
-
-            case E_PHOFF:
-                printf("%x->%x\n", ehdr->e_phoff, value);
-                ehdr->e_phoff = value;
-                break;
-
-            case E_SHOFF:
-                printf("%x->%x\n", ehdr->e_shoff, value);
-                ehdr->e_shoff = value;
-                break;
-
-            case E_FLAGS:
-                printf("%x->%x\n", ehdr->e_flags, value);
-                ehdr->e_flags = value;
-                break;
-
-            case E_EHSIZE:
-                printf("%x->%x\n", ehdr->e_ehsize, value);
-                ehdr->e_ehsize = value;
-                break;
-
-            case E_PHENTSIZE:
-                printf("%x->%x\n", ehdr->e_phentsize, value);
-                ehdr->e_phentsize = value;
-                break;
-
-            case E_PHNUM:
-                printf("%x->%x\n", ehdr->e_phnum, value);
-                ehdr->e_phnum = value;
-                break;
-
-            case E_SHENTSIZE:
-                printf("%x->%x\n", ehdr->e_shentsize, value);
-                ehdr->e_shentsize = value;
-                break;
-
-            case E_SHNUM:
-                printf("%x->%x\n", ehdr->e_shnum, value);
-                ehdr->e_shnum = value;
-                break;
-
-            case E_SHSTRNDX:
-                printf("%x->%x\n", ehdr->e_shstrndx, value);
-                ehdr->e_shstrndx = value;
-                break;
-            
-            default:
-                break;
-        }
-    }
-
-    close(fd);
-    munmap(elf_map, st.st_size);
-    return 0;
-}
-
-/**
- * @brief Set the section name
- * 
- * @param elf_name elf file name
- * @param value 
- * @return error code {-1:error,0:sucess}
- */
-int set_header_type(char *elf_name, int value) {
-    return set_header(elf_name, value, E_TYPE);
-}
-
-int set_header_machine(char *elf_name, int value) {
-    return set_header(elf_name, value, E_MACHINE);
-}
-
-int set_header_version(char *elf_name, int value) {
-    return set_header(elf_name, value, E_VERSION);
-}
-
-int set_header_entry(char *elf_name, int value) {
-    return set_header(elf_name, value, E_ENTRY);
-}
-
-int set_header_phoff(char *elf_name, int value) {
-    return set_header(elf_name, value, E_PHOFF);
-}
-
-int set_header_shoff(char *elf_name, int value) {
-    return set_header(elf_name, value, E_SHOFF);
-}
-
-int set_header_flags(char *elf_name, int value) {
-    return set_header(elf_name, value, E_FLAGS);
-}
-
-int set_header_ehsize(char *elf_name, int value) {
-    return set_header(elf_name, value, E_EHSIZE);
-}
-
-int set_header_phentsize(char *elf_name, int value) {
-    return set_header(elf_name, value, E_PHENTSIZE);
-}
-
-int set_header_phnum(char *elf_name, int value) {
-    return set_header(elf_name, value, E_PHNUM);
-}
-
-int set_header_shentsize(char *elf_name, int value) {
-    return set_header(elf_name, value, E_SHENTSIZE);
-}
-
-int set_header_shnum(char *elf_name, int value) {
-    return set_header(elf_name, value, E_SHNUM);
-}
-
-int set_header_shstrndx(char *elf_name, int value) {
-    return set_header(elf_name, value, E_SHSTRNDX);
-}
-
-/**
- * @brief Set the section information object
- * 
- * @param elf_name elf file name
- * @param index readelf section row
- * @param value 
- * @param label readelf section column
- * @return error code {-1:error,0:sucess}
- */
-static int set_section(char *elf_name, int index, int value, enum SectionLabel label) {
-    int fd;
-    struct stat st;
-    uint8_t *elf_map;
-
-    fd = open(elf_name, O_RDWR);
-    if (fd < 0) {
-        perror("open");
-        return -1;
-    }
-
-    if (fstat(fd, &st) < 0) {
-        perror("fstat");
-        return -1;
-    }
-
-    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (elf_map == MAP_FAILED) {
-        perror("mmap");
-        return -1;
-    }
-
-    /* rwx -> xrw*/
-    int section_flags = ((value & 1) << 2) | ((value & 2) >> 1) | ((value & 4) >> 1);
-    
-    /* 32bit */
-    if (MODE == ELFCLASS32) {
-        Elf32_Ehdr *ehdr;
-        Elf32_Shdr *shdr;
-
-        ehdr = (Elf32_Ehdr *)elf_map;
-        shdr = (Elf32_Shdr *)&elf_map[ehdr->e_shoff];
-
-        switch (label)
-        {
-            case S_NAME:
-                printf("%x->%x\n", shdr[index].sh_name, value);
-                shdr[index].sh_name = value;
-                break;
-
-            case S_TYPE:
-                printf("%x->%x\n", shdr[index].sh_type, value);
-                shdr[index].sh_type = value;
-                break;
-
-            case S_FLAGS:
-                printf("%x->%x\n", shdr[index].sh_flags, value);
-                shdr[index].sh_flags = section_flags;
-                break;
-            
-            case S_ADDR:
-                printf("%x->%x\n", shdr[index].sh_addr, value);
-                shdr[index].sh_addr = value;
-                break;
-
-            case S_OFF:
-                printf("%x->%x\n", shdr[index].sh_offset, value);
-                shdr[index].sh_offset = value;
-                break;
-
-            case S_SIZE:
-                printf("%x->%x\n", shdr[index].sh_size, value);
-                shdr[index].sh_size = value;
-                break;
-
-            case S_LINK:
-                printf("%x->%x\n", shdr[index].sh_link, value);
-                shdr[index].sh_link = value;
-                break;
-
-            case S_INFO:
-                printf("%x->%x\n", shdr[index].sh_info, value);
-                shdr[index].sh_info = value;
-                break;
-
-            case S_ALIGN:
-                printf("%x->%x\n", shdr[index].sh_addralign, value);
-                shdr[index].sh_addralign = value;
-                break;
-
-            case S_ENTSIZE:
-                printf("%x->%x\n", shdr[index].sh_entsize, value);
-                shdr[index].sh_entsize = value;
-                break;
-            
-            default:
-                break;
-        }
-    }
-
-    /* 64bit */
-    if (MODE == ELFCLASS64) {
-        Elf64_Ehdr *ehdr;
-        Elf64_Shdr *shdr;
-
-        ehdr = (Elf64_Ehdr *)elf_map;
-        shdr = (Elf64_Shdr *)&elf_map[ehdr->e_shoff];
-
-        switch (label)
-        {
-            case S_NAME:
-                printf("%x->%x\n", shdr[index].sh_name, value);
-                shdr[index].sh_name = value;
-                break;
-
-            case S_TYPE:
-                printf("%x->%x\n", shdr[index].sh_type, value);
-                shdr[index].sh_type = value;
-                break;
-
-            case S_FLAGS:
-                printf("%x->%x\n", shdr[index].sh_flags, value);
-                shdr[index].sh_flags = section_flags;
-                break;
-            
-            case S_ADDR:
-                printf("%x->%x\n", shdr[index].sh_addr, value);
-                shdr[index].sh_addr = value;
-                break;
-
-            case S_OFF:
-                printf("%x->%x\n", shdr[index].sh_offset, value);
-                shdr[index].sh_offset = value;
-                break;
-
-            case S_SIZE:
-                printf("%x->%x\n", shdr[index].sh_size, value);
-                shdr[index].sh_size = value;
-                break;
-
-            case S_LINK:
-                printf("%x->%x\n", shdr[index].sh_link, value);
-                shdr[index].sh_link = value;
-                break;
-
-            case S_INFO:
-                printf("%x->%x\n", shdr[index].sh_info, value);
-                shdr[index].sh_info = value;
-                break;
-
-            case S_ALIGN:
-                printf("%x->%x\n", shdr[index].sh_addralign, value);
-                shdr[index].sh_addralign = value;
-                break;
-
-            case S_ENTSIZE:
-                printf("%x->%x\n", shdr[index].sh_entsize, value);
-                shdr[index].sh_entsize = value;
-                break;
-            
-            default:
-                break;
-        }
-    }
-
-    close(fd);
-    munmap(elf_map, st.st_size);
-    return 0;
-};
-
-/**
- * @brief Set the section name
- * 
- * @param elf_name elf file name
- * @param index readelf section row
- * @param value 
- * @return error code {-1:error,0:sucess}
- */
-int set_section_name(char *elf_name, int index, int value) {
-    return set_section(elf_name, index, value, S_NAME);
-}
-
-int set_section_type(char *elf_name, int index, int value) {
-    return set_section(elf_name, index, value, S_TYPE);
-}
-
-int set_section_flags(char *elf_name, int index, int value) {
-    return set_section(elf_name, index, value, S_FLAGS);
-}
-
-int set_section_addr(char *elf_name, int index, int value) {
-    return set_section(elf_name, index, value, S_ADDR);
-}
-
-int set_section_off(char *elf_name, int index, int value) {
-    return set_section(elf_name, index, value, S_OFF);
-}
-
-int set_section_size(char *elf_name, int index, int value) {
-    return set_section(elf_name, index, value, S_SIZE);
-}
-
-int set_section_link(char *elf_name, int index, int value) {
-    return set_section(elf_name, index, value, S_LINK);
-}
-
-int set_section_info(char *elf_name, int index, int value) {
-    return set_section(elf_name, index, value, S_INFO);
-}
-
-int set_section_align(char *elf_name, int index, int value) {
-    return set_section(elf_name, index, value, S_ALIGN);
-}
-
-int set_section_entsize(char *elf_name, int index, int value) {
-    return set_section(elf_name, index, value, S_ENTSIZE);
-}
-
-int set_section_name_by_str(char *elf_name, int index, char *value) {
-    int fd;
-    struct stat st;
-    uint8_t *elf_map;
-    uint8_t *sec_name;
-
-    fd = open(elf_name, O_RDWR);
-    if (fd < 0) {
-        perror("open");
-        return -1;
-    }
-
-    if (fstat(fd, &st) < 0) {
-        perror("fstat");
-        return -1;
-    }
-
-    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (elf_map == MAP_FAILED) {
-        perror("mmap");
-        return -1;
-    }
-    
-    /* 32bit */
-    if (MODE == ELFCLASS32) {
-        Elf32_Ehdr *ehdr;
-        Elf32_Shdr *shdr;
-        Elf32_Shdr shstrtab;
-        ehdr = (Elf32_Ehdr *)elf_map;
-        shdr = (Elf32_Shdr *)&elf_map[ehdr->e_shoff];
-
-        shstrtab = shdr[ehdr->e_shstrndx];
-        sec_name = elf_map + shstrtab.sh_offset + shdr[index].sh_name;
-        if (validated_offset(sec_name, elf_map, elf_map + st.st_size)) {
-            ERROR("Corrupt file format\n");
-            goto ERR_EXIT;
-        }
-        if (validated_offset(sec_name + strlen(value), elf_map, elf_map + st.st_size)) {
-            ERROR("The input string is too long\n");
-            goto ERR_EXIT;
-        }
-        printf("%s->%s\n", sec_name, value);
-        strcpy(sec_name, value);
-    }
-
-    /* 64bit */
-    else if (MODE == ELFCLASS64) {
-        Elf64_Ehdr *ehdr;
-        Elf64_Shdr *shdr;
-        Elf64_Shdr shstrtab;
-        ehdr = (Elf64_Ehdr *)elf_map;
-        shdr = (Elf64_Shdr *)&elf_map[ehdr->e_shoff];
-        
-        shstrtab = shdr[ehdr->e_shstrndx];
-        sec_name = elf_map + shstrtab.sh_offset + shdr[index].sh_name;
-        if (validated_offset(sec_name, elf_map, elf_map + st.st_size)) {
-            ERROR("Corrupt file format\n");
-            goto ERR_EXIT;
-        }
-        if (validated_offset(sec_name + strlen(value), elf_map, elf_map + st.st_size)) {
-            ERROR("The input string is too long\n");
-            goto ERR_EXIT;
-        }
-        printf("%s->%s\n", sec_name, value);
-        strcpy(sec_name, value);
-    }
-
-    else {
-        ERROR("Invalid ELF class");
-        goto ERR_EXIT;
-    }
-
-    close(fd);
-    munmap(elf_map, st.st_size);
-    return 0;
-
-ERR_EXIT:
-    close(fd);
-    munmap(elf_map, st.st_size);
-    return -1;
-}
-
-/**
- * @brief Set the segment information
- * 
- * @param elf_name elf file name
- * @param index readelf .segment row
- * @param value value to be edited
- * @param label readelf .segment column
- * @return error code {-1:error,0:sucess}
- */
-static int set_segment(char *elf_name, int index, int value, enum SegmentLabel label) {
-    int fd;
-    struct stat st;
-    uint8_t *elf_map;
-
-    fd = open(elf_name, O_RDWR);
-    if (fd < 0) {
-        perror("open");
-        return -1;
-    }
-
-    if (fstat(fd, &st) < 0) {
-        perror("fstat");
-        return -1;
-    }
-
-    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (elf_map == MAP_FAILED) {
-        perror("mmap");
-        return -1;
-    }
-    
-    /* 32bit */
-    if (MODE == ELFCLASS32) {
-        Elf32_Ehdr *ehdr;
-        Elf32_Phdr *phdr;
-
-        ehdr = (Elf32_Ehdr *)elf_map;
-        phdr = (Elf32_Phdr *)&elf_map[ehdr->e_phoff];
-
-        switch (label)
-        {
-            case P_TYPE:
-                printf("%x->%x\n", phdr[index].p_type, value);
-                phdr[index].p_type = value;
-                break;
-            
-            case P_FLAGS:
-                printf("%x->%x\n", phdr[index].p_flags, value);
-                phdr[index].p_flags = value;
-                break;
-
-            case P_OFFSET:
-                printf("%x->%x\n", phdr[index].p_offset, value);
-                phdr[index].p_offset = value;
-                break;
-
-            case P_VADDR:
-                printf("%x->%x\n", phdr[index].p_vaddr, value);
-                phdr[index].p_vaddr = value;
-                break;
-
-            case P_PADDR:
-                printf("%x->%x\n", phdr[index].p_paddr, value);
-                phdr[index].p_paddr = value;
-                break;
-
-            case P_FILESZ:
-                printf("%x->%x\n", phdr[index].p_filesz, value);
-                phdr[index].p_filesz = value;
-                break;
-
-            case P_MEMSZ:
-                printf("%x->%x\n", phdr[index].p_memsz, value);
-                phdr[index].p_memsz = value;
-                break;
-
-            case P_ALIGN:
-                printf("%x->%x\n", phdr[index].p_align, value);
-                phdr[index].p_align = value;
-                break;
-            
-            default:
-                break;
-        }
-    }
-
-    /* 64bit */
-    if (MODE == ELFCLASS64) {
-        Elf64_Ehdr *ehdr;
-        Elf64_Phdr *phdr;
-
-        ehdr = (Elf64_Ehdr *)elf_map;
-        phdr = (Elf64_Phdr *)&elf_map[ehdr->e_phoff];
-
-        switch (label)
-        {
-                        case P_TYPE:
-                printf("%x->%x\n", phdr[index].p_type, value);
-                phdr[index].p_type = value;
-                break;
-            
-            case P_FLAGS:
-                printf("%x->%x\n", phdr[index].p_flags, value);
-                phdr[index].p_flags = value;
-                break;
-
-            case P_OFFSET:
-                printf("%x->%x\n", phdr[index].p_offset, value);
-                phdr[index].p_offset = value;
-                break;
-
-            case P_VADDR:
-                printf("%x->%x\n", phdr[index].p_vaddr, value);
-                phdr[index].p_vaddr = value;
-                break;
-            
-            case P_PADDR:
-                printf("%x->%x\n", phdr[index].p_paddr, value);
-                phdr[index].p_paddr = value;
-                break;
-
-            case P_FILESZ:
-                printf("%x->%x\n", phdr[index].p_filesz, value);
-                phdr[index].p_filesz = value;
-                break;
-
-            case P_MEMSZ:
-                printf("%x->%x\n", phdr[index].p_memsz, value);
-                phdr[index].p_memsz = value;
-                break;
-
-            case P_ALIGN:
-                printf("%x->%x\n", phdr[index].p_align, value);
-                phdr[index].p_align = value;
-                break;
-        
-            default:
-                break;
-        }
-    }
-
-    close(fd);
-    munmap(elf_map, st.st_size);
-    return 0;
-};
-
-/**
- * @brief Set the segment type
- * 
- * @param elf_name elf file name
- * @param index readelf segment row
- * @param value 
- * @return error code {-1:error,0:sucess}
- */
-int set_segment_type(char *elf_name, int index, int value) {
-    return set_segment(elf_name, index, value, P_TYPE);
-}
-
-/**
- * @brief Set the segment flags
- * 
- * @param elf_name elf file name
- * @param index readelf segment row
- * @param value 
- * @return error code {-1:error,0:sucess}
- */
-int set_segment_flags(char *elf_name, int index, int value) {
-    return set_segment(elf_name, index, value, P_FLAGS);
-}
-
-/**
- * @brief Set the segment offset
- * 
- * @param elf_name elf file name
- * @param index readelf segment row
- * @param value 
- * @return error code {-1:error,0:sucess}
- */
-int set_segment_offset(char *elf_name, int index, int value) {
-    return set_segment(elf_name, index, value, P_OFFSET);
-}
-
-/**
- * @brief Set the segment vaddr
- * 
- * @param elf_name elf file name
- * @param index readelf segment row
- * @param value 
- * @return error code {-1:error,0:sucess}
- */
-int set_segment_vaddr(char *elf_name, int index, int value) {
-    return set_segment(elf_name, index, value, P_VADDR);
-}
-
-/**
- * @brief Set the segment paddr
- * 
- * @param elf_name elf file name
- * @param index readelf segment row
- * @param value 
- * @return error code {-1:error,0:sucess}
- */
-int set_segment_paddr(char *elf_name, int index, int value) {
-    return set_segment(elf_name, index, value, P_PADDR);
-}
-
-/**
- * @brief Set the segment filesz
- * 
- * @param elf_name elf file name
- * @param index readelf segment row
- * @param value 
- * @return error code {-1:error,0:sucess}
- */
-int set_segment_filesz(char *elf_name, int index, int value) {
-    return set_segment(elf_name, index, value, P_FILESZ);
-}
-
-/**
- * @brief Set the segment memsz
- * 
- * @param elf_name elf file name
- * @param index readelf segment row
- * @param value 
- * @return error code {-1:error,0:sucess}
- */
-int set_segment_memsz(char *elf_name, int index, int value) {
-    return set_segment(elf_name, index, value, P_MEMSZ);
-}
-
-/**
- * @brief Set the segment align
- * 
- * @param elf_name elf file name
- * @param index readelf segment row
- * @param value 
- * @return error code {-1:error,0:sucess}
- */
-int set_segment_align(char *elf_name, int index, int value) {
-    return set_segment(elf_name, index, value, P_ALIGN);
-}
-
-/**
- * @brief Set the symbol information
- * 
- * @param elf_name elf file name
- * @param index readelf symbol row
- * @param value value to be edited
- * @param label readelf symbol column
- * @param section_name .dynsym or .symtab
- * @return error code {-1:error,0:sucess}
- */
-static int set_symbol(char *elf_name, int index, int value, enum SymbolLabel label, char *section_name) {
-    int fd;
-    struct stat st;
-    int type;
-    int bind;
-    uint8_t *elf_map;
-    uint64_t sym_offset;
-
-    fd = open(elf_name, O_RDWR);
-    if (fd < 0) {
-        perror("open");
-        return -1;
-    }
-
-    if (fstat(fd, &st) < 0) {
-        perror("fstat");
-        return -1;
-    }
-
-    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (elf_map == MAP_FAILED) {
-        perror("mmap");
-        return -1;
-    }
-    // get offset and update elf class
-    sym_offset = get_section_offset(elf_name, section_name);
-    if (!sym_offset) {
-        goto ERR_EXIT;
-    }
-
-    /* 32bit */
-    if (MODE == ELFCLASS32) {
-        Elf32_Sym *sym = (Elf32_Sym *)(elf_map + sym_offset);
-        switch (label)
-        {
-            case ST_NAME:
-                printf("%x->%x\n", sym[index].st_name, value);
-                sym[index].st_name = value;
-                break;
-            
-            case ST_VALUE:
-                printf("%x->%x\n", sym[index].st_value, value);
-                sym[index].st_value = value;
-                break;
-            
-            case ST_SIZE:
-                printf("%x->%x\n", sym[index].st_size, value);
-                sym[index].st_size = value;
-                break;
-
-            case ST_TYPE:
-                type = ELF32_ST_TYPE(sym[index].st_info);
-                bind = ELF32_ST_BIND(sym[index].st_info);
-                printf("%x->%x\n", type, value);
-                sym[index].st_info = ELF32_ST_INFO(bind, value);
-                break;
-
-            case ST_BIND:
-                type = ELF32_ST_TYPE(sym[index].st_info);
-                bind = ELF32_ST_BIND(sym[index].st_info);
-                printf("%x->%x\n", bind, value);
-                sym[index].st_info = ELF32_ST_INFO(value, type);
-                break;
-
-            case ST_OTHER:
-                printf("%x->%x\n", sym[index].st_other, value);
-                sym[index].st_other = value;
-                break;
-
-            case ST_SHNDX:
-                printf("%x->%x\n", sym[index].st_shndx, value);
-                sym[index].st_shndx = value;
-                break;
-            
-            default:
-                break;
-        }
-    }
-
-    /* 64bit */
-    else if (MODE == ELFCLASS64) {
-        Elf64_Sym *sym = (Elf64_Sym *)(elf_map + sym_offset);
-        switch (label)
-        {
-            case ST_NAME:
-                printf("%x->%x\n", sym[index].st_name, value);
-                sym[index].st_name = value;
-                break;
-            
-            case ST_VALUE:
-                printf("%x->%x\n", sym[index].st_value, value);
-                sym[index].st_value = value;
-                break;
-            
-            case ST_SIZE:
-                printf("%x->%x\n", sym[index].st_size, value);
-                sym[index].st_size = value;
-                break;
-
-            case ST_TYPE:
-                type = ELF64_ST_TYPE(sym[index].st_info);
-                bind = ELF64_ST_BIND(sym[index].st_info);
-                printf("%x->%x\n", type, value);
-                sym[index].st_info = ELF64_ST_INFO(bind, value);
-                break;
-
-            case ST_BIND:
-                type = ELF64_ST_TYPE(sym[index].st_info);
-                bind = ELF64_ST_BIND(sym[index].st_info);
-                printf("%x->%x\n", bind, value);
-                sym[index].st_info = ELF64_ST_INFO(value, type);
-                break;
-
-            case ST_OTHER:
-                printf("%x->%x\n", sym[index].st_other, value);
-                sym[index].st_other = value;
-                break;
-
-            case ST_SHNDX:
-                printf("%x->%x\n", sym[index].st_shndx, value);
-                sym[index].st_shndx = value;
-                break;
-            
-            default:
-                break;
-        }
-    }
-
-    close(fd);
-    munmap(elf_map, st.st_size);
-    return 0;
-
-ERR_EXIT:
-    close(fd);
-    munmap(elf_map, st.st_size);
-    return -1;
-};
-
-/**
- * @brief Set the dynsym name object
- * 
- * @param elf_name elf file name
- * @param index elf file name
- * @param value value to be edited
- * @param section_name .dynsym or .symtab
- * @return error code {-1:error,0:sucess}
- */
-int set_sym_name(char *elf_name, int index, int value, char *section_name) {
-    return set_symbol(elf_name, index, value, ST_NAME, section_name);
-}
-
-/**
- * @brief Set the dynsym value object
- * 
- * @param elf_name elf file name
- * @param index readelf .dynsym row
- * @param value value to be edited
- * @param section_name .dynsym or .symtab
- * @return error code {-1:error,0:sucess}
- */
-int set_sym_value(char *elf_name, int index, int value, char *section_name) {
-    return set_symbol(elf_name, index, value, ST_VALUE, section_name);
-}
-
-/**
- * @brief Set the dynsym size object
- * 
- * @param elf_name elf file name
- * @param index readelf .dynsym row
- * @param value value to be edited
- * @param section_name .dynsym or .symtab
- * @return error code {-1:error,0:sucess}
- */
-int set_sym_size(char *elf_name, int index, int value, char *section_name) {
-    return set_symbol(elf_name, index, value, ST_SIZE, section_name);
-}
-
-/**
- * @brief Set the dynsym type object
- * 
- * @param elf_name elf file name
- * @param index readelf .dynsym row
- * @param value value to be edited
- * @param section_name .dynsym or .symtab
- * @return error code {-1:error,0:sucess}
- */
-int set_sym_type(char *elf_name, int index, int value, char *section_name) {
-    return set_symbol(elf_name, index, value, ST_TYPE, section_name);
-}
-
-/**
- * @brief Set the dynsym bind object
- * 
- * @param elf_name elf file name
- * @param index readelf .dynsym row
- * @param value value to be edited
- * @param section_name .dynsym or .symtab
- * @return error code {-1:error,0:sucess}
- */
-int set_sym_bind(char *elf_name, int index, int value, char *section_name) {
-    return set_symbol(elf_name, index, value, ST_BIND, section_name);
-}
-
-/**
- * @brief Set the dynsym other object
- * 
- * @param elf_name elf file name
- * @param index readelf .dynsym row
- * @param value value to be edited
- * @param section_name .dynsym or .symtab
- * @return error code {-1:error,0:sucess}
- */
-int set_sym_other(char *elf_name, int index, int value, char *section_name) {
-    return set_symbol(elf_name, index, value, ST_OTHER, section_name);
-}
-
-/**
- * @brief Set the dynsym shndx object
- * 
- * @param elf_name elf file name
- * @param index readelf .dynsym row
- * @param value value to be edited
- * @param section_name .dynsym or .symtab
- * @return error code {-1:error,0:sucess}
- */
-int set_sym_shndx(char *elf_name, int index, int value, char *section_name) {
-    return set_symbol(elf_name, index, value, ST_SHNDX, section_name);
-}
-
-int set_rel(char *elf_name, int index, int value, enum RelocationLabel label, char *section_name)  {
-    int fd;
-    struct stat st;
-    int type;
-    int bind;
-    uint8_t *elf_map;
-    uint8_t *tmp_sec_name;
-
-    fd = open(elf_name, O_RDWR);
-    if (fd < 0) {
-        perror("open");
-        return -1;
-    }
-
-    if (fstat(fd, &st) < 0) {
-        perror("fstat");
-        return -1;
-    }
-
-    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (elf_map == MAP_FAILED) {
-        perror("mmap");
-        return -1;
-    }
-    
-    /* 32bit */
-    if (MODE == ELFCLASS32) {
-        Elf32_Ehdr *ehdr;
-        Elf32_Shdr *shdr;
-        Elf32_Shdr shstrtab;
-        Elf32_Rel *rel;
-
-        ehdr = (Elf32_Ehdr *)elf_map;
-        shdr = (Elf32_Shdr *)&elf_map[ehdr->e_shoff];
-        shstrtab = shdr[ehdr->e_shstrndx];
-
-        for (int i = 0; i < ehdr->e_shnum; i++) {
-            tmp_sec_name = elf_map + shstrtab.sh_offset + shdr[i].sh_name;
-            if (!strcmp(section_name, tmp_sec_name)) {
-                int size = 0;
-                /* security check start*/
-                if (shdr[i].sh_entsize != 0)
-                    size = shdr[i].sh_size / shdr[i].sh_entsize;
-                else
-                    return -1;
-                if (index >= size)
-                    return -1;
-                /* security check end*/
-                rel = (Elf32_Rel *)(elf_map + shdr[i].sh_offset);
-                switch (label)
-                {
-                    case R_OFFSET:
-                        printf("0x%x->0x%x\n", rel[index].r_offset, value);
-                        rel[index].r_offset = value;
-                        break;
-                    
-                    case R_INFO:
-                        printf("0x%x->0x%x\n", rel[index].r_info, value);
-                        rel[index].r_info = value;
-                        break;
-
-                    case R_TYPE:
-                        printf("0x%x->0x%x\n", ELF32_R_TYPE(rel[index].r_info), value);
-                        rel[index].r_info = ELF32_R_INFO(ELF32_R_SYM(rel[index].r_info), value);
-                        break;
-
-                    case R_INDEX:
-                        printf("0x%x->0x%x\n", ELF32_R_SYM(rel[index].r_info), value);
-                        rel[index].r_info = ELF32_R_INFO(value, ELF32_R_TYPE(rel[index].r_info));
-                        break;
-                    
-                    default:
-                        break;
-                }
-                break;
-            }
-        }
-    }
-
-    /* 64bit */
-    if (MODE == ELFCLASS64) {
-        Elf64_Ehdr *ehdr;
-        Elf64_Shdr *shdr;
-        Elf64_Shdr shstrtab;
-        Elf64_Rel *rel;
-
-        ehdr = (Elf64_Ehdr *)elf_map;
-        shdr = (Elf64_Shdr *)&elf_map[ehdr->e_shoff];
-        shstrtab = shdr[ehdr->e_shstrndx];
-
-        for (int i = 0; i < ehdr->e_shnum; i++) {
-            tmp_sec_name = elf_map + shstrtab.sh_offset + shdr[i].sh_name;
-            if (!strcmp(section_name, tmp_sec_name)) {
-                int size = 0;
-                /* security check start*/
-                if (shdr[i].sh_entsize != 0)
-                    size = shdr[i].sh_size / shdr[i].sh_entsize;
-                else
-                    return -1;
-                if (index >= size)
-                    return -1;
-                /* security check end*/
-                rel = (Elf64_Rel *)(elf_map + shdr[i].sh_offset);
-                switch (label)
-                {
-                    case R_OFFSET:
-                        printf("0x%x->0x%x\n", rel[index].r_offset, value);
-                        rel[index].r_offset = value;
-                        break;
-                    
-                    case R_INFO:
-                        printf("0x%x->0x%x\n", rel[index].r_info, value);
-                        rel[index].r_info = value;
-                        break;
-
-                    case R_TYPE:
-                        printf("0x%x->0x%x\n", ELF64_R_TYPE(rel[index].r_info), value);
-                        rel[index].r_info = ELF64_R_INFO(ELF64_R_SYM(rel[index].r_info), value);
-                        break;
-
-                    case R_INDEX:
-                        printf("0x%x->0x%x\n", ELF64_R_SYM(rel[index].r_info), value);
-                        rel[index].r_info = ELF64_R_INFO(value, ELF64_R_TYPE(rel[index].r_info));
-                        break;
-                    
-                    default:
-                        break;
-                }
-                break;
-            }
-        }
-    }
-
-    close(fd);
-    munmap(elf_map, st.st_size);
-    return 0;
-}
-
-int set_rela(char *elf_name, int index, int value, enum RelocationLabel label, char *section_name)  {
-    int fd;
-    struct stat st;
-    int type;
-    int bind;
-    uint8_t *elf_map;
-    uint8_t *tmp_sec_name;
-
-    fd = open(elf_name, O_RDWR);
-    if (fd < 0) {
-        perror("open");
-        return -1;
-    }
-
-    if (fstat(fd, &st) < 0) {
-        perror("fstat");
-        return -1;
-    }
-
-    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (elf_map == MAP_FAILED) {
-        perror("mmap");
-        return -1;
-    }
-    
-    /* 32bit */
-    if (MODE == ELFCLASS32) {
-        Elf32_Ehdr *ehdr;
-        Elf32_Shdr *shdr;
-        Elf32_Shdr shstrtab;
-        Elf32_Rela *rela;
-
-        ehdr = (Elf32_Ehdr *)elf_map;
-        shdr = (Elf32_Shdr *)&elf_map[ehdr->e_shoff];
-        shstrtab = shdr[ehdr->e_shstrndx];
-
-        for (int i = 0; i < ehdr->e_shnum; i++) {
-            tmp_sec_name = elf_map + shstrtab.sh_offset + shdr[i].sh_name;
-            if (!strcmp(section_name, tmp_sec_name)) {
-                int size = 0;
-                /* security check start*/
-                if (shdr[i].sh_entsize != 0)
-                    size = shdr[i].sh_size / shdr[i].sh_entsize;
-                else
-                    return -1;
-                if (index >= size)
-                    return -1;
-                /* security check end*/
-                rela = (Elf32_Rela *)(elf_map + shdr[i].sh_offset);
-                switch (label)
-                {
-                    case R_OFFSET:
-                        printf("0x%x->0x%x\n", rela[index].r_offset, value);
-                        rela[index].r_offset = value;
-                        break;
-                    
-                    case R_INFO:
-                        printf("0x%x->0x%x\n", rela[index].r_info, value);
-                        rela[index].r_info = value;
-                        break;
-
-                    case R_TYPE:
-                        printf("0x%x->0x%x\n", ELF32_R_TYPE(rela[index].r_info), value);
-                        rela[index].r_info = ELF32_R_INFO(ELF32_R_SYM(rela[index].r_info), value);
-                        break;
-
-                    case R_INDEX:
-                        printf("0x%x->0x%x\n", ELF32_R_SYM(rela[index].r_info), value);
-                        rela[index].r_info = ELF32_R_INFO(value, ELF32_R_TYPE(rela[index].r_info));
-                        break;
-
-                    case R_ADDEND:
-                        printf("%d->%d\n", rela[index].r_addend, value);
-                        rela[index].r_addend = value;
-                    
-                    default:
-                        break;
-                }
-                break;
-            }
-        }
-    }
-
-    /* 64bit */
-    if (MODE == ELFCLASS64) {
-        Elf64_Ehdr *ehdr;
-        Elf64_Shdr *shdr;
-        Elf64_Shdr shstrtab;
-        Elf64_Rela *rela;
-
-        ehdr = (Elf64_Ehdr *)elf_map;
-        shdr = (Elf64_Shdr *)&elf_map[ehdr->e_shoff];
-        shstrtab = shdr[ehdr->e_shstrndx];
-
-        for (int i = 0; i < ehdr->e_shnum; i++) {
-            tmp_sec_name = elf_map + shstrtab.sh_offset + shdr[i].sh_name;
-            if (!strcmp(section_name, tmp_sec_name)) {
-                int size = 0;
-                /* security check start*/
-                if (shdr[i].sh_entsize != 0)
-                    size = shdr[i].sh_size / shdr[i].sh_entsize;
-                else
-                    return -1;
-                if (index >= size)
-                    return -1;
-                /* security check end*/
-                rela = (Elf64_Rela *)(elf_map + shdr[i].sh_offset);
-                switch (label)
-                {
-                    case R_OFFSET:
-                        printf("0x%x->0x%x\n", rela[index].r_offset, value);
-                        rela[index].r_offset = value;
-                        break;
-                    
-                    case R_INFO:
-                        printf("0x%x->0x%x\n", rela[index].r_info, value);
-                        rela[index].r_info = value;
-                        break;
-
-                    case R_TYPE:
-                        printf("0x%x->0x%x\n", ELF64_R_TYPE(rela[index].r_info), value);
-                        rela[index].r_info = ELF64_R_INFO(ELF64_R_SYM(rela[index].r_info), value);
-                        break;
-
-                    case R_INDEX:
-                        printf("0x%x->0x%x\n", ELF64_R_SYM(rela[index].r_info), value);
-                        rela[index].r_info = ELF64_R_INFO(value, ELF64_R_TYPE(rela[index].r_info));
-                        break;
-
-                    case R_ADDEND:
-                        printf("%d->%d\n", rela[index].r_addend, value);
-                        rela[index].r_addend = value;
-                    
-                    default:
-                        break;
-                }
-                break;
-            }
-        }
-    }
-
-    close(fd);
-    munmap(elf_map, st.st_size);
-    return 0;
-}
-
-/**
- * @brief Set the .rela section offset
- * 
- * @param elf_name elf file name
- * @param index readelf section row
- * @param value 
- * @return error code {-1:error,0:sucess}
- */
-int set_rela_offset(char *elf_name, int index, int value, char *section_name) {
-    return set_rela(elf_name, index, value, R_OFFSET, section_name);
-}
-
-int set_rela_info(char *elf_name, int index, int value, char *section_name) {
-    return set_rela(elf_name, index, value, R_INFO, section_name);
-}
-
-int set_rela_type(char *elf_name, int index, int value, char *section_name) {
-    return set_rela(elf_name, index, value, R_TYPE, section_name);
-}
-
-int set_rela_index(char *elf_name, int index, int value, char *section_name) {
-    return set_rela(elf_name, index, value, R_INDEX, section_name);
-}
-
-int set_rela_addend(char *elf_name, int index, int value, char *section_name) {
-    return set_rela(elf_name, index, value, R_ADDEND, section_name);
-}
-
-/* .rel.* */
-int set_rel_offset(char *elf_name, int index, int value, char *section_name) {
-    return set_rel(elf_name, index, value, R_OFFSET, section_name);
-}
-
-int set_rel_info(char *elf_name, int index, int value, char *section_name) {
-    return set_rel(elf_name, index, value, R_INFO, section_name);
-}
-
-int set_rel_type(char *elf_name, int index, int value, char *section_name) {
-    return set_rel(elf_name, index, value, R_TYPE, section_name);
-}
-
-int set_rel_index(char *elf_name, int index, int value, char *section_name) {
-    return set_rel(elf_name, index, value, R_INDEX, section_name);
-}
-
-static int set_dyn(char *elf_name, int index, int value, enum DynamicLabel label)  {
-    int fd;
-    struct stat st;
-    uint8_t *elf_map;
-    uint8_t *tmp_sec_name;
-
-    fd = open(elf_name, O_RDWR);
-    if (fd < 0) {
-        perror("open");
-        return -1;
-    }
-
-    if (fstat(fd, &st) < 0) {
-        perror("fstat");
-        return -1;
-    }
-
-    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (elf_map == MAP_FAILED) {
-        perror("mmap");
-        return -1;
-    }
-
-    /* 32bit */
-    if (MODE == ELFCLASS32) {
-        Elf32_Ehdr *ehdr;
-        Elf32_Shdr *shdr;
-        Elf32_Shdr shstrtab;
-        Elf32_Dyn *dyn;
-
-        ehdr = (Elf32_Ehdr *)elf_map;
-        shdr = (Elf32_Shdr *)&elf_map[ehdr->e_shoff];
-        shstrtab = shdr[ehdr->e_shstrndx];
-
-        for (int i = 0; i < ehdr->e_shnum; i++) {
-            tmp_sec_name = elf_map + shstrtab.sh_offset + shdr[i].sh_name;
-            if (!strcmp(".dynamic", tmp_sec_name)) {
-                int size = 0;
-                /* security check start*/
-                if (shdr[i].sh_entsize != 0)
-                    size = shdr[i].sh_size / shdr[i].sh_entsize;
-                else {
-                    close(fd);
-                    return -1;
-                }
-                if (index >= size) {
-                    close(fd);
-                    return -1;
-                }
-                /* security check end*/
-                dyn = (Elf32_Dyn *)(elf_map + shdr[i].sh_offset);
-                break;
-            }
-        }
-
-        if (!dyn) {
-            close(fd);
-            WARNING("This file does not have %s\n", ".dynamic");
-            return -1;
-        }
-
-        switch (label)
-        {
-            case D_TAG:
-                printf("%d->%d\n", dyn[index].d_tag, value);
-                dyn[index].d_tag = value;
-                break;
-
-            case D_VALUE:
-                printf("0x%x->0x%x\n", dyn[index].d_un.d_val, value);
-                dyn[index].d_un.d_val = value;
-            
-            default:
-                break;
-        }
-    }
-
-    /* 64bit */
-    if (MODE == ELFCLASS64) {
-        Elf64_Ehdr *ehdr;
-        Elf64_Shdr *shdr;
-        Elf64_Shdr shstrtab;
-        Elf64_Dyn *dyn;
-
-        ehdr = (Elf64_Ehdr *)elf_map;
-        shdr = (Elf64_Shdr *)&elf_map[ehdr->e_shoff];
-        shstrtab = shdr[ehdr->e_shstrndx];
-
-        for (int i = 0; i < ehdr->e_shnum; i++) {
-            tmp_sec_name = elf_map + shstrtab.sh_offset + shdr[i].sh_name;
-            if (!strcmp(".dynamic", tmp_sec_name)) {
-                int size = 0;
-                /* security check start*/
-                if (shdr[i].sh_entsize != 0)
-                    size = shdr[i].sh_size / shdr[i].sh_entsize;
-                else {
-                    close(fd);
-                    return -1;
-                }
-                if (index >= size) {
-                    close(fd);
-                    return -1;
-                }
-                /* security check end*/
-                dyn = (Elf64_Dyn *)(elf_map + shdr[i].sh_offset);
-                break;
-            }
-        }
-
-        if (!dyn) {
-            close(fd);
-            WARNING("This file does not have %s\n", ".dynamic");
-            return -1;
-        }
-
-        switch (label)
-        {
-            case D_TAG:
-                printf("%d->%d\n", dyn[index].d_tag, value);
-                dyn[index].d_tag = value;
-                break;
-
-            case D_VALUE:
-                printf("0x%x->0x%x\n", dyn[index].d_un.d_val, value);
-                dyn[index].d_un.d_val = value;
-            
-            default:
-                break;
-        }
-    }
-
-    close(fd);
-    munmap(elf_map, st.st_size);
-    return 0;
-}
-
-/**
- * @brief Set the .dynamic section offset
- * 
- * @param elf_name elf file name
- * @param index readelf section row
- * @param value 
- * @return error code {-1:error,0:sucess}
- */
-int set_dyn_tag(char *elf_name, int index, int value) {
-    return set_dyn(elf_name, index, value, D_TAG);
-}
-
-int set_dyn_value(char *elf_name, int index, int value) {
-    return set_dyn(elf_name, index, value, D_VALUE);
-}
-
-/**
- * @brief Set the dynsym name by str object
- * 
- * @param elf_name elf file name
- * @param index elf file name
- * @param name string value to be edited
- * @param section_name .dynsym or .symtab
- * @param str_section_name .dynstr or .strtab
- * @return int error code {-1:error,0:sucess}
- */
-int edit_sym_name_string(char *elf_name, int index, char *name, char *section_name, char *str_section_name) {
-    int fd;
-    struct stat st;
-    uint64_t sym_offset, str_offset;
-    size_t str_size;
-    uint8_t *elf_map;
-    uint8_t *tmp_sec_name;
-    uint8_t *origin_name;        // origin dynamic item name
-
-    fd = open(elf_name, O_RDWR);
-    if (fd < 0) {
-        perror("open");
-        return -1;
-    }
-
-    if (fstat(fd, &st) < 0) {
-        perror("fstat");
-        return -1;
-    }
-
-    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (elf_map == MAP_FAILED) {
-        perror("mmap");
-        return -1;
-    }
-
-    /* 32bit */
-    if (MODE == ELFCLASS32) {
-        Elf32_Ehdr *ehdr;
-        Elf32_Shdr *shdr;
-        Elf32_Shdr shstrtab;
-        Elf32_Sym *sym;
-
-        ehdr = (Elf32_Ehdr *)elf_map;
-        shdr = (Elf32_Shdr *)&elf_map[ehdr->e_shoff];
-        shstrtab = shdr[ehdr->e_shstrndx];
-
-        for (int i = 0; i < ehdr->e_shnum; i++) {
-            tmp_sec_name = elf_map + shstrtab.sh_offset + shdr[i].sh_name;
-            if (!strcmp(section_name, tmp_sec_name)) {
-                sym_offset = shdr[i].sh_offset;
-            } else if (!strcmp(str_section_name, tmp_sec_name)) {
-                str_offset = shdr[i].sh_offset;
-                str_size = shdr[i].sh_size;
-            }
-        }
-        sym = (Elf32_Sym *)(elf_map + sym_offset);
-        origin_name = elf_map + str_offset + sym[index].st_name;
-    }
-
-    /* 64bit */
-    if (MODE == ELFCLASS64) {
-        Elf64_Ehdr *ehdr;
-        Elf64_Shdr *shdr;
-        Elf64_Shdr shstrtab;
-        Elf64_Sym *sym;
-
-        ehdr = (Elf64_Ehdr *)elf_map;
-        shdr = (Elf64_Shdr *)&elf_map[ehdr->e_shoff];
-        shstrtab = shdr[ehdr->e_shstrndx];
-
-        for (int i = 0; i < ehdr->e_shnum; i++) {
-            tmp_sec_name = elf_map + shstrtab.sh_offset + shdr[i].sh_name;
-            if (!strcmp(section_name, tmp_sec_name)) {
-                sym_offset = shdr[i].sh_offset;
-            } else if (!strcmp(str_section_name, tmp_sec_name)) {
-                str_offset = shdr[i].sh_offset;
-                str_size = shdr[i].sh_size;
-            }
-        }
-        sym = (Elf64_Sym *)(elf_map + sym_offset);
-        origin_name = elf_map + str_offset + sym[index].st_name;
-    }
-
-    if (!sym_offset) {
-        WARNING("This file does not have %s\n", section_name);
-        close(fd);
-        munmap(elf_map, st.st_size);
-        return -1;
-    }
-
-    if (!str_offset) {
-        WARNING("This file does not have %s\n", str_section_name);
-        close(fd);
-        munmap(elf_map, st.st_size);
-        return -1;
-    }
-
-    printf("%s->%s\n", origin_name, name);
-
-    // 1. copy name
-    if (strlen(name) <= strlen(origin_name)) {
-        memset(origin_name, 0, strlen(origin_name) + 1);
-        strcpy(origin_name, name);
-        close(fd);
-        munmap(elf_map, st.st_size);
-        return 0;
-    } 
-    // 2. if new name length > origin_name
-    else {
-        close(fd);
-        munmap(elf_map, st.st_size);
-
-        int result = -1;
-        if (!strcmp(section_name, ".dynsym")) {
-            VERBOSE("set sym name value: 0x%x\n", str_size);
-            set_sym_name(elf_name, index, str_size, section_name);
-            result = expand_dynstr_segment(elf_name, name);
+int edit_dyn_name_value(Elf *elf, int index, char *name) {
+    if (elf->class == ELFCLASS32) {
+        char *origin_name = elf->mem + elf->data.elf32.dynstrtab->sh_offset + elf->data.elf32.dyn[index].d_un.d_val;
+        // 1. copy name
+        if (strlen(name) <= strlen(origin_name)) {
+            memset(origin_name, 0, strlen(origin_name) + 1);
+            strcpy(origin_name, name);
+            return TRUE;
         } 
-        
-        if (!strcmp(section_name, ".symtab")) {
-            set_sym_name(elf_name, index, str_size, section_name);
-            result = expand_strtab_section(elf_name, name);
-        }
-
-        if (result) {
-            return -1;
-        } else {
-            return 0;
-        }
-    }
-}
-
-int edit_dyn_name_value(char *elf_name, int index, char *name) {
-    int fd;
-    struct stat st;
-    uint64_t dynamic_offset, dynstr_offset;
-    size_t dynstr_size;
-    uint8_t *elf_map;
-    uint8_t *tmp_sec_name;
-    uint8_t *origin_name;        // origin dynamic item name
-
-    fd = open(elf_name, O_RDWR);
-    if (fd < 0) {
-        perror("open");
-        return -1;
-    }
-
-    if (fstat(fd, &st) < 0) {
-        perror("fstat");
-        return -1;
-    }
-
-    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (elf_map == MAP_FAILED) {
-        perror("mmap");
-        return -1;
-    }
-
-    /* 32bit */
-    if (MODE == ELFCLASS32) {
-        Elf32_Ehdr *ehdr;
-        Elf32_Shdr *shdr;
-        Elf32_Shdr shstrtab;
-        Elf32_Dyn *dyn;
-
-        ehdr = (Elf32_Ehdr *)elf_map;
-        shdr = (Elf32_Shdr *)&elf_map[ehdr->e_shoff];
-        shstrtab = shdr[ehdr->e_shstrndx];
-
-        for (int i = 0; i < ehdr->e_shnum; i++) {
-            tmp_sec_name = elf_map + shstrtab.sh_offset + shdr[i].sh_name;
-            if (!strcmp(".dynamic", tmp_sec_name)) {
-                dynamic_offset = shdr[i].sh_offset;
-            } else if (!strcmp(".dynstr", tmp_sec_name)) {
-                dynstr_offset = shdr[i].sh_offset;
-                dynstr_size = shdr[i].sh_size;
+        // 2. if new name length > origin_name
+        else {
+            uint64_t offset = 0;
+            int err = add_dynstr_name(elf, name, &offset);
+            if (err != TRUE) {
+                PRINT_ERROR("add dynstr name error :%d\n", err);
+                return err;
             }
+            elf->data.elf32.dyn[index].d_un.d_val = offset;
+            return TRUE;
         }
-        dyn = (Elf32_Dyn *)(elf_map + dynamic_offset);
-        origin_name = elf_map + dynstr_offset + dyn[index].d_un.d_val;
-    }
-
-    /* 64bit */
-    if (MODE == ELFCLASS64) {
-        Elf64_Ehdr *ehdr;
-        Elf64_Shdr *shdr;
-        Elf64_Shdr shstrtab;
-        Elf64_Dyn *dyn;
-
-        ehdr = (Elf64_Ehdr *)elf_map;
-        shdr = (Elf64_Shdr *)&elf_map[ehdr->e_shoff];
-        shstrtab = shdr[ehdr->e_shstrndx];
-
-        for (int i = 0; i < ehdr->e_shnum; i++) {
-            tmp_sec_name = elf_map + shstrtab.sh_offset + shdr[i].sh_name;
-            if (!strcmp(".dynamic", tmp_sec_name)) {
-                dynamic_offset = shdr[i].sh_offset;
-            } else if (!strcmp(".dynstr", tmp_sec_name)) {
-                dynstr_offset = shdr[i].sh_offset;
-                dynstr_size = shdr[i].sh_size;
+    } if (elf->class == ELFCLASS64) {
+        char *origin_name = elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dyn[index].d_un.d_val;
+        // 1. copy name
+        if (strlen(name) <= strlen(origin_name)) {
+            memset(origin_name, 0, strlen(origin_name) + 1);
+            strcpy(origin_name, name);
+            return TRUE;
+        } 
+        // 2. if new name length > origin_name
+        else {
+            uint64_t offset = 0;
+            int err = add_dynstr_name(elf, name, &offset);
+            if (err != TRUE) {
+                PRINT_ERROR("add dynstr name error :%d\n", err);
+                return err;
             }
+            elf->data.elf64.dyn[index].d_un.d_val = offset;
+            return TRUE;
         }
-        dyn = (Elf64_Dyn *)(elf_map + dynamic_offset);
-        origin_name = elf_map + dynstr_offset + dyn[index].d_un.d_val;
-    }
-
-    if (!dynamic_offset) {
-        WARNING("This file does not have %s\n", ".dynamic");
-        close(fd);
-        munmap(elf_map, st.st_size);
-        return -1;
-    }
-
-    if (!dynstr_offset) {
-        WARNING("This file does not have %s\n", ".dynstr");
-        close(fd);
-        munmap(elf_map, st.st_size);
-        return -1;
-    }
-
-    printf("%s->%s\n", origin_name, name);
-
-    // 1. copy name
-    if (strlen(name) <= strlen(origin_name)) {
-        memset(origin_name, 0, strlen(origin_name) + 1);
-        strcpy(origin_name, name);
-        close(fd);
-        munmap(elf_map, st.st_size);
-        return 0;
-    } 
-    // 2. if new name length > origin_name
-    else {
-        close(fd);
-        munmap(elf_map, st.st_size);
-        //size_t size;
-        //get_dynamic_value_by_tag(elf_name, DT_STRSZ, &size);
-        set_dyn_value(elf_name, index, dynstr_size);
-        int result = expand_dynstr_segment(elf_name, name);
-        if (result) {
-            return -1;
-        } else {
-            return 0;
-        }
+    } else {
+        return ERR_CLASS;
     }
 }
 
-/**
- * @brief 编辑某些节存储的指针
- * edit pointers stored in certain sections
- * @param elf_name elf file name
- * @param index item index
- * @param value new pointer
- * @param section_name section name, such as .init_array.
- * @return int error code {-1:error,0:sucess}
- */
-int edit_pointer_value(char *elf_name, int index, uint64_t value, char *section_name) {
-    int fd;
-    struct stat st;
-    int type;
-    int bind;
-    uint8_t *elf_map;
-    uint64_t sec_offset, sec_size;
-
-    {
-        sec_offset = 0;
-        sec_size = 0;
-    }
-    sec_offset = get_section_offset(elf_name, section_name);
-    sec_size = get_section_size(elf_name, section_name);
-    if (!sec_offset || !sec_size) {
-        return -1;
-    }
-
-    fd = open(elf_name, O_RDWR);
-    if (fd < 0) {
-        perror("open");
-        return -1;
-    }
-
-    if (fstat(fd, &st) < 0) {
-        perror("fstat");
-        return -1;
-    }
-
-    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (elf_map == MAP_FAILED) {
-        perror("mmap");
-        return -1;
-    }
-
-    /* 32bit */
-    if (MODE == ELFCLASS32) {
-        uint32_t *sec = (uint32_t *)(elf_map + sec_offset);
-        int count = sec_size / sizeof(uint32_t);
-        if (index >= count) {
-            goto ERR_EXIT;
-        }
-        printf("0x%x->0x%x\n", sec[index], value);
-        sec[index] = value & 0xffff;    // avoid interger overflow
-    }
-
-    /* 64bit */
-    else if (MODE == ELFCLASS64) {
-        uint64_t *sec = (uint64_t *)(elf_map + sec_offset);
-        int count = sec_size / sizeof(uint64_t);
-        if (index >= count) {
-            goto ERR_EXIT;
-        }
-        printf("0x%x->0x%x\n", sec[index], value);
-        sec[index] = value;
-    }
-
-    close(fd);
-    munmap(elf_map, st.st_size);
-    return 0;
-
-ERR_EXIT:
-    close(fd);
-    munmap(elf_map, st.st_size);
-    return -1;
-}
-
-/**
- * @brief entry function
- * 
- * @param elf elf file name
- * @param po selection
- * @param section_name only for rela section
- * @return error code {-1:error,0:sucess} 
- */
-int edit(char *elf, parser_opt_t *po, int row, int column, int value, char *section_name, char *str_name) {
-    int error_code = 0;
+int edit64(Elf *elf, parser_opt_t *po, int row, int column, int value, char *section_name, char *dst_name) {
+    int err = 0;
+    int src_value = 0;
+    char *src_string = NULL;
 
     /* edit ELF header information */
     if (!get_option(po, HEADERS)) {
         switch (row)
         {
             case 0:
-                error_code = set_header_type(elf, value);
+                src_value = elf->data.elf64.ehdr->e_type;
+                elf->data.elf64.ehdr->e_type = value;
                 break;
 
             case 1:
-                error_code = set_header_machine(elf, value);
+                src_value = elf->data.elf64.ehdr->e_machine;
+                elf->data.elf64.ehdr->e_machine = value;
                 break;
 
             case 2:
-                error_code = set_header_version(elf, value);
+                src_value = elf->data.elf64.ehdr->e_version;
+                elf->data.elf64.ehdr->e_version = value;
                 break;
 
             case 3:
-                error_code = set_header_entry(elf, value);
+                src_value = elf->data.elf64.ehdr->e_entry;
+                elf->data.elf64.ehdr->e_entry = value;
                 break;
 
             case 4:
-                error_code = set_header_phoff(elf, value);
+                src_value = elf->data.elf64.ehdr->e_phoff;
+                elf->data.elf64.ehdr->e_phoff = value;
                 break;
 
             case 5:
-                error_code = set_header_shoff(elf, value);
+                src_value = elf->data.elf64.ehdr->e_shoff;
+                elf->data.elf64.ehdr->e_shoff = value;
                 break;
 
             case 6:
-                error_code = set_header_flags(elf, value);
+                src_value = elf->data.elf64.ehdr->e_flags;
+                elf->data.elf64.ehdr->e_flags = value;
                 break;
 
             case 7:
-                error_code = set_header_ehsize(elf, value);
+                src_value = elf->data.elf64.ehdr->e_ehsize;
+                elf->data.elf64.ehdr->e_ehsize = value;
                 break;
 
             case 8:
-                error_code = set_header_phentsize(elf, value);
+                src_value = elf->data.elf64.ehdr->e_phentsize;
+                elf->data.elf64.ehdr->e_phentsize = value;
                 break;
 
             case 9:
-                error_code = set_header_phnum(elf, value);
+                src_value = elf->data.elf64.ehdr->e_phnum;
+                elf->data.elf64.ehdr->e_phnum = value;
                 break;
 
             case 10:
-                error_code = set_header_shentsize(elf, value);
+                src_value = elf->data.elf64.ehdr->e_shentsize;
+                elf->data.elf64.ehdr->e_shentsize = value;
                 break;
             
             case 11:
-                error_code = set_header_shnum(elf, value);
+                src_value = elf->data.elf64.ehdr->e_shnum;
+                elf->data.elf64.ehdr->e_shnum = value;
                 break;
             
             case 12:
-                error_code = set_header_shstrndx(elf, value);
+                src_value = elf->data.elf64.ehdr->e_shstrndx;
+                elf->data.elf64.ehdr->e_shstrndx = value;
                 break;
             
             default:
+                goto OUT_OF_BOUNDS;
                 break;
         }
     }
@@ -2014,50 +162,68 @@ int edit(char *elf, parser_opt_t *po, int row, int column, int value, char *sect
         switch (column)
         {
             case 0:
-                if (!strlen(str_name)) {
-                    error_code = set_section_name(elf, row, value);
+                src_value = elf->data.elf64.shdr[row].sh_name;
+                if (!strlen(dst_name)) {
+                    elf->data.elf64.shdr[row].sh_name = value;
                 } else {
-                    error_code = set_section_name_by_str(elf, row, str_name);
+                    char *sec_name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[row].sh_name;
+                    src_string = (char *)malloc(strlen(sec_name) + 1);
+                    strcpy(src_string, sec_name);
+                    err = set_section_name_t(elf, sec_name, dst_name);
+                    if (err == TRUE)
+                        goto PRINT_STRING;
+                    else
+                        goto OUT_OF_BOUNDS;
                 }
                 break;
 
             case 1:
-                error_code = set_section_type(elf, row, value);
+                src_value = elf->data.elf64.shdr[row].sh_type;
+                elf->data.elf64.shdr[row].sh_type = value;
                 break;
 
             case 2:
-                error_code = set_section_addr(elf, row, value);
+                src_value = elf->data.elf64.shdr[row].sh_addr;
+                elf->data.elf64.shdr[row].sh_addr = value;
                 break;
 
             case 3:
-                error_code = set_section_off(elf, row, value);
+                src_value = elf->data.elf64.shdr[row].sh_offset;
+                elf->data.elf64.shdr[row].sh_offset = value;
                 break;
 
             case 4:
-                error_code = set_section_size(elf, row, value);
+                src_value = elf->data.elf64.shdr[row].sh_size;
+                elf->data.elf64.shdr[row].sh_size = value;
                 break;
 
             case 5:
-                error_code = set_section_entsize(elf, row, value);
+                src_value = elf->data.elf64.shdr[row].sh_entsize;
+                elf->data.elf64.shdr[row].sh_entsize = value;
                 break;
 
             case 6:
-                error_code = set_section_flags(elf, row, value);
+                src_value = elf->data.elf64.shdr[row].sh_flags;
+                elf->data.elf64.shdr[row].sh_flags = value;
                 break;
 
             case 7:
-                error_code = set_section_link(elf, row, value);
+                src_value = elf->data.elf64.shdr[row].sh_link;
+                elf->data.elf64.shdr[row].sh_link = value;
                 break;
 
             case 8:
-                error_code = set_section_info(elf, row, value);
+                src_value = elf->data.elf64.shdr[row].sh_info;
+                elf->data.elf64.shdr[row].sh_info = value;
                 break;
 
             case 9:
-                error_code = set_section_align(elf, row, value);
+                src_value = elf->data.elf64.shdr[row].sh_addralign;
+                elf->data.elf64.shdr[row].sh_addralign = value;
                 break;
             
             default:
+                goto OUT_OF_BOUNDS;
                 break;
         }
     }
@@ -2067,76 +233,105 @@ int edit(char *elf, parser_opt_t *po, int row, int column, int value, char *sect
         switch (column)
         {
             case 0:
-                error_code = set_segment_type(elf, row, value);
+                src_value = elf->data.elf64.phdr[row].p_type;
+                elf->data.elf64.phdr[row].p_type = value;
                 break;
 
             case 1:
-                error_code = set_segment_offset(elf, row, value);
+                src_value = elf->data.elf64.phdr[row].p_offset;
+                elf->data.elf64.phdr[row].p_offset = value;
                 break;
 
             case 2:
-                error_code = set_segment_vaddr(elf, row, value);
+                src_value = elf->data.elf64.phdr[row].p_vaddr;
+                elf->data.elf64.phdr[row].p_vaddr = value;
                 break;
 
             case 3:
-                error_code = set_segment_paddr(elf, row, value);
+                src_value = elf->data.elf64.phdr[row].p_paddr;
+                elf->data.elf64.phdr[row].p_paddr = value;
                 break;
 
             case 4:
-                error_code = set_segment_filesz(elf, row, value);
+                src_value = elf->data.elf64.phdr[row].p_filesz;
+                elf->data.elf64.phdr[row].p_filesz = value;
                 break;
 
             case 5:
-                error_code = set_segment_memsz(elf, row, value);
+                src_value = elf->data.elf64.phdr[row].p_memsz;
+                elf->data.elf64.phdr[row].p_memsz = value;
                 break;
 
             case 6:
-                error_code = set_segment_flags(elf, row, value);
+                src_value = elf->data.elf64.phdr[row].p_flags;
+                elf->data.elf64.phdr[row].p_flags = value;
                 break;
 
             case 7:
-                error_code = set_segment_align(elf, row, value);
+                src_value = elf->data.elf64.phdr[row].p_align;
+                elf->data.elf64.phdr[row].p_align = value;
                 break;
             
             default:
+                goto OUT_OF_BOUNDS;
                 break;
         }
     }
 
     /* edit .dynsym informtion */
     if (!get_option(po, DYNSYM)) {
+        int type = 0;
+        int bind = 0;
         switch (column)
         {
             case 0:
-                error_code = set_sym_value(elf, row, value, ".dynsym");
+                src_value = elf->data.elf64.dynsym_entry[row].st_value;
+                elf->data.elf64.dynsym_entry[row].st_value = value;
                 break;
 
             case 1:
-                error_code = set_sym_size(elf, row, value, ".dynsym");
+                src_value = elf->data.elf64.dynsym_entry[row].st_size;
+                elf->data.elf64.dynsym_entry[row].st_size = value;
                 break;
 
             case 2:
-                error_code = set_sym_type(elf, row, value, ".dynsym");
+                type = ELF64_ST_TYPE(elf->data.elf64.dynsym_entry[row].st_info);
+                bind = ELF64_ST_BIND(elf->data.elf64.dynsym_entry[row].st_info);
+                src_value = type;
+                elf->data.elf64.dynsym_entry[row].st_info = ELF64_ST_INFO(bind, value);
                 break;
 
             case 3:
-                error_code = set_sym_bind(elf, row, value, ".dynsym");
+                type = ELF64_ST_TYPE(elf->data.elf64.dynsym_entry[row].st_info);
+                bind = ELF64_ST_BIND(elf->data.elf64.dynsym_entry[row].st_info);
+                src_value = bind;
+                elf->data.elf64.dynsym_entry[row].st_info = ELF64_ST_INFO(value, type);
                 break;
 
             case 4:
-                error_code = set_sym_other(elf, row, value, ".dynsym");
+                src_value = elf->data.elf64.dynsym_entry[row].st_other;
+                elf->data.elf64.dynsym_entry[row].st_other = value;
                 break;
 
             case 5:
-                error_code = set_sym_shndx(elf, row, value, ".dynsym");
+                src_value = elf->data.elf64.dynsym_entry[row].st_shndx;
+                elf->data.elf64.dynsym_entry[row].st_shndx = value;
                 break;
 
             case 6:
-                if (!strlen(str_name)) {
-                    error_code = set_sym_name(elf, row, value, ".dynsym");
+                if (!strlen(dst_name)) {
+                    src_value = elf->data.elf64.dynsym_entry[row].st_name;
+                    elf->data.elf64.dynsym_entry[row].st_name = value;
                 } else {
-                    error_code = edit_sym_name_string(elf, row, str_name, ".dynsym", ".dynstr");
-                }
+                    char *name = elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dynsym_entry[row].st_name;
+                    src_string = (char *)malloc(strlen(name) + 1);
+                    strcpy(src_string, name);
+                    err = set_dynstr_name(elf, name, dst_name);
+                    if (err == TRUE)
+                        goto PRINT_STRING;
+                    else
+                        goto OUT_OF_BOUNDS;
+                    }
                 break;
             
             default:
@@ -2146,38 +341,59 @@ int edit(char *elf, parser_opt_t *po, int row, int column, int value, char *sect
 
     /* edit .symtab informtion */
     if (!get_option(po, SYMTAB)) {
+        int type = 0;
+        int bind = 0;
         switch (column)
         {
             case 0:
-                error_code = set_sym_value(elf, row, value, ".symtab");
+                src_value = elf->data.elf64.sym_entry[row].st_value;
+                elf->data.elf64.sym_entry[row].st_value = value;
                 break;
 
             case 1:
-                error_code = set_sym_size(elf, row, value, ".symtab");
+                src_value = elf->data.elf64.sym_entry[row].st_size;
+                elf->data.elf64.sym_entry[row].st_size = value;
                 break;
 
             case 2:
-                error_code = set_sym_type(elf, row, value, ".symtab");
+                type = ELF64_ST_TYPE(elf->data.elf64.sym_entry[row].st_info);
+                bind = ELF64_ST_BIND(elf->data.elf64.sym_entry[row].st_info);
+                src_value = type;
+                elf->data.elf64.sym_entry[row].st_info = ELF64_ST_INFO(bind, value);
                 break;
 
             case 3:
-                error_code = set_sym_bind(elf, row, value, ".symtab");
+                type = ELF64_ST_TYPE(elf->data.elf64.sym_entry[row].st_info);
+                bind = ELF64_ST_BIND(elf->data.elf64.sym_entry[row].st_info);
+                src_value = bind;
+                elf->data.elf64.sym_entry[row].st_info = ELF64_ST_INFO(value, type);
                 break;
 
             case 4:
-                error_code = set_sym_other(elf, row, value, ".symtab");
+                src_value = elf->data.elf64.sym_entry[row].st_other;
+                elf->data.elf64.sym_entry[row].st_other = value;
                 break;
 
             case 5:
-                error_code = set_sym_shndx(elf, row, value, ".symtab");
+                src_value = elf->data.elf64.sym_entry[row].st_shndx;
+                elf->data.elf64.sym_entry[row].st_shndx = value;
                 break;
 
             case 6:
-                if (!strlen(str_name)) {
-                    error_code = set_sym_name(elf, row, value, ".symtab");
+                if (!strlen(dst_name)) {
+                    src_value = elf->data.elf64.sym_entry[row].st_name;
+                    elf->data.elf64.sym_entry[row].st_name = value;
                 } else {
-                    error_code = edit_sym_name_string(elf, row, str_name, ".symtab", ".strtab");
+                    char *name = elf->mem + elf->data.elf64.strtab->sh_offset + elf->data.elf64.sym_entry[row].st_name;
+                    src_string = (char *)malloc(strlen(name) + 1);
+                    strcpy(src_string, name);
+                    err = set_sym_name_t(elf, name, dst_name);
+                    if (err == TRUE)
+                        goto PRINT_STRING;
+                    else
+                        goto OUT_OF_BOUNDS;
                 }
+                break;
             
             default:
                 break;
@@ -2187,22 +403,28 @@ int edit(char *elf, parser_opt_t *po, int row, int column, int value, char *sect
     /* edit .rel and .rela informtion */
     if (!get_option(po, RELA)) {
         if (compare_firstN_chars(section_name, ".rel.", 5)) {
+            int rel_index = get_section_index_by_name(elf, section_name);
+            Elf64_Rel *rel = (Elf64_Rel *)(elf->mem + elf->data.elf64.shdr[rel_index].sh_offset);
             switch (column)
             {
                 case 0:
-                    error_code = set_rel_offset(elf, row, value, section_name);
+                    src_value = rel[row].r_offset;
+                    rel[row].r_offset = value;
                     break;
 
                 case 1:
-                    error_code = set_rel_info(elf, row, value, section_name);
+                    src_value = rel[row].r_info;
+                    rel[row].r_info = value;
                     break;
 
                 case 2:
-                    error_code = set_rel_type(elf, row, value, section_name);
+                    src_value = ELF64_R_TYPE(rel[row].r_info);
+                    rel[row].r_info = ELF64_R_INFO(ELF64_R_SYM(rel[row].r_info), value);
                     break;
 
                 case 3:
-                    error_code = set_rel_index(elf, row, value, section_name);
+                    src_value = ELF64_R_SYM(rel[row].r_info);
+                    rel[row].r_info = ELF64_R_INFO(value, ELF64_R_TYPE(rel[row].r_info));
                     break;
                 
                 default:
@@ -2210,27 +432,33 @@ int edit(char *elf, parser_opt_t *po, int row, int column, int value, char *sect
             }
         }
         if (compare_firstN_chars(section_name, ".rela", 5)) {
+            int rela_index = get_section_index_by_name(elf, section_name);
+            Elf64_Rela *rela = (Elf64_Rela *)(elf->mem + elf->data.elf64.shdr[rela_index].sh_offset);
             switch (column)
             {
                 case 0:
-                    error_code = set_rela_offset(elf, row, value, section_name);
+                    src_value = rela[row].r_offset;
+                    rela[row].r_offset = value;
                     break;
 
                 case 1:
-                    error_code = set_rela_info(elf, row, value, section_name);
+                    src_value = rela[row].r_info;
+                    rela[row].r_info = value;
                     break;
 
                 case 2:
-                    error_code = set_rela_type(elf, row, value, section_name);
+                    src_value = ELF64_R_TYPE(rela[row].r_info);
+                    rela[row].r_info = ELF64_R_INFO(ELF64_R_SYM(rela[row].r_info), value);
                     break;
 
                 case 3:
-                    error_code = set_rela_index(elf, row, value, section_name);
+                    src_value = ELF64_R_SYM(rela[row].r_info);
+                    rela[row].r_info = ELF64_R_INFO(value, ELF64_R_TYPE(rela[row].r_info));
                     break;
 
                 case 4:
-                    error_code = set_rela_addend(elf, row, value, section_name);
-                    break;
+                    src_value = rela[row].r_addend;
+                    rela[row].r_addend = value;
                 
                 default:
                     break;
@@ -2244,18 +472,24 @@ int edit(char *elf, parser_opt_t *po, int row, int column, int value, char *sect
         switch (column)
         {
             case 0:
-                error_code = set_dyn_tag(elf, row, value);
-                break;
-
             case 1:
-                error_code = set_dyn_tag(elf, row, value);
+                src_value = elf->data.elf64.dyn[row].d_tag;
+                elf->data.elf64.dyn[row].d_tag = value;
                 break;
 
             case 2:
-                if (!strlen(str_name)) {
-                    error_code = set_dyn_value(elf, row, value);
+                if (!strlen(dst_name)) {
+                    src_value = elf->data.elf64.dyn[row].d_un.d_val;
+                    elf->data.elf64.dyn[row].d_un.d_val = value;
                 } else {
-                    error_code = edit_dyn_name_value(elf, row, str_name);
+                    char *name = elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dyn[row].d_un.d_val;
+                    src_string = (char *)malloc(strlen(name) + 1);
+                    strcpy(src_string, name);
+                    err = edit_dyn_name_value(elf, row, dst_name);
+                    if (err == TRUE)
+                        goto PRINT_STRING;
+                    else
+                        goto OUT_OF_BOUNDS;
                 }
                 break;
             
@@ -2266,14 +500,34 @@ int edit(char *elf, parser_opt_t *po, int row, int column, int value, char *sect
 
     /* edit pointer information */
     if (!get_option(po, POINTER)) {
+        int i = get_section_index_by_name(elf, section_name);
         switch (column)
         {
             case 0:
-                error_code = edit_pointer_value(elf, row, value, section_name);
+                // if (MODE == ELFCLASS32) {
+                //     uint32_t *sec = (uint32_t *)(elf_map + sec_offset);
+                //     int count = sec_size / sizeof(uint32_t);
+                //     if (index >= count) {
+                //         goto ERR_EXIT;
+                //     }
+                //     printf("0x%x->0x%x\n", sec[index], value);
+                //     sec[index] = value & 0xffff;    // avoid interger overflow
+                // }
+
+                /* 64bit */
+                uint64_t *sec = (uint64_t *)(elf->mem + elf->data.elf64.shdr[i].sh_offset);
+                int count = elf->data.elf64.shdr[i].sh_size / sizeof(uint64_t);
+                if (row >= count) {
+                    err = ERR_ARGS;
+                    goto OUT_OF_BOUNDS;
+                }
+                src_value = sec[row];
+                sec[row] = value;
                 break;
 
             case 1:
-                INFO("You can edit symbol by option '-B' instead of '-I'\n");
+                PRINT_WARNING("you can edit symbol by option '-B' instead of '-I'\n");
+                goto OUT_OF_BOUNDS;
                 break;
             
             default:
@@ -2281,5 +535,508 @@ int edit(char *elf, parser_opt_t *po, int row, int column, int value, char *sect
         }
     }
 
-    return error_code;
+    PRINT_INFO("0x%x->0x%x\n" ,src_value, value);
+    if (src_string) free(src_string);
+    return err;
+PRINT_STRING:
+    PRINT_INFO("%s->%s\n" ,src_string, dst_name);
+    if (src_string) free(src_string);
+    return err;
+OUT_OF_BOUNDS:
+    PRINT_WARNING("Please check if the entered coordinates are out of bounds\n");
+    if (src_string) free(src_string);
+    return err;
+}
+
+int edit32(Elf *elf, parser_opt_t *po, int row, int column, int value, char *section_name, char *dst_name) {
+    int err = 0;
+    int src_value = 0;
+    char *src_string = NULL;
+
+    /* edit ELF header information */
+    if (!get_option(po, HEADERS)) {
+        switch (row)
+        {
+            case 0:
+                src_value = elf->data.elf32.ehdr->e_type;
+                elf->data.elf32.ehdr->e_type = value;
+                break;
+
+            case 1:
+                src_value = elf->data.elf32.ehdr->e_machine;
+                elf->data.elf32.ehdr->e_machine = value;
+                break;
+
+            case 2:
+                src_value = elf->data.elf32.ehdr->e_version;
+                elf->data.elf32.ehdr->e_version = value;
+                break;
+
+            case 3:
+                src_value = elf->data.elf32.ehdr->e_entry;
+                elf->data.elf32.ehdr->e_entry = value;
+                break;
+
+            case 4:
+                src_value = elf->data.elf32.ehdr->e_phoff;
+                elf->data.elf32.ehdr->e_phoff = value;
+                break;
+
+            case 5:
+                src_value = elf->data.elf32.ehdr->e_shoff;
+                elf->data.elf32.ehdr->e_shoff = value;
+                break;
+
+            case 6:
+                src_value = elf->data.elf32.ehdr->e_flags;
+                elf->data.elf32.ehdr->e_flags = value;
+                break;
+
+            case 7:
+                src_value = elf->data.elf32.ehdr->e_ehsize;
+                elf->data.elf32.ehdr->e_ehsize = value;
+                break;
+
+            case 8:
+                src_value = elf->data.elf32.ehdr->e_phentsize;
+                elf->data.elf32.ehdr->e_phentsize = value;
+                break;
+
+            case 9:
+                src_value = elf->data.elf32.ehdr->e_phnum;
+                elf->data.elf32.ehdr->e_phnum = value;
+                break;
+
+            case 10:
+                src_value = elf->data.elf32.ehdr->e_shentsize;
+                elf->data.elf32.ehdr->e_shentsize = value;
+                break;
+            
+            case 11:
+                src_value = elf->data.elf32.ehdr->e_shnum;
+                elf->data.elf32.ehdr->e_shnum = value;
+                break;
+            
+            case 12:
+                src_value = elf->data.elf32.ehdr->e_shstrndx;
+                elf->data.elf32.ehdr->e_shstrndx = value;
+                break;
+            
+            default:
+                goto OUT_OF_BOUNDS;
+                break;
+        }
+    }
+
+    /* edit section informtion */
+    if (!get_option(po, SECTIONS)) {
+        switch (column)
+        {
+            case 0:
+                src_value = elf->data.elf32.shdr[row].sh_name;
+                if (!strlen(dst_name)) {
+                    elf->data.elf32.shdr[row].sh_name = value;
+                } else {
+                    char *sec_name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[row].sh_name;
+                    src_string = (char *)malloc(strlen(sec_name) + 1);
+                    strcpy(src_string, sec_name);
+                    err = set_section_name_t(elf, sec_name, dst_name);
+                    if (err == TRUE)
+                        goto PRINT_STRING;
+                    else
+                        goto OUT_OF_BOUNDS;
+                }
+                break;
+
+            case 1:
+                src_value = elf->data.elf32.shdr[row].sh_type;
+                elf->data.elf32.shdr[row].sh_type = value;
+                break;
+
+            case 2:
+                src_value = elf->data.elf32.shdr[row].sh_addr;
+                elf->data.elf32.shdr[row].sh_addr = value;
+                break;
+
+            case 3:
+                src_value = elf->data.elf32.shdr[row].sh_offset;
+                elf->data.elf32.shdr[row].sh_offset = value;
+                break;
+
+            case 4:
+                src_value = elf->data.elf32.shdr[row].sh_size;
+                elf->data.elf32.shdr[row].sh_size = value;
+                break;
+
+            case 5:
+                src_value = elf->data.elf32.shdr[row].sh_entsize;
+                elf->data.elf32.shdr[row].sh_entsize = value;
+                break;
+
+            case 6:
+                src_value = elf->data.elf32.shdr[row].sh_flags;
+                elf->data.elf32.shdr[row].sh_flags = value;
+                break;
+
+            case 7:
+                src_value = elf->data.elf32.shdr[row].sh_link;
+                elf->data.elf32.shdr[row].sh_link = value;
+                break;
+
+            case 8:
+                src_value = elf->data.elf32.shdr[row].sh_info;
+                elf->data.elf32.shdr[row].sh_info = value;
+                break;
+
+            case 9:
+                src_value = elf->data.elf32.shdr[row].sh_addralign;
+                elf->data.elf32.shdr[row].sh_addralign = value;
+                break;
+            
+            default:
+                goto OUT_OF_BOUNDS;
+                break;
+        }
+    }
+    
+    /* edit segment information */
+    if (!get_option(po, SEGMENTS)) {
+        switch (column)
+        {
+            case 0:
+                src_value = elf->data.elf32.phdr[row].p_type;
+                elf->data.elf32.phdr[row].p_type = value;
+                break;
+
+            case 1:
+                src_value = elf->data.elf32.phdr[row].p_offset;
+                elf->data.elf32.phdr[row].p_offset = value;
+                break;
+
+            case 2:
+                src_value = elf->data.elf32.phdr[row].p_vaddr;
+                elf->data.elf32.phdr[row].p_vaddr = value;
+                break;
+
+            case 3:
+                src_value = elf->data.elf32.phdr[row].p_paddr;
+                elf->data.elf32.phdr[row].p_paddr = value;
+                break;
+
+            case 4:
+                src_value = elf->data.elf32.phdr[row].p_filesz;
+                elf->data.elf32.phdr[row].p_filesz = value;
+                break;
+
+            case 5:
+                src_value = elf->data.elf32.phdr[row].p_memsz;
+                elf->data.elf32.phdr[row].p_memsz = value;
+                break;
+
+            case 6:
+                src_value = elf->data.elf32.phdr[row].p_flags;
+                elf->data.elf32.phdr[row].p_flags = value;
+                break;
+
+            case 7:
+                src_value = elf->data.elf32.phdr[row].p_align;
+                elf->data.elf32.phdr[row].p_align = value;
+                break;
+            
+            default:
+                goto OUT_OF_BOUNDS;
+                break;
+        }
+    }
+
+    /* edit .dynsym informtion */
+    if (!get_option(po, DYNSYM)) {
+        int type = 0;
+        int bind = 0;
+        switch (column)
+        {
+            case 0:
+                src_value = elf->data.elf32.dynsym_entry[row].st_value;
+                elf->data.elf32.dynsym_entry[row].st_value = value;
+                break;
+
+            case 1:
+                src_value = elf->data.elf32.dynsym_entry[row].st_size;
+                elf->data.elf32.dynsym_entry[row].st_size = value;
+                break;
+
+            case 2:
+                type = ELF32_ST_TYPE(elf->data.elf32.dynsym_entry[row].st_info);
+                bind = ELF32_ST_BIND(elf->data.elf32.dynsym_entry[row].st_info);
+                src_value = type;
+                elf->data.elf32.dynsym_entry[row].st_info = ELF32_ST_INFO(bind, value);
+                break;
+
+            case 3:
+                type = ELF32_ST_TYPE(elf->data.elf32.dynsym_entry[row].st_info);
+                bind = ELF32_ST_BIND(elf->data.elf32.dynsym_entry[row].st_info);
+                src_value = bind;
+                elf->data.elf32.dynsym_entry[row].st_info = ELF32_ST_INFO(value, type);
+                break;
+
+            case 4:
+                src_value = elf->data.elf32.dynsym_entry[row].st_other;
+                elf->data.elf32.dynsym_entry[row].st_other = value;
+                break;
+
+            case 5:
+                src_value = elf->data.elf32.dynsym_entry[row].st_shndx;
+                elf->data.elf32.dynsym_entry[row].st_shndx = value;
+                break;
+
+            case 6:
+                if (!strlen(dst_name)) {
+                    src_value = elf->data.elf32.dynsym_entry[row].st_name;
+                    elf->data.elf32.dynsym_entry[row].st_name = value;
+                } else {
+                    char *name = elf->mem + elf->data.elf32.dynstrtab->sh_offset + elf->data.elf32.dynsym_entry[row].st_name;
+                    src_string = (char *)malloc(strlen(name) + 1);
+                    strcpy(src_string, name);
+                    err = set_dynstr_name(elf, name, dst_name);
+                    if (err == TRUE)
+                        goto PRINT_STRING;
+                    else
+                        goto OUT_OF_BOUNDS;
+                    }
+                break;
+            
+            default:
+                break;
+        }
+    }
+
+    /* edit .symtab informtion */
+    if (!get_option(po, SYMTAB)) {
+        int type = 0;
+        int bind = 0;
+        switch (column)
+        {
+            case 0:
+                src_value = elf->data.elf32.sym_entry[row].st_value;
+                elf->data.elf32.sym_entry[row].st_value = value;
+                break;
+
+            case 1:
+                src_value = elf->data.elf32.sym_entry[row].st_size;
+                elf->data.elf32.sym_entry[row].st_size = value;
+                break;
+
+            case 2:
+                type = ELF32_ST_TYPE(elf->data.elf32.sym_entry[row].st_info);
+                bind = ELF32_ST_BIND(elf->data.elf32.sym_entry[row].st_info);
+                src_value = type;
+                elf->data.elf32.sym_entry[row].st_info = ELF32_ST_INFO(bind, value);
+                break;
+
+            case 3:
+                type = ELF32_ST_TYPE(elf->data.elf32.sym_entry[row].st_info);
+                bind = ELF32_ST_BIND(elf->data.elf32.sym_entry[row].st_info);
+                src_value = bind;
+                elf->data.elf32.sym_entry[row].st_info = ELF32_ST_INFO(value, type);
+                break;
+
+            case 4:
+                src_value = elf->data.elf32.sym_entry[row].st_other;
+                elf->data.elf32.sym_entry[row].st_other = value;
+                break;
+
+            case 5:
+                src_value = elf->data.elf32.sym_entry[row].st_shndx;
+                elf->data.elf32.sym_entry[row].st_shndx = value;
+                break;
+
+            case 6:
+                if (!strlen(dst_name)) {
+                    src_value = elf->data.elf32.sym_entry[row].st_name;
+                    elf->data.elf32.sym_entry[row].st_name = value;
+                } else {
+                    char *name = elf->mem + elf->data.elf32.strtab->sh_offset + elf->data.elf32.sym_entry[row].st_name;
+                    src_string = (char *)malloc(strlen(name) + 1);
+                    strcpy(src_string, name);
+                    err = set_sym_name_t(elf, name, dst_name);
+                    if (err == TRUE)
+                        goto PRINT_STRING;
+                    else
+                        goto OUT_OF_BOUNDS;
+                }
+                break;
+            
+            default:
+                break;
+        }
+    }
+
+    /* edit .rel and .rela informtion */
+    if (!get_option(po, RELA)) {
+        if (compare_firstN_chars(section_name, ".rel.", 5)) {
+            int rel_index = get_section_index_by_name(elf, section_name);
+            Elf32_Rel *rel = (Elf32_Rel *)(elf->mem + elf->data.elf32.shdr[rel_index].sh_offset);
+            switch (column)
+            {
+                case 0:
+                    src_value = rel[row].r_offset;
+                    rel[row].r_offset = value;
+                    break;
+
+                case 1:
+                    src_value = rel[row].r_info;
+                    rel[row].r_info = value;
+                    break;
+
+                case 2:
+                    src_value = ELF32_R_TYPE(rel[row].r_info);
+                    rel[row].r_info = ELF32_R_INFO(ELF32_R_SYM(rel[row].r_info), value);
+                    break;
+
+                case 3:
+                    src_value = ELF32_R_SYM(rel[row].r_info);
+                    rel[row].r_info = ELF32_R_INFO(value, ELF32_R_TYPE(rel[row].r_info));
+                    break;
+                
+                default:
+                    break;
+            }
+        }
+        if (compare_firstN_chars(section_name, ".rela", 5)) {
+            int rela_index = get_section_index_by_name(elf, section_name);
+            Elf32_Rela *rela = (Elf32_Rela *)(elf->mem + elf->data.elf32.shdr[rela_index].sh_offset);
+            switch (column)
+            {
+                case 0:
+                    src_value = rela[row].r_offset;
+                    rela[row].r_offset = value;
+                    break;
+
+                case 1:
+                    src_value = rela[row].r_info;
+                    rela[row].r_info = value;
+                    break;
+
+                case 2:
+                    src_value = ELF32_R_TYPE(rela[row].r_info);
+                    rela[row].r_info = ELF32_R_INFO(ELF32_R_SYM(rela[row].r_info), value);
+                    break;
+
+                case 3:
+                    src_value = ELF32_R_SYM(rela[row].r_info);
+                    rela[row].r_info = ELF32_R_INFO(value, ELF32_R_TYPE(rela[row].r_info));
+                    break;
+
+                case 4:
+                    src_value = rela[row].r_addend;
+                    rela[row].r_addend = value;
+                
+                default:
+                    break;
+            }
+        }
+
+    }
+
+    /* edit .dynamic informtion */
+    if (!get_option(po, LINK)) {
+        switch (column)
+        {
+            case 0:
+            case 1:
+                src_value = elf->data.elf32.dyn[row].d_tag;
+                elf->data.elf32.dyn[row].d_tag = value;
+                break;
+
+            case 2:
+                if (!strlen(dst_name)) {
+                    src_value = elf->data.elf32.dyn[row].d_un.d_val;
+                    elf->data.elf32.dyn[row].d_un.d_val = value;
+                } else {
+                    char *name = elf->mem + elf->data.elf32.dynstrtab->sh_offset + elf->data.elf32.dyn[row].d_un.d_val;
+                    src_string = (char *)malloc(strlen(name) + 1);
+                    strcpy(src_string, name);
+                    err = edit_dyn_name_value(elf, row, dst_name);
+                    if (err == TRUE)
+                        goto PRINT_STRING;
+                    else
+                        goto OUT_OF_BOUNDS;
+                }
+                break;
+            
+            default:
+                break;
+        }
+    }
+
+    /* edit pointer information */
+    if (!get_option(po, POINTER)) {
+        int i = get_section_index_by_name(elf, section_name);
+        switch (column)
+        {
+            case 0:
+                // if (MODE == ELFCLASS32) {
+                //     uint32_t *sec = (uint32_t *)(elf_map + sec_offset);
+                //     int count = sec_size / sizeof(uint32_t);
+                //     if (index >= count) {
+                //         goto ERR_EXIT;
+                //     }
+                //     printf("0x%x->0x%x\n", sec[index], value);
+                //     sec[index] = value & 0xffff;    // avoid interger overflow
+                // }
+
+                /* 32bit */
+                uint32_t *sec = (uint32_t *)(elf->mem + elf->data.elf32.shdr[i].sh_offset);
+                int count = elf->data.elf32.shdr[i].sh_size / sizeof(uint32_t);
+                if (row >= count) {
+                    err = ERR_ARGS;
+                    goto OUT_OF_BOUNDS;
+                }
+                src_value = sec[row];
+                sec[row] = value;
+                break;
+
+            case 1:
+                PRINT_WARNING("you can edit symbol by option '-B' instead of '-I'\n");
+                goto OUT_OF_BOUNDS;
+                break;
+            
+            default:
+                break;
+        }
+    }
+
+    PRINT_INFO("0x%x->0x%x\n" ,src_value, value);
+    if (src_string) free(src_string);
+    return err;
+PRINT_STRING:
+    PRINT_INFO("%s->%s\n" ,src_string, dst_name);
+    if (src_string) free(src_string);
+    return err;
+OUT_OF_BOUNDS:
+    PRINT_WARNING("Please check if the entered coordinates are out of bounds\n");
+    if (src_string) free(src_string);
+    return err;
+}
+
+/**
+ * @brief 编辑ELF的各个字段，依据字段所在的坐标
+ * edit the various fields of ELF based on their respective coordinates.
+ * @param elf elf file structure
+ * @param po selection
+ * @param row row-i
+ * @param column column-j
+ * @param section_name only for rela section
+ * @param value int value
+ * @param dst_name string value
+ * @return error code {-1:error,0:sucess} 
+ */
+int edit(Elf *elf, parser_opt_t *po, int row, int column, int value, char *section_name, char *dst_name) {
+    if (elf->class == ELFCLASS32) {
+        return edit32(elf, po, row, column, value, section_name, dst_name);
+    } else if (elf->class == ELFCLASS64) {
+        return edit64(elf, po, row, column, value, section_name, dst_name);
+    } else {
+        return ERR_CLASS;
+    }
 }

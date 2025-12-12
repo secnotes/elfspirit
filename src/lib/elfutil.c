@@ -128,11 +128,11 @@ int init(char *elf_name, Elf *elf) {
             }
         }
 
-        elf->data.elf32.dyn_segment_entry = NULL;
+        elf->data.elf32.dyn = NULL;
         elf->data.elf32.dyn_segment_count = 0;
         for (int i = 0; i < elf->data.elf32.ehdr->e_phnum; i++) {
             if (elf->data.elf32.phdr[i].p_type == PT_DYNAMIC) {
-                elf->data.elf32.dyn_segment_entry = (Elf32_Dyn *)&elf->mem[elf->data.elf32.phdr[i].p_offset];
+                elf->data.elf32.dyn = (Elf32_Dyn *)&elf->mem[elf->data.elf32.phdr[i].p_offset];
                 elf->data.elf32.dyn_segment_count = elf->data.elf32.phdr[i].p_filesz / sizeof(Elf32_Dyn);
             }
         }
@@ -168,11 +168,11 @@ int init(char *elf_name, Elf *elf) {
             }
         }
 
-        elf->data.elf64.dyn_segment_entry = NULL;
+        elf->data.elf64.dyn = NULL;
         elf->data.elf64.dyn_segment_count = 0;
         for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
             if (elf->data.elf64.phdr[i].p_type == PT_DYNAMIC) {
-                elf->data.elf64.dyn_segment_entry = (Elf64_Dyn *)&elf->mem[elf->data.elf64.phdr[i].p_offset];
+                elf->data.elf64.dyn = (Elf64_Dyn *)&elf->mem[elf->data.elf64.phdr[i].p_offset];
                 elf->data.elf64.dyn_segment_count = elf->data.elf64.phdr[i].p_filesz / sizeof(Elf64_Dyn);
             }
         }
@@ -843,13 +843,13 @@ static int get_segment_index_by_type(Elf *elf, int type) {
 int get_dynseg_index_by_tag(Elf *elf, int tag) {
     if (elf->class == ELFCLASS32) {
         for (int i = 0; i < elf->data.elf32.dyn_segment_count; i++) {
-            if (elf->data.elf32.dyn_segment_entry[i].d_tag == tag) {
+            if (elf->data.elf32.dyn[i].d_tag == tag) {
                 return i;
             }
         }
     } else if (elf->class == ELFCLASS64) {
         for (int i = 0; i < elf->data.elf64.dyn_segment_count; i++) {
-            if (elf->data.elf64.dyn_segment_entry[i].d_tag == tag) {
+            if (elf->data.elf64.dyn[i].d_tag == tag) {
                 return i;
             }
         }
@@ -871,9 +871,9 @@ int get_dynseg_value_by_tag(Elf *elf, int tag) {
     int index = get_dynseg_index_by_tag(elf, tag);
     if (index != FALSE) {
         if (elf->class == ELFCLASS32)
-            return elf->data.elf32.dyn_segment_entry[index].d_un.d_val;
+            return elf->data.elf32.dyn[index].d_un.d_val;
         if (elf->class == ELFCLASS64)
-            return elf->data.elf64.dyn_segment_entry[index].d_un.d_val;
+            return elf->data.elf64.dyn[index].d_un.d_val;
     } else
         return FALSE;
 }
@@ -890,9 +890,9 @@ int set_dynseg_tag_by_tag(Elf *elf, int tag, uint64_t new_tag) {
     int index = get_dynseg_index_by_tag(elf, tag);
     if (index != FALSE) {
         if (elf->class == ELFCLASS32)
-            elf->data.elf32.dyn_segment_entry[index].d_tag = new_tag;
+            elf->data.elf32.dyn[index].d_tag = new_tag;
         if (elf->class == ELFCLASS64)
-            elf->data.elf64.dyn_segment_entry[index].d_tag = new_tag;
+            elf->data.elf64.dyn[index].d_tag = new_tag;
         else
             return FALSE;
     } else
@@ -913,9 +913,9 @@ int set_dynseg_value_by_tag(Elf *elf, int tag, uint64_t value) {
         return index;
     }
     if (elf->class == ELFCLASS32)
-        elf->data.elf32.dyn_segment_entry[index].d_un.d_val = value;
+        elf->data.elf32.dyn[index].d_un.d_val = value;
     else if (elf->class == ELFCLASS64)
-        elf->data.elf64.dyn_segment_entry[index].d_un.d_val = value;
+        elf->data.elf64.dyn[index].d_un.d_val = value;
     else
         return ERR_CLASS;
     return TRUE;
@@ -1299,11 +1299,11 @@ void reinit(Elf *elf) {
             }
         }
 
-        elf->data.elf32.dyn_segment_entry = NULL;
+        elf->data.elf32.dyn = NULL;
         elf->data.elf32.dyn_segment_count = 0;
         for (int i = 0; i < elf->data.elf32.ehdr->e_phnum; i++) {
             if (elf->data.elf32.phdr[i].p_type == PT_DYNAMIC) {
-                elf->data.elf32.dyn_segment_entry = (Elf32_Dyn *)&elf->mem[elf->data.elf32.phdr[i].p_offset];
+                elf->data.elf32.dyn = (Elf32_Dyn *)&elf->mem[elf->data.elf32.phdr[i].p_offset];
                 elf->data.elf32.dyn_segment_count = elf->data.elf32.phdr[i].p_filesz / sizeof(Elf32_Dyn);
             }
         }
@@ -1342,11 +1342,11 @@ void reinit(Elf *elf) {
             }
         }
 
-        elf->data.elf64.dyn_segment_entry = NULL;
+        elf->data.elf64.dyn = NULL;
         elf->data.elf64.dyn_segment_count = 0;
         for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
             if (elf->data.elf64.phdr[i].p_type == PT_DYNAMIC) {
-                elf->data.elf64.dyn_segment_entry = (Elf64_Dyn *)&elf->mem[elf->data.elf64.phdr[i].p_offset];
+                elf->data.elf64.dyn = (Elf64_Dyn *)&elf->mem[elf->data.elf64.phdr[i].p_offset];
                 elf->data.elf64.dyn_segment_count = elf->data.elf64.phdr[i].p_filesz / sizeof(Elf64_Dyn);
             }
         }
@@ -1364,7 +1364,7 @@ void reinit(Elf *elf) {
 int set_section_name_t(Elf *elf, char *src_name, char *dst_name) {
     int index = get_section_index_by_name(elf, src_name);
     if (index == FALSE) {
-        printf("%s section not found!\n", src_name);
+        PRINT_ERROR("%s section not found!\n", src_name);
         return FALSE;
     }
     if (elf->class == ELFCLASS32) {
@@ -1395,7 +1395,7 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name) {
                 elf->data.elf32.shdr[index].sh_name = src_len;
                 return TRUE;
             } else {
-                printf("error: mov section\n");
+                PRINT_ERROR("error: mov section\n");
                 return FALSE;
             }
         }
@@ -1427,7 +1427,7 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name) {
                 elf->data.elf64.shdr[index].sh_name = src_len;
                 return TRUE;
             } else {
-                printf("error: mov section\n");
+                PRINT_ERROR("error: mov section\n");
                 return FALSE;
             }
         }
@@ -1519,11 +1519,11 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
                     strcpy((char *)elf->mem + elf->data.elf32.dynstrtab->sh_offset + elf->data.elf32.dynstrtab->sh_size, dst_name);
                     elf->data.elf32.dynsym_entry[sym_i].st_name = elf->data.elf32.dynstrtab->sh_size;
                     elf->data.elf32.dynstrtab->sh_size += strlen(dst_name) + 1;
-                    elf->data.elf32.dyn_segment_entry[strsz_i].d_un.d_val += strlen(dst_name) + 1;
+                    elf->data.elf32.dyn[strsz_i].d_un.d_val += strlen(dst_name) + 1;
                 } else if (expand_segment_load(elf, seg_i, strlen(dst_name) + 1, &offset, &addr) == TRUE) {
                     memset((void *)elf->mem + elf->data.elf32.dynstrtab->sh_offset + elf->data.elf32.dynstrtab->sh_size, 0, strlen(dst_name) + 1);
                     strcpy((char *)elf->mem + elf->data.elf32.dynstrtab->sh_offset + elf->data.elf32.dynstrtab->sh_size, dst_name);
-                    elf->data.elf32.dyn_segment_entry[strsz_i].d_un.d_val += strlen(dst_name) + 1;
+                    elf->data.elf32.dyn[strsz_i].d_un.d_val += strlen(dst_name) + 1;
                     elf->data.elf32.dynstrtab->sh_size += strlen(dst_name) + 1;
                     elf->data.elf32.dynsym_entry[sym_i].st_name = elf->data.elf32.dynstrtab->sh_size - (strlen(dst_name) + 1);
                 } else {
@@ -1552,8 +1552,8 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
                 // map to segment
                 int strtab_i = get_dynseg_index_by_tag(elf, DT_STRTAB);
                 int strsz_i = get_dynseg_index_by_tag(elf, DT_STRSZ);
-                elf->data.elf32.dyn_segment_entry[strtab_i].d_un.d_val = dst_addr;
-                elf->data.elf32.dyn_segment_entry[strsz_i].d_un.d_val = dst_len;
+                elf->data.elf32.dyn[strtab_i].d_un.d_val = dst_addr;
+                elf->data.elf32.dyn[strsz_i].d_un.d_val = dst_len;
                 memset(dst + src_len, 0, strlen(dst_name) + 1);
                 strcpy(dst + src_len, dst_name);
                 // new section name offset
@@ -1584,11 +1584,11 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
                     strcpy((char *)elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dynstrtab->sh_size, dst_name);
                     elf->data.elf64.dynsym_entry[sym_i].st_name = elf->data.elf64.dynstrtab->sh_size;
                     elf->data.elf64.dynstrtab->sh_size += strlen(dst_name) + 1;
-                    elf->data.elf64.dyn_segment_entry[strsz_i].d_un.d_val += strlen(dst_name) + 1;
+                    elf->data.elf64.dyn[strsz_i].d_un.d_val += strlen(dst_name) + 1;
                 } else if (expand_segment_load(elf, seg_i, strlen(dst_name) + 1, &offset, &addr) == TRUE) {
                     memset((void *)elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dynstrtab->sh_size, 0, strlen(dst_name) + 1);
                     strcpy((char *)elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dynstrtab->sh_size, dst_name);
-                    elf->data.elf64.dyn_segment_entry[strsz_i].d_un.d_val += strlen(dst_name) + 1;
+                    elf->data.elf64.dyn[strsz_i].d_un.d_val += strlen(dst_name) + 1;
                     elf->data.elf64.dynstrtab->sh_size += strlen(dst_name) + 1;
                     elf->data.elf64.dynsym_entry[sym_i].st_name = elf->data.elf64.dynstrtab->sh_size - (strlen(dst_name) + 1);
                 } else {
@@ -1617,8 +1617,8 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
                 // map to segment
                 int strtab_i = get_dynseg_index_by_tag(elf, DT_STRTAB);
                 int strsz_i = get_dynseg_index_by_tag(elf, DT_STRSZ);
-                elf->data.elf64.dyn_segment_entry[strtab_i].d_un.d_val = dst_addr;
-                elf->data.elf64.dyn_segment_entry[strsz_i].d_un.d_val = dst_len;
+                elf->data.elf64.dyn[strtab_i].d_un.d_val = dst_addr;
+                elf->data.elf64.dyn[strsz_i].d_un.d_val = dst_len;
                 memset(dst + src_len, 0, strlen(dst_name) + 1);
                 strcpy(dst + src_len, dst_name);
                 // new section name offset
@@ -1786,8 +1786,8 @@ int set_sym_name_t(Elf *elf, char *src_name, char *dst_name) {
             // map to segment
             int strtab_i = get_dynseg_index_by_tag(elf, DT_STRTAB);
             int strsz_i = get_dynseg_index_by_tag(elf, DT_STRSZ);
-            elf->data.elf32.dyn_segment_entry[strtab_i].d_un.d_val = expand_start;
-            elf->data.elf32.dyn_segment_entry[strsz_i].d_un.d_val = dst_len;
+            elf->data.elf32.dyn[strtab_i].d_un.d_val = expand_start;
+            elf->data.elf32.dyn[strsz_i].d_un.d_val = dst_len;
             // string end: 00
             memset(dst + src_len, 0, strlen(dst_name) + 1);
             strcpy(dst + src_len, dst_name);
@@ -2349,8 +2349,8 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
             reinit(elf);
             // 3. change dynamic segment entry value
             for (int i = 0; i < elf->data.elf32.dyn_segment_count; i++) {
-                uint32_t value = elf->data.elf32.dyn_segment_entry[i].d_un.d_ptr;
-                uint32_t tag = elf->data.elf32.dyn_segment_entry[i].d_tag;
+                uint32_t value = elf->data.elf32.dyn[i].d_un.d_ptr;
+                uint32_t tag = elf->data.elf32.dyn[i].d_tag;
                 if (value >= *added_vaddr) {
                     switch (tag)
                     {
@@ -2366,7 +2366,7 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
                         case DT_RELA:
                         case DT_VERNEED:
                         case DT_VERSYM:
-                            elf->data.elf32.dyn_segment_entry[i].d_un.d_ptr += added_size;
+                            elf->data.elf32.dyn[i].d_un.d_ptr += added_size;
                             break;
                         
                         default:
@@ -2461,8 +2461,8 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
             reinit(elf);
             // 3. change dynamic segment entry value
             for (int i = 0; i < elf->data.elf64.dyn_segment_count; i++) {
-                uint64_t value = elf->data.elf64.dyn_segment_entry[i].d_un.d_ptr;
-                uint64_t tag = elf->data.elf64.dyn_segment_entry[i].d_tag;
+                uint64_t value = elf->data.elf64.dyn[i].d_un.d_ptr;
+                uint64_t tag = elf->data.elf64.dyn[i].d_tag;
                 if (value >= *added_vaddr) {
                     switch (tag)
                     {
@@ -2478,7 +2478,7 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
                         case DT_RELA:
                         case DT_VERNEED:
                         case DT_VERSYM:
-                            elf->data.elf64.dyn_segment_entry[i].d_un.d_ptr += added_size;
+                            elf->data.elf64.dyn[i].d_un.d_ptr += added_size;
                             break;
                         
                         default:
@@ -2710,8 +2710,8 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, size_t *added_in
 
         /* ----------------------------2.change dynamic segment entry value---------------------------- */
         for (int i = 0; i < elf->data.elf32.dyn_segment_count; i++) {
-            uint32_t value = elf->data.elf32.dyn_segment_entry[i].d_un.d_ptr;
-            uint32_t tag = elf->data.elf32.dyn_segment_entry[i].d_tag;
+            uint32_t value = elf->data.elf32.dyn[i].d_un.d_ptr;
+            uint32_t tag = elf->data.elf32.dyn[i].d_tag;
             if (value >= start_addr) {
                 switch (tag)
                 {
@@ -2727,7 +2727,7 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, size_t *added_in
                     case DT_RELA:
                     case DT_VERNEED:
                     case DT_VERSYM:
-                        elf->data.elf32.dyn_segment_entry[i].d_un.d_ptr += actual_size;
+                        elf->data.elf32.dyn[i].d_un.d_ptr += actual_size;
                         break;
                     
                     default:
@@ -2839,8 +2839,8 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, size_t *added_in
 
         /* ----------------------------2.change dynamic segment entry value---------------------------- */
         for (int i = 0; i < elf->data.elf64.dyn_segment_count; i++) {
-            uint64_t value = elf->data.elf64.dyn_segment_entry[i].d_un.d_ptr;
-            uint64_t tag = elf->data.elf64.dyn_segment_entry[i].d_tag;
+            uint64_t value = elf->data.elf64.dyn[i].d_un.d_ptr;
+            uint64_t tag = elf->data.elf64.dyn[i].d_tag;
             if (value >= start_addr) {
                 switch (tag)
                 {
@@ -2856,7 +2856,7 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, size_t *added_in
                     case DT_RELA:
                     case DT_VERNEED:
                     case DT_VERSYM:
-                        elf->data.elf64.dyn_segment_entry[i].d_un.d_ptr += actual_size;
+                        elf->data.elf64.dyn[i].d_un.d_ptr += actual_size;
                         break;
                     
                     default:
@@ -3054,8 +3054,8 @@ int add_dynseg_difficult(Elf *elf, int type, uint64_t value) {
         if (index != FALSE && elf->data.elf64.phdr[index].p_memsz >= new_size) {
             elf->data.elf64.shdr[dyn_sec_i].sh_size = new_size;
             elf->data.elf64.phdr[dyn_seg_i].p_memsz = new_size;
-            elf->data.elf64.dyn_segment_entry[elf->data.elf64.dyn_segment_count].d_tag = type;
-            elf->data.elf64.dyn_segment_entry[elf->data.elf64.dyn_segment_count].d_un.d_ptr = value;
+            elf->data.elf64.dyn[elf->data.elf64.dyn_segment_count].d_tag = type;
+            elf->data.elf64.dyn[elf->data.elf64.dyn_segment_count].d_un.d_ptr = value;
         }
 
         // move old dynamic segment data to new segment
@@ -3089,16 +3089,16 @@ int add_dynseg_auto(Elf *elf, int type, uint64_t value) {
         if (index == ERR_DYN_NOTFOUND) {
             return add_dynseg_difficult(elf, type, value);
         } else {
-            elf->data.elf32.dyn_segment_entry[index].d_tag = type;
-            elf->data.elf32.dyn_segment_entry[index].d_un.d_ptr = value;
+            elf->data.elf32.dyn[index].d_tag = type;
+            elf->data.elf32.dyn[index].d_un.d_ptr = value;
         }
     } else if (elf->class == ELFCLASS64) {
         int index = get_dynseg_index_by_tag(elf, DT_NULL);
         if (index == ERR_DYN_NOTFOUND) {
             return add_dynseg_difficult(elf, type, value);
         } else {
-            elf->data.elf64.dyn_segment_entry[index].d_tag = type;
-            elf->data.elf64.dyn_segment_entry[index].d_un.d_ptr = value;
+            elf->data.elf64.dyn[index].d_tag = type;
+            elf->data.elf64.dyn[index].d_un.d_ptr = value;
         }
         
     } else {

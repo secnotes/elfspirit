@@ -6,8 +6,6 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <elf.h>
-#include "common.h"
-#include "section.h"
 #include "lib/elfutil.h"
 #include "lib/util.h"
 
@@ -33,7 +31,7 @@ int get_elf_type(Elf *elf) {
         for (int i = 0; i < elf->data.elf32.ehdr->e_phnum; i++) {
             if (elf->data.elf32.phdr[i].p_type == PT_DYNAMIC) {
                 has_dynamic = 1;
-                dyn = elf->mem + elf->data.elf32.phdr[i].p_offset;
+                dyn = (Elf32_Dyn *)(elf->mem + elf->data.elf32.phdr[i].p_offset);
                 dyn_c = elf->data.elf32.phdr[i].p_filesz / sizeof(Elf32_Dyn);
                 break;
             }
@@ -60,7 +58,7 @@ int get_elf_type(Elf *elf) {
         for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
             if (elf->data.elf64.phdr[i].p_type == PT_DYNAMIC) {
                 has_dynamic = 1;
-                dyn = elf->mem + elf->data.elf64.phdr[i].p_offset;
+                dyn = (Elf64_Dyn *)(elf->mem + elf->data.elf64.phdr[i].p_offset);
                 dyn_c = elf->data.elf64.phdr[i].p_filesz / sizeof(Elf64_Dyn);
                 break;
             }
@@ -253,7 +251,7 @@ int check_needed_continuity(Elf *elf) {
         uint32_t dyn_c;
         for (int i = 0; i < elf->data.elf32.ehdr->e_phnum; i++) {
             if (elf->data.elf32.phdr[i].p_type == PT_DYNAMIC) {
-                dyn = elf->mem + elf->data.elf32.phdr[i].p_offset;
+                dyn = (Elf32_Dyn *)(elf->mem + elf->data.elf32.phdr[i].p_offset);
                 dyn_c = elf->data.elf32.phdr[i].p_filesz / sizeof(Elf32_Dyn);
                 break;
             }
@@ -282,7 +280,7 @@ int check_needed_continuity(Elf *elf) {
         uint64_t dyn_c;
         for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
             if (elf->data.elf64.phdr[i].p_type == PT_DYNAMIC) {
-                dyn = elf->mem + elf->data.elf64.phdr[i].p_offset;
+                dyn = (Elf64_Dyn *)(elf->mem + elf->data.elf64.phdr[i].p_offset);
                 dyn_c = elf->data.elf64.phdr[i].p_filesz / sizeof(Elf64_Dyn);
                 break;
             }
@@ -359,7 +357,7 @@ int check_dynstr(Elf *elf) {
     if (elf->class == ELFCLASS32) {
         for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
             name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
-            if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
+            if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
                 PRINT_ERROR("Corrupt file format\n");
                 ret = -1;
             }
@@ -384,7 +382,7 @@ int check_dynstr(Elf *elf) {
     } else if (elf->class == ELFCLASS64) {
         for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
             name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
-            if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
+            if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
                 PRINT_ERROR("Corrupt file format\n");
                 ret = -1;
             }
@@ -428,7 +426,7 @@ int check_interpreter(Elf *elf) {
     if (elf->class == ELFCLASS32) {
         for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
             name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
-            if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
+            if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
                 PRINT_ERROR("Corrupt file format\n");
                 ret = -1;
             }
@@ -451,7 +449,7 @@ int check_interpreter(Elf *elf) {
     else if (elf->class == ELFCLASS64) {
         for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
             name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
-            if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
+            if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
                 PRINT_ERROR("Corrupt file format\n");
                 ret = -1;
             }

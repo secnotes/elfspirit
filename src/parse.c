@@ -29,9 +29,10 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <stdarg.h>
-#include "common.h"
 #include "parse.h"
 #include "lib/manager.h"
+
+#define UNKOWN "Unkown"
 
 #ifdef ANDROID
 #define ELF32_ST_VISIBILITY(o)	((o) & 0x03)
@@ -133,11 +134,6 @@ int flag2str_sh(int flag, char *flag_str) {
     return 0;
 }
 
-// 函数用于检查整数是否包含特定的宏标志位
-int has_flag(int num, int flag) {
-    return (num & flag) == flag;
-}
-
 /**
  * @description: Judge whether the option is true
  * @param {parser_opt_t} po
@@ -165,7 +161,7 @@ uint32_t truncated_length;
 static void display_header32(Elf *h) {
     char *tmp;
     int nr = 0;
-    INFO("ELF32 Header\n");
+    PRINT_INFO("ELF32 Header\n");
     /* 16bit magic */
     printf("     0 ~ 15bit ----------------------------------------------\n");
     printf("     Magic: ");
@@ -952,7 +948,7 @@ static void display_header32(Elf *h) {
 static void display_header64(Elf *h) {
     char *tmp;
     int nr = 0;
-    INFO("ELF64 Header\n");
+    PRINT_INFO("ELF64 Header\n");
     /* 16bit magic */
     printf("     0 ~ 15bit ----------------------------------------------\n");
     printf("     Magic: ");
@@ -1745,13 +1741,13 @@ static void display_section32(Elf *elf) {
     char *name;
     char *tmp;
     char flag[4];
-    INFO("Section Header Table\n");
+    PRINT_INFO("Section Header Table\n");
     PRINT_SECTION_TITLE("Nr", "Name", "Type", "Addr", "Off", "Size", "Es", "Flg", "Lk", "Inf", "Al");
 
     for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             exit(-1);
         }
 
@@ -1836,13 +1832,13 @@ static void display_section64(Elf *elf) {
     char *name;
     char *tmp;
     char flag[4];
-    INFO("Section Header Table\n");
+    PRINT_INFO("Section Header Table\n");
     PRINT_SECTION_TITLE("Nr", "Name", "Type", "Addr", "Off", "Size", "Es", "Flg", "Lk", "Inf", "Al");
     
     for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             exit(-1);
         }
 
@@ -1932,7 +1928,7 @@ void display_segment32(Elf *elf) {
     char *name;
     char *tmp;
     char flag[4];
-    INFO("Program Header Table\n");
+    PRINT_INFO("Program Header Table\n");
     PRINT_PROGRAM_TITLE("Nr", "Type", "Offset", "Virtaddr", "Physaddr", "Filesiz", "Memsiz", "Flg", "Align");
 
     for (int i = 0; i < elf->data.elf32.ehdr->e_phnum; i++) {
@@ -1988,7 +1984,7 @@ void display_segment32(Elf *elf) {
     }
 
 
-    INFO("Section to segment mapping\n");
+    PRINT_INFO("Section to segment mapping\n");
     Set *set = create_set();
     for (int i = 0; i < elf->data.elf32.ehdr->e_phnum; i++) {
         printf("    [%2d]", i);
@@ -2006,7 +2002,7 @@ void display_segment32(Elf *elf) {
         printf("\n");
     }
 
-    INFO("Unmapped sections\n");
+    PRINT_INFO("Unmapped sections\n");
     printf("   ");
     for (int j = 0; j < elf->data.elf32.ehdr->e_shnum; j++) {
         name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[j].sh_name;
@@ -2023,7 +2019,7 @@ void display_segment64(Elf *elf) {
     char *name;
     char *tmp;
     char flag[4];
-    INFO("Program Header Table\n");
+    PRINT_INFO("Program Header Table\n");
     PRINT_PROGRAM_TITLE("Nr", "Type", "Offset", "Virtaddr", "Physaddr", "Filesiz", "Memsiz", "Flg", "Align");
 
     for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
@@ -2078,7 +2074,7 @@ void display_segment64(Elf *elf) {
         PRINT_PROGRAM(i, tmp, elf->data.elf64.phdr[i].p_offset, elf->data.elf64.phdr[i].p_vaddr, elf->data.elf64.phdr[i].p_paddr, elf->data.elf64.phdr[i].p_filesz, elf->data.elf64.phdr[i].p_memsz, flag, elf->data.elf64.phdr[i].p_align); 
     }
 
-    INFO("Section to segment mapping\n");
+    PRINT_INFO("Section to segment mapping\n");
     Set *set = create_set();
     for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
         printf("    [%2d]", i);
@@ -2096,7 +2092,7 @@ void display_segment64(Elf *elf) {
         printf("\n");
     }
 
-    INFO("Unmapped sections\n");
+    PRINT_INFO("Unmapped sections\n");
     printf("   ");
     for (int j = 0; j < elf->data.elf64.ehdr->e_shnum; j++) {
         name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[j].sh_name;
@@ -2129,8 +2125,8 @@ static int display_dynsym32(Elf *elf, char *section_name, char *str_tab) {
 
     for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             exit(-1);
         }
 
@@ -2144,22 +2140,22 @@ static int display_dynsym32(Elf *elf, char *section_name, char *str_tab) {
     }
 
     if (!str_index) {
-        DEBUG("This file does not have a %s\n", str_tab);
+        PRINT_DEBUG("This file does not have a %s\n", str_tab);
         return -1;
     }
 
     if (!sym_index) {
-        DEBUG("This file does not have a %s\n", section_name);
+        PRINT_DEBUG("This file does not have a %s\n", section_name);
         return -1;
     }
 
-    INFO("%s table\n", section_name);
+    PRINT_INFO("%s table\n", section_name);
     PRINT_DYNSYM_TITLE("Nr", "Value", "Size", "Type", "Bind", "Vis", "Ndx", "Name");
     
     name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[sym_index].sh_name;
     /* security check start*/
-    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-        ERROR("Corrupt file format\n");
+    if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+        PRINT_ERROR("Corrupt file format\n");
         exit(-1);
     }
 
@@ -2311,8 +2307,8 @@ static int display_sym64(Elf *elf, char *section_name, char *str_tab) {
 
     for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             exit(-1);
         }
 
@@ -2326,22 +2322,22 @@ static int display_sym64(Elf *elf, char *section_name, char *str_tab) {
     }
 
     if (!str_index) {
-        DEBUG("This file does not have a %s\n", str_tab);
+        PRINT_DEBUG("This file does not have a %s\n", str_tab);
         return -1;
     }
 
     if (!sym_index) {
-        DEBUG("This file does not have a %s\n", section_name);
+        PRINT_DEBUG("This file does not have a %s\n", section_name);
         return -1;
     }
 
-    INFO("%s table\n", section_name);
+    PRINT_INFO("%s table\n", section_name);
     PRINT_DYNSYM_TITLE("Nr", "Value", "Size", "Type", "Bind", "Vis", "Ndx", "Name");
     
     name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[sym_index].sh_name;
     /* security check start*/
-    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-        ERROR("Corrupt file format\n");
+    if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+        PRINT_ERROR("Corrupt file format\n");
         exit(-1);
     }
 
@@ -2479,7 +2475,7 @@ static int display_sym64(Elf *elf, char *section_name, char *str_tab) {
  * @return int error code {-1:error,0:sucess}
  */
 static int display_dyninfo32(Elf *elf) {
-    INFO("Dynamic link information\n");
+    PRINT_INFO("Dynamic link information\n");
     char *name = NULL;
     char *tmp = NULL;
     int count = 0;
@@ -2489,8 +2485,8 @@ static int display_dyninfo32(Elf *elf) {
     for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
 
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             exit(-1);
         }
 
@@ -2504,12 +2500,12 @@ static int display_dyninfo32(Elf *elf) {
     }
 
     if (!dynstr) {
-        WARNING("This file does not have a %s\n", ".dynstr");
+        PRINT_DEBUG("This file does not have a %s\n", ".dynstr");
         return -1;
     }
 
     if (!dynamic) {
-        WARNING("This file does not have a %s\n", ".dynamic");
+        PRINT_DEBUG("This file does not have a %s\n", ".dynamic");
         return -1;
     }
 
@@ -2517,7 +2513,7 @@ static int display_dyninfo32(Elf *elf) {
     name = "";
     dyn = (Elf32_Dyn *)&elf->mem[elf->data.elf32.shdr[dynamic].sh_offset];
     count = elf->data.elf32.shdr[dynamic].sh_size / sizeof(Elf32_Dyn);
-    INFO("Dynamic section at offset 0x%x contains %d entries\n", elf->data.elf32.shdr[dynamic].sh_offset, count);
+    PRINT_INFO("Dynamic section at offset 0x%x contains %d entries\n", elf->data.elf32.shdr[dynamic].sh_offset, count);
     PRINT_DYN_TITLE("Nr", "Tag", "Type", "Name/Value");
     
     for(int i = 0; i < count; i++) {
@@ -2883,7 +2879,7 @@ static int display_dyninfo32(Elf *elf) {
 }
 
 static int display_dyninfo64(Elf *elf) {
-    INFO("Dynamic link information\n");
+    PRINT_INFO("Dynamic link information\n");
     char *name = NULL;
     char *tmp = NULL;
     int count = 0;
@@ -2892,8 +2888,8 @@ static int display_dyninfo64(Elf *elf) {
     Elf64_Dyn *dyn;
     for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             exit(-1);
         }
 
@@ -2907,12 +2903,12 @@ static int display_dyninfo64(Elf *elf) {
     }
 
     if (!dynstr) {
-        WARNING("This file does not have a %s\n", ".dynstr");
+        PRINT_WARNING("This file does not have a %s\n", ".dynstr");
         return -1;
     }
 
     if (!dynamic) {
-        WARNING("This file does not have a %s\n", ".dynamic");
+        PRINT_WARNING("This file does not have a %s\n", ".dynamic");
         return -1;
     }
 
@@ -2920,7 +2916,7 @@ static int display_dyninfo64(Elf *elf) {
     name = "";
     dyn = (Elf64_Dyn *)&elf->mem[elf->data.elf64.shdr[dynamic].sh_offset];
     count = elf->data.elf64.shdr[dynamic].sh_size / sizeof(Elf64_Dyn);
-    INFO("Dynamic section at offset 0x%x contains %d entries\n", elf->data.elf64.shdr[dynamic].sh_offset, count);
+    PRINT_INFO("Dynamic section at offset 0x%x contains %d entries\n", elf->data.elf64.shdr[dynamic].sh_offset, count);
     PRINT_DYN_TITLE("Nr", "Tag", "Type", "Name/Value");
     
     for(int i = 0; i < count; i++) {
@@ -3302,8 +3298,8 @@ static int display_rel32(Elf *elf, char *section_name) {
     int has_component = 0;
     for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             return -1;
         }
 
@@ -3314,12 +3310,12 @@ static int display_rel32(Elf *elf, char *section_name) {
     }
 
     if (!has_component) {
-        DEBUG("This file does not have a %s\n", section_name);
+        PRINT_DEBUG("This file does not have a %s\n", section_name);
         return -1;
     }
     
-    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-        ERROR("Corrupt file format\n");
+    if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+        PRINT_ERROR("Corrupt file format\n");
         return -1;
     }
 
@@ -3328,13 +3324,13 @@ static int display_rel32(Elf *elf, char *section_name) {
     int string_count = 0;
     int err = get_dyn_string_table(elf, &dyn_string, &string_count);
     if (err != TRUE) {
-        ERROR("get dynamic symbol string table error\n");
+        PRINT_ERROR("get dynamic symbol string table error\n");
         return err;
     }
     char **sym_string = NULL;
     err = get_sym_string_table(elf, &sym_string, &string_count);
     if (err != TRUE) {
-        WARNING("get symbol string table error\n");
+        PRINT_WARNING("get symbol string table error\n");
     }
     /* **********  get dyn string ********** */
 
@@ -3579,8 +3575,8 @@ static int display_rel64(Elf *elf, char *section_name) {
     int has_component = 0;
     for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             return -1;
         }
 
@@ -3591,12 +3587,12 @@ static int display_rel64(Elf *elf, char *section_name) {
     }
 
     if (!has_component) {
-        DEBUG("This file does not have a %s\n", section_name);
+        PRINT_DEBUG("This file does not have a %s\n", section_name);
         return -1;
     }
     
-    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-        ERROR("Corrupt file format\n");
+    if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+        PRINT_ERROR("Corrupt file format\n");
         return -1;
     }
 
@@ -3605,19 +3601,19 @@ static int display_rel64(Elf *elf, char *section_name) {
     int string_count = 0;
     int err = get_dyn_string_table(elf, &dyn_string, &string_count);
     if (err != TRUE) {
-        ERROR("get dynamic symbol string table error\n");
+        PRINT_ERROR("get dynamic symbol string table error\n");
         return err;
     }
     char **sym_string = NULL;
     err = get_sym_string_table(elf, &sym_string, &string_count);
     if (err != TRUE) {
-        WARNING("get symbol string table error\n");
+        PRINT_WARNING("get symbol string table error\n");
     }
     /* **********  get dyn string ********** */
 
     rel_section = (Elf64_Rel *)&elf->mem[elf->data.elf64.shdr[rela_dyn_index].sh_offset];
     count = elf->data.elf64.shdr[rela_dyn_index].sh_size / sizeof(Elf64_Rel);
-    INFO("Relocation section '%s' at offset 0x%x contains %d entries:\n", section_name, elf->data.elf64.shdr[rela_dyn_index].sh_offset, count);
+    PRINT_INFO("Relocation section '%s' at offset 0x%x contains %d entries:\n", section_name, elf->data.elf64.shdr[rela_dyn_index].sh_offset, count);
     PRINT_RELA_TITLE("Nr", "Addr", "Info", "Type", "Sym.Index", "Sym.Name");
     for (int i = 0; i < count; i++) {
         switch (ELF64_R_TYPE(rel_section[i].r_info))
@@ -4203,8 +4199,8 @@ static int display_rela32(Elf *elf, char *section_name) {
     int has_component = 0;
     for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             return -1;
         }
 
@@ -4215,12 +4211,12 @@ static int display_rela32(Elf *elf, char *section_name) {
     }
 
     if (!has_component) {
-        DEBUG("This file does not have a %s\n", section_name);
+        PRINT_DEBUG("This file does not have a %s\n", section_name);
         return -1;
     }
     
-    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-        ERROR("Corrupt file format\n");
+    if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+        PRINT_ERROR("Corrupt file format\n");
         return -1;
     }
 
@@ -4229,19 +4225,19 @@ static int display_rela32(Elf *elf, char *section_name) {
     int string_count = 0;
     int err = get_dyn_string_table(elf, &dyn_string, &string_count);
     if (err != TRUE) {
-        ERROR("get dynamic symbol string table error\n");
+        PRINT_ERROR("get dynamic symbol string table error\n");
         return err;
     }
     char **sym_string = NULL;
     err = get_sym_string_table(elf, &sym_string, &string_count);
     if (err != TRUE) {
-        WARNING("get symbol string table error\n");
+        PRINT_WARNING("get symbol string table error\n");
     }
     /* **********  get dyn string ********** */
     
     rela_dyn = (Elf32_Rela *)&elf->mem[elf->data.elf32.shdr[rela_dyn_index].sh_offset];
     count = elf->data.elf32.shdr[rela_dyn_index].sh_size / sizeof(Elf32_Rela);
-    INFO("Relocation section '%s' at offset 0x%x contains %d entries:\n", section_name, elf->data.elf32.shdr[rela_dyn_index].sh_offset, count);
+    PRINT_INFO("Relocation section '%s' at offset 0x%x contains %d entries:\n", section_name, elf->data.elf32.shdr[rela_dyn_index].sh_offset, count);
     PRINT_RELA_TITLE("Nr", "Addr", "Info", "Type", "Sym.Index", "Sym.Name + Addend");
     for (int i = 0; i < count; i++) {
         switch (ELF32_R_TYPE(rela_dyn[i].r_info))
@@ -4492,8 +4488,8 @@ static int display_rela64(Elf *elf, char *section_name) {
     int has_component = 0;
     for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             return -1;
         }
 
@@ -4504,12 +4500,12 @@ static int display_rela64(Elf *elf, char *section_name) {
     }
 
     if (!has_component) {
-        DEBUG("This file does not have a %s\n", section_name);
+        PRINT_DEBUG("This file does not have a %s\n", section_name);
         return -1;
     }
     
-    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-        ERROR("Corrupt file format\n");
+    if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+        PRINT_ERROR("Corrupt file format\n");
         return -1;
     }
 
@@ -4518,19 +4514,19 @@ static int display_rela64(Elf *elf, char *section_name) {
     int string_count = 0;
     int err = get_dyn_string_table(elf, &dyn_string, &string_count);
     if (err != TRUE) {
-        ERROR("get dynamic symbol string table error\n");
+        PRINT_ERROR("get dynamic symbol string table error\n");
         return err;
     }
     char **sym_string = NULL;
     err = get_sym_string_table(elf, &sym_string, &string_count);
     if (err != TRUE) {
-        WARNING("get symbol string table error\n");
+        PRINT_WARNING("get symbol string table error\n");
     }
     /* **********  get dyn string ********** */
     
     rela_dyn = (Elf64_Rela *)&elf->mem[elf->data.elf64.shdr[rela_dyn_index].sh_offset];
     count = elf->data.elf64.shdr[rela_dyn_index].sh_size / sizeof(Elf64_Rela);
-    INFO("Relocation section '%s' at offset 0x%x contains %d entries:\n", section_name, elf->data.elf64.shdr[rela_dyn_index].sh_offset, count);
+    PRINT_INFO("Relocation section '%s' at offset 0x%x contains %d entries:\n", section_name, elf->data.elf64.shdr[rela_dyn_index].sh_offset, count);
     PRINT_RELA_TITLE("Nr", "Addr", "Info", "Type", "Sym.Index", "Sym.Name + Addend");
 
     for (int i = 0; i < count; i++) {
@@ -5129,8 +5125,8 @@ static int display_pointer32(Elf *elf, int num, ...) {
 
     for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             return -1;
         }
 
@@ -5159,13 +5155,13 @@ static int display_pointer32(Elf *elf, int num, ...) {
     for (int j = 0; j < num; j++) {
         char *section_name = va_arg(args, char *);
         if (index[j] == 0) {
-            DEBUG("This file does not have a %s\n", section_name);
+            PRINT_DEBUG("This file does not have a %s\n", section_name);
         } else {
             uint32_t offset = elf->data.elf32.shdr[index[j]].sh_offset;
             size_t size = elf->data.elf32.shdr[index[j]].sh_size;
-            uint32_t *addr = elf->mem + offset;
+            uint32_t *addr = (uint32_t *)(elf->mem + offset);
             int count = size / sizeof(uint32_t);
-            INFO("%s section at offset 0x%x contains %d pointers:\n", section_name, offset, count);
+            PRINT_INFO("%s section at offset 0x%x contains %d pointers:\n", section_name, offset, count);
             PRINT_POINTER32_TITLE("Nr", "Pointer", "Symbol");
             for (int i = 0; i < count; i++) {
                 if (strtab_index) {
@@ -5222,8 +5218,8 @@ static int display_pointer64(Elf *elf, int num, ...) {
 
     for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             return -1;
         }
 
@@ -5252,13 +5248,13 @@ static int display_pointer64(Elf *elf, int num, ...) {
     for (int j = 0; j < num; j++) {
         char *section_name = va_arg(args, char *);
         if (index[j] == 0) {
-            DEBUG("This file does not have a %s\n", section_name);
+            PRINT_DEBUG("This file does not have a %s\n", section_name);
         } else {
             uint64_t offset = elf->data.elf64.shdr[index[j]].sh_offset;
             size_t size = elf->data.elf64.shdr[index[j]].sh_size;
-            uint64_t *addr = elf->mem + offset;
+            uint64_t *addr = (uint64_t *)(elf->mem + offset);
             int count = size / sizeof(uint64_t);
-            INFO("%s section at offset 0x%x contains %d pointers:\n", section_name, offset, count);
+            PRINT_INFO("%s section at offset 0x%x contains %d pointers:\n", section_name, offset, count);
             PRINT_POINTER64_TITLE("Nr", "Pointer", "Symbol");
             for (int i = 0; i < count; i++) {
                 if (strtab_index) {
@@ -5308,8 +5304,8 @@ int display_hash32(Elf *elf) {
 
     for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             exit(-1);
         }
 
@@ -5319,14 +5315,14 @@ int display_hash32(Elf *elf) {
     }
 
     if (!hash_index) {
-        WARNING("This file does not have a %s\n", ".gnu.hash");
+        PRINT_WARNING("This file does not have a %s\n", ".gnu.hash");
         return -1;
     }
     
     name = elf->mem + elf->data.elf32.shdr[hash_index].sh_offset;
     /* security check start*/
-    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-        ERROR("Corrupt file format\n");
+    if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+        PRINT_ERROR("Corrupt file format\n");
         exit(-1);
     }
 
@@ -5334,13 +5330,13 @@ int display_hash32(Elf *elf) {
     int string_count = 0;
     int err = get_dyn_string_table(elf, &dyn_string, &string_count);
     if (err != TRUE) {
-        ERROR("get dynamic symbol string table error\n");
+        PRINT_ERROR("get dynamic symbol string table error\n");
         return err;
     }
     free(dyn_string);
 
     gnuhash_t *hash = (gnuhash_t *)&elf->mem[elf->data.elf32.shdr[hash_index].sh_offset];
-    INFO(".gnu.hash table at offset 0x%x\n", elf->data.elf32.shdr[hash_index].sh_offset);
+    PRINT_INFO(".gnu.hash table at offset 0x%x\n", elf->data.elf32.shdr[hash_index].sh_offset);
     printf("    |-------------Header-------------|\n");
     printf("    |nbuckets:             0x%08x|\n", hash->nbuckets);
     printf("    |symndx:               0x%08x|\n", hash->symndx);
@@ -5380,8 +5376,8 @@ int display_hash64(Elf *elf) {
 
     for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
         name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
-        if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-            ERROR("Corrupt file format\n");
+        if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+            PRINT_ERROR("Corrupt file format\n");
             exit(-1);
         }
 
@@ -5391,14 +5387,14 @@ int display_hash64(Elf *elf) {
     }
 
     if (!hash_index) {
-        WARNING("This file does not have a %s\n", ".gnu.hash");
+        PRINT_WARNING("This file does not have a %s\n", ".gnu.hash");
         return -1;
     }
     
     name = elf->mem + elf->data.elf64.shdr[hash_index].sh_offset;
     /* security check start*/
-    if (validated_offset(name, elf->mem, elf->mem + elf->size)) {
-        ERROR("Corrupt file format\n");
+    if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
+        PRINT_ERROR("Corrupt file format\n");
         exit(-1);
     }
 
@@ -5406,13 +5402,13 @@ int display_hash64(Elf *elf) {
     int string_count = 0;
     int err = get_dyn_string_table(elf, &dyn_string, &string_count);
     if (err != TRUE) {
-        ERROR("get dynamic symbol string table error\n");
+        PRINT_ERROR("get dynamic symbol string table error\n");
         return err;
     }
     free(dyn_string);
 
     gnuhash_t *hash = (gnuhash_t *)&elf->mem[elf->data.elf64.shdr[hash_index].sh_offset];
-    INFO(".gnu.hash table at offset 0x%x\n", elf->data.elf64.shdr[hash_index].sh_offset);
+    PRINT_INFO(".gnu.hash table at offset 0x%x\n", elf->data.elf64.shdr[hash_index].sh_offset);
     printf("    |-------------Header-------------|\n");
     printf("    |nbuckets:             0x%08x|\n", hash->nbuckets);
     printf("    |symndx:               0x%08x|\n", hash->symndx);
@@ -5420,14 +5416,14 @@ int display_hash64(Elf *elf) {
     printf("    |shift:                0x%08x|\n", hash->shift);
     
     printf("    |-----------Bloom filter---------|\n");
-    uint64_t *bloomfilter = hash->buckets;
+    uint64_t *bloomfilter = (uint64_t *)hash->buckets;
     int i;
     for (i = 0; i < hash->maskbits; i++) {
         printf("    |       0x%016x       |\n", bloomfilter[i]);
     }
 
     printf("    |-----------Hash Buckets---------|\n");
-    uint32_t *buckets = &bloomfilter[i];
+    uint32_t *buckets = (uint32_t *)&bloomfilter[i];
     for (i = 0; i < hash->nbuckets; i++) {
         printf("    |           0x%08x           |\n", buckets[i]);
     }

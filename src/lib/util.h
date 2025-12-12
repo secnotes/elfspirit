@@ -30,6 +30,11 @@
     #define PRINT_DEBUG(format, ...)
 #endif
 
+#define CHECK_WARNING(format, ...) printf (""YELLOW""format""NONE"", ##__VA_ARGS__)
+#define CHECK_ERROR(format, ...) printf (""RED""format""NONE"", ##__VA_ARGS__)
+#define CHECK_INFO(format, ...) printf (""LIGHT_GREEN""format""NONE"", ##__VA_ARGS__)
+#define CHECK_COMMON(format, ...) printf (""format"", ##__VA_ARGS__)
+
 #define ONE_PAGE 4096 // 4K的大小
 
 /**
@@ -105,3 +110,48 @@ void get_filename_without_ext(const char* path, char* result);
  * @return int 
  */
 int compare_firstN_chars(const char *str1, const char *str2, int n);
+
+/**
+ * @description: 判断内存是否越界
+ * Judge whether the memory address is legal
+ * @param addr object address
+ * @param start start address
+ * @param end end adddress
+ * @return bool
+ */
+int validated_offset(uint64_t addr, uint64_t start, uint64_t end);
+
+/**
+ * @description: 将十六进制字符串转换为整型(int)数值
+ * hex string to int.
+ * @param {char} *hex
+ * @return {*}
+ */
+unsigned int hex2int(char *hex);
+
+/**
+ * @brief 计算一个地址的4K对齐地址
+ * align 4k address
+ * @param address input address
+ * @return uint64_t output 4k address
+ */
+uint64_t align_to_4k(uint64_t address);
+
+/**
+ * @brief 将命令行传入的shellcode，转化为内存实际值
+ * convert the shellcode passed in from the command line to the actual value in memory
+ * @param sc_str input shellcode string
+ * @param sc_mem output shellcode memory
+ */
+int cmdline_shellcode(char *sc_str, char *sc_mem);
+
+/**
+ * @description: 将字符转换为数值
+ * char to int
+ * @param {char} ch
+ * @return {*}
+ */
+int c2i(char ch);
+
+// 函数用于检查整数是否包含特定的宏标志位
+int has_flag(int num, int flag);
