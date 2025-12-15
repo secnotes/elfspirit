@@ -79,7 +79,7 @@ int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new) 
         
     int fd_new = open(new_name, O_RDWR|O_CREAT|O_TRUNC, 0777);
     if (fd_new < 0) {
-        return ERR_OPEN;
+        return ERR_FILE_OPEN;
     }
     
     write(fd_new, map, map_size);  

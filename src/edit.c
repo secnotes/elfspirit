@@ -501,21 +501,12 @@ int edit64(Elf *elf, parser_opt_t *po, int row, int column, int value, char *sec
     /* edit pointer information */
     if (!get_option(po, POINTER)) {
         int i = get_section_index_by_name(elf, section_name);
+        uint64_t *sec = NULL;
         switch (column)
         {
             case 0:
-                // if (MODE == ELFCLASS32) {
-                //     uint32_t *sec = (uint32_t *)(elf_map + sec_offset);
-                //     int count = sec_size / sizeof(uint32_t);
-                //     if (index >= count) {
-                //         goto ERR_EXIT;
-                //     }
-                //     printf("0x%x->0x%x\n", sec[index], value);
-                //     sec[index] = value & 0xffff;    // avoid interger overflow
-                // }
-
                 /* 64bit */
-                uint64_t *sec = (uint64_t *)(elf->mem + elf->data.elf64.shdr[i].sh_offset);
+                sec = (uint64_t *)(elf->mem + elf->data.elf64.shdr[i].sh_offset);
                 int count = elf->data.elf64.shdr[i].sh_size / sizeof(uint64_t);
                 if (row >= count) {
                     err = ERR_ARGS;
@@ -972,28 +963,19 @@ int edit32(Elf *elf, parser_opt_t *po, int row, int column, int value, char *sec
     /* edit pointer information */
     if (!get_option(po, POINTER)) {
         int i = get_section_index_by_name(elf, section_name);
+        uint32_t *sec = NULL;
         switch (column)
         {
             case 0:
-                // if (MODE == ELFCLASS32) {
-                //     uint32_t *sec = (uint32_t *)(elf_map + sec_offset);
-                //     int count = sec_size / sizeof(uint32_t);
-                //     if (index >= count) {
-                //         goto ERR_EXIT;
-                //     }
-                //     printf("0x%x->0x%x\n", sec[index], value);
-                //     sec[index] = value & 0xffff;    // avoid interger overflow
-                // }
-
                 /* 32bit */
-                uint32_t *sec = (uint32_t *)(elf->mem + elf->data.elf32.shdr[i].sh_offset);
+                sec = (uint32_t *)(elf->mem + elf->data.elf32.shdr[i].sh_offset);
                 int count = elf->data.elf32.shdr[i].sh_size / sizeof(uint32_t);
                 if (row >= count) {
                     err = ERR_ARGS;
                     goto OUT_OF_BOUNDS;
                 }
                 src_value = sec[row];
-                sec[row] = value;
+                sec[row] = value & 0xffff;    // avoid interger overflow
                 break;
 
             case 1:

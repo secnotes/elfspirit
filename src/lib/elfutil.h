@@ -1,22 +1,26 @@
 #include <elf.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 enum ErrorCode {
     /* ELF file error */
+    ERR_NOTFOUND = -30,
     ERR_DYN_NOTFOUND = -20,
-    ERR_SEC_NOTFOUND = -13,
-    ERR_SEG_NOTFOUND = -12,
-    ERR_TYPE = -11,
+    ERR_SEC_NOTFOUND = -15,
+    ERR_SEG_NOTFOUND = -14,
+    ERR_TYPE = -13,
     ERR_CLASS,
     /* other error */
     ERR_ARGS,
-    ERR_OPEN,
-    ERR_STAT,
-    ERR_MMAP,
+    ERR_FILE_OPEN,
+    ERR_FILE_STAT,
+    ERR_MEM,
     ERR_COPY,
+    ERR_MOVE,
     ERR_EXPANDSEG,
     ERR_ADDSEG,
-    ERROR = -2,
+    ERROR = -3,
+    NO_ERR,
     FALSE,
     TRUE
 };
@@ -37,7 +41,7 @@ typedef struct Elf32_Data {
     Elf32_Sym *dynsym_entry;
     int dynsym_count;
     Elf32_Dyn *dyn;
-    int dyn_segment_count;
+    int dyn_count;
 } Elf32;
 
 typedef struct Elf64_Data {
@@ -56,7 +60,7 @@ typedef struct Elf64_Data {
     Elf64_Sym *dynsym_entry;
     int dynsym_count;
     Elf64_Dyn *dyn;
-    int dyn_segment_count;
+    int dyn_count;
 } Elf64;
 
 typedef struct Elf_Data{
@@ -149,6 +153,16 @@ int set_section_info_by_name(Elf *elf, char *name, uint64_t info);
  * @return section name
  */
 char *get_section_name(Elf *elf, int index);
+
+/**
+ * @brief 根据段的类型，获取段的下标
+ * get the segment index based on its type.
+ * @param elf Elf custom structure
+ * @param type Elf segment type
+ * @param index Elf segment type
+ * @return error code
+ */
+int get_segment_index_by_type(Elf *elf, int type, size_t *index);
 
 /**
  * @brief 根据段的下标,获取段的信息
@@ -295,10 +309,11 @@ int add_dynstr_name(Elf *elf, char *name, uint64_t *name_offset);
  * @brief 扩充一个段，默认只扩充最后一个类型为PT_LOAD的段
  * Expand a segment, default to only expanding the last segment of type PT_LOAD
  * @param elf Elf custom structure
+ * @param size expand size
+ * @param start expand segment start address
  * @return start offset
  */
-/* deprecated */
-int expand_segment_test(Elf *elf, size_t size);
+int expand_segment_test(Elf *elf, size_t size, size_t *start);
 
 // these variables need to be refreshed!
 /**
@@ -579,3 +594,38 @@ int get_sym_string_table(Elf *elf, char ***name, int *count);
  * @return int error code {-1:error,0:sucess}
  */
 int get_dyn_string_table(Elf *elf, char ***name, int *count);
+
+/**
+ * @brief 检查elf文件的pie是否开启
+ * check if pie of elf file is enabled
+ * @param elf elf custom structure
+ * @param result ture or false
+ * @return int error code
+ */
+int check_pie(Elf *elf, bool *result);
+
+/**
+ * @brief 检查elf文件的nx是否开启
+ * check if nx of elf file is enabled
+ * @param elf elf custom structure
+ * @param result ture or false
+ * @return int error code
+ */
+int check_nx(Elf *elf, bool *result);
+/**
+ * @brief 检查elf文件的栈保护是否开启
+ * check if stack cookie of elf file is enabled
+ * @param elf elf custom structure
+ * @param result ture or false
+ * @return int error code
+ */
+int check_cookie(Elf *elf, bool *result);
+
+/**
+ * @brief 检查elf文件的got read only是否开启
+ * check if relro of elf file is enabled
+ * @param elf elf custom structure
+ * @param result ture or false
+ * @return int error code
+ */
+int check_relro(Elf *elf, int *result);

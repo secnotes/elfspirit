@@ -21,18 +21,18 @@
 
 #define PRINT_WARNING(format, ...) printf (""YELLOW"[!] "format""NONE"", ##__VA_ARGS__)
 #define PRINT_ERROR(format, ...) printf (""RED"[-] "format""NONE"", ##__VA_ARGS__)
-#define PRINT_INFO(format, ...) printf (""LIGHT_GREEN"[+] "format""NONE"", ##__VA_ARGS__)
+#define PRINT_INFO(format, ...) printf (""GREEN"[+] "format""NONE"", ##__VA_ARGS__)
 #define PRINT_VERBOSE(format, ...) printf (""NONE"[*] "format""NONE"", ##__VA_ARGS__)
 
 #ifdef debug
-    #define PRINT_DEBUG(...)  do{printf(BROWN "[D] %s#%d: " NONE, __FILE__,__LINE__); printf(BROWN __VA_ARGS__);printf(NONE);}while(0)
+    #define PRINT_DEBUG(...)  do{printf(YELLOW "[D] %s#%d: " NONE, __FILE__,__LINE__); printf(YELLOW __VA_ARGS__);printf(NONE);}while(0)
 #else
     #define PRINT_DEBUG(format, ...)
 #endif
 
 #define CHECK_WARNING(format, ...) printf (""YELLOW""format""NONE"", ##__VA_ARGS__)
 #define CHECK_ERROR(format, ...) printf (""RED""format""NONE"", ##__VA_ARGS__)
-#define CHECK_INFO(format, ...) printf (""LIGHT_GREEN""format""NONE"", ##__VA_ARGS__)
+#define CHECK_INFO(format, ...) printf (""GREEN""format""NONE"", ##__VA_ARGS__)
 #define CHECK_COMMON(format, ...) printf (""format"", ##__VA_ARGS__)
 
 #define ONE_PAGE 4096 // 4K的大小

@@ -1962,16 +1962,64 @@ void display_segment32(Elf *elf) {
                 tmp = "PT_PHDR";
                 break;
 
+            case PT_TLS:
+                tmp = "PT_TLS";
+                break;
+
+            case PT_NUM:
+                tmp = "PT_NUM";
+                break;
+
+            case PT_LOOS:
+                tmp = "PT_LOOS";
+                break;
+
+            case PT_GNU_EH_FRAME:
+                tmp = "PT_GNU_EH_FRAME";
+                break;
+            
+            case PT_GNU_STACK:
+                tmp = "PT_GNU_STACK";
+                break;
+
+            case PT_GNU_RELRO:
+                tmp = "PT_GNU_RELRO";
+                break;
+#ifndef OHOS
+            case PT_GNU_PROPERTY:
+                tmp = "PT_GNU_PROPERTY";
+                break;
+
+            case PT_GNU_SFRAME:
+                tmp = "PT_GNU_SFRAME";
+                break;
+#endif
+            case PT_LOSUNW:
+                tmp = "PT_LOSUNW";
+                break;
+
+            // case PT_SUNWBSS:
+            //     tmp = "PT_SUNWBSS";
+            //     break;
+
+            case PT_SUNWSTACK:
+                tmp = "PT_SUNWSTACK";
+                break;
+
+            case PT_HISUNW:
+                tmp = "PT_HISUNW";
+                break;
+
+            // case PT_HIOS:
+            //     tmp = "PT_HIOS";
+            //     break;
+
             case PT_LOPROC:
                 tmp = "PT_LOPROC";
                 break;
 
             case PT_HIPROC:
                 tmp = "PT_HIPROC";
-                break;
-
-            case PT_GNU_STACK:
-                tmp = "PT_GNU_STACK";
                 break;
             
             default:
@@ -2053,16 +2101,64 @@ void display_segment64(Elf *elf) {
                 tmp = "PT_PHDR";
                 break;
 
+            case PT_TLS:
+                tmp = "PT_TLS";
+                break;
+
+            case PT_NUM:
+                tmp = "PT_NUM";
+                break;
+
+            case PT_LOOS:
+                tmp = "PT_LOOS";
+                break;
+
+            case PT_GNU_EH_FRAME:
+                tmp = "PT_GNU_EH_FRAME";
+                break;
+            
+            case PT_GNU_STACK:
+                tmp = "PT_GNU_STACK";
+                break;
+
+            case PT_GNU_RELRO:
+                tmp = "PT_GNU_RELRO";
+                break;
+#ifndef OHOS
+            case PT_GNU_PROPERTY:
+                tmp = "PT_GNU_PROPERTY";
+                break;
+
+            case PT_GNU_SFRAME:
+                tmp = "PT_GNU_SFRAME";
+                break;
+#endif
+            case PT_LOSUNW:
+                tmp = "PT_LOSUNW";
+                break;
+
+            // case PT_SUNWBSS:
+            //     tmp = "PT_SUNWBSS";
+            //     break;
+
+            case PT_SUNWSTACK:
+                tmp = "PT_SUNWSTACK";
+                break;
+
+            case PT_HISUNW:
+                tmp = "PT_HISUNW";
+                break;
+
+            // case PT_HIOS:
+            //     tmp = "PT_HIOS";
+            //     break;
+
             case PT_LOPROC:
                 tmp = "PT_LOPROC";
                 break;
 
             case PT_HIPROC:
                 tmp = "PT_HIPROC";
-                break;
-
-            case PT_GNU_STACK:
-                tmp = "PT_GNU_STACK";
                 break;
             
             default:
@@ -2903,12 +2999,12 @@ static int display_dyninfo64(Elf *elf) {
     }
 
     if (!dynstr) {
-        PRINT_WARNING("This file does not have a %s\n", ".dynstr");
+        PRINT_DEBUG("This file does not have a %s\n", ".dynstr");
         return -1;
     }
 
     if (!dynamic) {
-        PRINT_WARNING("This file does not have a %s\n", ".dynamic");
+        PRINT_DEBUG("This file does not have a %s\n", ".dynamic");
         return -1;
     }
 
@@ -3323,14 +3419,14 @@ static int display_rel32(Elf *elf, char *section_name) {
     char **dyn_string = NULL;
     int string_count = 0;
     int err = get_dyn_string_table(elf, &dyn_string, &string_count);
-    if (err != TRUE) {
-        PRINT_ERROR("get dynamic symbol string table error\n");
+    if (err != NO_ERR) {
+        PRINT_DEBUG("get dynamic symbol string table error\n");
         return err;
     }
     char **sym_string = NULL;
     err = get_sym_string_table(elf, &sym_string, &string_count);
-    if (err != TRUE) {
-        PRINT_WARNING("get symbol string table error\n");
+    if (err != NO_ERR) {
+        PRINT_DEBUG("get symbol string table error\n");
     }
     /* **********  get dyn string ********** */
 
@@ -3543,6 +3639,10 @@ static int display_rel32(Elf *elf, char *section_name) {
         }
         
         str_index = ELF32_R_SYM(rel_section[i].r_info);
+        if (str_index > string_count) {
+            PRINT_WARNING("Unknown file format or too many strings\n");
+            break;
+        }
 
         if (strlen(dyn_string[str_index]) == 0) {
             /* .o file .rel.text */
@@ -3600,14 +3700,14 @@ static int display_rel64(Elf *elf, char *section_name) {
     char **dyn_string = NULL;
     int string_count = 0;
     int err = get_dyn_string_table(elf, &dyn_string, &string_count);
-    if (err != TRUE) {
-        PRINT_ERROR("get dynamic symbol string table error\n");
+    if (err != NO_ERR) {
+        PRINT_DEBUG("get dynamic symbol string table error\n");
         return err;
     }
     char **sym_string = NULL;
     err = get_sym_string_table(elf, &sym_string, &string_count);
-    if (err != TRUE) {
-        PRINT_WARNING("get symbol string table error\n");
+    if (err != NO_ERR) {
+        PRINT_DEBUG("get symbol string table error\n");
     }
     /* **********  get dyn string ********** */
 
@@ -4169,6 +4269,11 @@ static int display_rel64(Elf *elf, char *section_name) {
         }
         
         str_index = ELF64_R_SYM(rel_section[i].r_info);
+        if (str_index > string_count) {
+            PRINT_WARNING("Unknown file format or too many strings\n");
+            break;
+        }
+
         if (strlen(dyn_string[str_index]) == 0) {
             /* .o file .rel.text */
             PRINT_RELA(i, rel_section[i].r_offset, rel_section[i].r_info, type, str_index, sym_string[str_index]);
@@ -4224,14 +4329,14 @@ static int display_rela32(Elf *elf, char *section_name) {
     char **dyn_string = NULL;
     int string_count = 0;
     int err = get_dyn_string_table(elf, &dyn_string, &string_count);
-    if (err != TRUE) {
-        PRINT_ERROR("get dynamic symbol string table error\n");
+    if (err != NO_ERR) {
+        PRINT_DEBUG("get dynamic symbol string table error\n");
         return err;
     }
     char **sym_string = NULL;
     err = get_sym_string_table(elf, &sym_string, &string_count);
-    if (err != TRUE) {
-        PRINT_WARNING("get symbol string table error\n");
+    if (err != NO_ERR) {
+        PRINT_DEBUG("get symbol string table error\n");
     }
     /* **********  get dyn string ********** */
     
@@ -4448,6 +4553,11 @@ static int display_rela32(Elf *elf, char *section_name) {
         }
         
         str_index = ELF32_R_SYM(rela_dyn[i].r_info);
+        if (str_index > string_count) {
+            PRINT_WARNING("Unknown file format or too many strings\n");
+            break;
+        }
+
         if (strlen(dyn_string[str_index]) == 0) {
             /* .rela.dyn */
             if (str_index == 0) {
@@ -4513,14 +4623,14 @@ static int display_rela64(Elf *elf, char *section_name) {
     char **dyn_string = NULL;
     int string_count = 0;
     int err = get_dyn_string_table(elf, &dyn_string, &string_count);
-    if (err != TRUE) {
-        PRINT_ERROR("get dynamic symbol string table error\n");
+    if (err != NO_ERR) {
+        PRINT_DEBUG("get dynamic symbol string table error\n");
         return err;
     }
     char **sym_string = NULL;
     err = get_sym_string_table(elf, &sym_string, &string_count);
-    if (err != TRUE) {
-        PRINT_WARNING("get symbol string table error\n");
+    if (err != NO_ERR) {
+        PRINT_DEBUG("get symbol string table error\n");
     }
     /* **********  get dyn string ********** */
     
@@ -5081,8 +5191,13 @@ static int display_rela64(Elf *elf, char *section_name) {
             default:
                 break;
         }
-        
+
         str_index = ELF64_R_SYM(rela_dyn[i].r_info);
+        if (str_index > string_count) {
+            PRINT_WARNING("Unknown file format or too many strings\n");
+            break;
+        }
+
         if (strlen(dyn_string[str_index]) == 0) {
             /* .rela.dyn */
             if (str_index == 0) {
@@ -5315,7 +5430,7 @@ int display_hash32(Elf *elf) {
     }
 
     if (!hash_index) {
-        PRINT_WARNING("This file does not have a %s\n", ".gnu.hash");
+        PRINT_DEBUG("This file does not have a %s\n", ".gnu.hash");
         return -1;
     }
     
@@ -5329,8 +5444,8 @@ int display_hash32(Elf *elf) {
     char **dyn_string = NULL;
     int string_count = 0;
     int err = get_dyn_string_table(elf, &dyn_string, &string_count);
-    if (err != TRUE) {
-        PRINT_ERROR("get dynamic symbol string table error\n");
+    if (err != NO_ERR) {
+        PRINT_DEBUG("get dynamic symbol string table error\n");
         return err;
     }
     free(dyn_string);
@@ -5387,7 +5502,7 @@ int display_hash64(Elf *elf) {
     }
 
     if (!hash_index) {
-        PRINT_WARNING("This file does not have a %s\n", ".gnu.hash");
+        PRINT_DEBUG("This file does not have a %s\n", ".gnu.hash");
         return -1;
     }
     
@@ -5401,8 +5516,8 @@ int display_hash64(Elf *elf) {
     char **dyn_string = NULL;
     int string_count = 0;
     int err = get_dyn_string_table(elf, &dyn_string, &string_count);
-    if (err != TRUE) {
-        PRINT_ERROR("get dynamic symbol string table error\n");
+    if (err != NO_ERR) {
+        PRINT_DEBUG("get dynamic symbol string table error\n");
         return err;
     }
     free(dyn_string);

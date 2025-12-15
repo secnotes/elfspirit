@@ -4,4 +4,5 @@
  * @param elf elf file custom structure
  * @return error code
  */
-int checksec(Elf *elf);
+int checksec_t0(Elf *elf);
+int checksec_t1(Elf *elf);

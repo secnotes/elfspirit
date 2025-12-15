@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <elf.h>
+#include <stdbool.h>
 #include "lib/elfutil.h"
 #include "lib/util.h"
 
@@ -432,16 +433,17 @@ int check_interpreter(Elf *elf) {
             }
             if (!strcmp(name, ".interp")) interp_i = i;
         }
-        name = elf->mem + elf->data.elf32.shdr[interp_i].sh_offset;
+
         /* check index */
-        /*
         if (interp_i == -1) {
-            ret = -1;
+            return ERR_SEC_NOTFOUND;
         }
         else if (interp_i > 2) {
-            ret = 1;
-        }*/
+            return 1;
+        }
+        
         /* check if the string length is less than original one */
+        name = elf->mem + elf->data.elf32.shdr[interp_i].sh_offset;
         if (strlen(name) != elf->data.elf32.shdr[interp_i].sh_size - 1) {
             ret = 1;
         }
@@ -455,16 +457,17 @@ int check_interpreter(Elf *elf) {
             }
             if (!strcmp(name, ".interp")) interp_i = i;
         }
-        name = elf->mem + elf->data.elf64.shdr[interp_i].sh_offset;
+
         /* check index */
-        /*
         if (interp_i == -1) {
-            ret = -1;
+            return ERR_SEC_NOTFOUND;
         }
         else if (interp_i > 2) {
-            ret = 1;
-        }*/
+            return 1;
+        }
+        
         /* check if the string length is less than original one */
+        name = elf->mem + elf->data.elf64.shdr[interp_i].sh_offset;
         if (strlen(name) != elf->data.elf64.shdr[interp_i].sh_size - 1) {
             ret = 1;
         }
@@ -479,7 +482,7 @@ int check_interpreter(Elf *elf) {
  * @param elf elf file custom structure
  * @return error code
  */
-int checksec(Elf *elf) {
+int checksec_t0(Elf *elf) {
     char *mode, *tmp, *bind;
     char elf_info[1000];
     int err;
@@ -669,4 +672,53 @@ int checksec(Elf *elf) {
 
     printf("|--------------------------------------------------------------------------|\n");
     return 0;
+}
+
+int checksec_t1(Elf *elf) {
+    int err = 0;
+    bool flag = false;
+    err = check_pie(elf, &flag);
+    if (err == NO_ERR) {
+        if (flag)
+            CHECK_INFO("%-15s%-10s\n", "PIE", "Enabled");
+        else
+            CHECK_ERROR("%-15s%-10s\n", "PIE", "No");
+    } else {
+        CHECK_WARNING("parse PIE error\n");
+    }
+    
+    err = check_nx(elf, &flag);
+    if (err == NO_ERR) {
+        if (flag)
+            CHECK_INFO("%-15s%-10s\n", "NX", "Enabled");
+        else
+            CHECK_ERROR("%-15s%-10s\n", "NX", "No");
+    } else {
+        CHECK_WARNING("parse NX error");
+    }
+
+    err = check_cookie(elf, &flag);
+    if (err == NO_ERR) {
+        if (flag)
+            CHECK_INFO("%-15s%-10s\n", "STACK CANARY", "Enabled");
+        else
+            CHECK_ERROR("%-15s%-10s\n", "STACK CANARY", "No");
+    } else {
+        CHECK_WARNING("parse Cookie error\n");
+    }
+
+    int result = 0;
+    err = check_relro(elf, &result);
+    if (err == NO_ERR) {
+        if (result == 2)
+            CHECK_INFO("%-15s%-10s\n", "RelRO", "Enabled");
+        else if (result == 1)
+            CHECK_WARNING("%-15s%-10s\n", "RelRO", "Partial Enabled");
+        else
+            CHECK_ERROR("%-15s%-10s\n", "RelRO", "No");
+    } else {
+        CHECK_WARNING("parse RelRO error\n");
+    }
+
+    return err;
 }

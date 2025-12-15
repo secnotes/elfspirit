@@ -676,7 +676,7 @@ static void readcmdline(int argc, char *argv[]) {
     /* forensics */
     if (!strcmp(function, "checksec")) {
         init(elf_name, &elf);
-        checksec(&elf);
+        err = checksec_t1(&elf);
         finit(&elf);
     }
 }
