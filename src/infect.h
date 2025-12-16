@@ -25,30 +25,30 @@
 /**
  * @brief 使用silvio感染算法，填充text段
  * use the Silvio infection algorithm to fill in text segments
- * @param elfname elf file name
+ * @param elf elf file custom structure
  * @param parasite shellcode
  * @param size shellcode size (< 1KB)
  * @return uint64_t parasite address {-1:error,0:false,address}
  */
-uint64_t infect_silvio(char *elfname, char *parasite, size_t size);
+uint64_t infect_silvio(Elf *elf, char *parasite, size_t size);
 
 /**
  * @brief 使用skeksi增强版感染算法，填充text段. 此算法适用于开启pie的二进制
  * use the Skeksi plus infection algorithm to fill in text segments
  * this algorithm is suitable for opening binary pie
- * @param elfname elf file name
+ * @param elf elf file custom structure
  * @param parasite shellcode
  * @param size shellcode size (< 1KB)
  * @return uint64_t parasite address {-1:error,0:false,address}
  */
-uint64_t infect_skeksi_pie(char *elfname, char *parasite, size_t size);
+uint64_t infect_skeksi_pie(Elf *elf, char *parasite, size_t size);
 
 /**
  * @brief 填充text段感染
  * fill in data segments infection algorithm
- * @param elfname elf file name
+ * @param elf file custom structure
  * @param parasite shellcode
  * @param size shellcode size (< 1KB)
  * @return uint64_t parasite address {-1:error,0:false,address}
  */
-uint64_t infect_data(char *elfname, char *parasite, size_t size);
+uint64_t infect_data(Elf *elf, char *parasite, size_t size);

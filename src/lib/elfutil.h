@@ -4,12 +4,13 @@
 
 enum ErrorCode {
     /* ELF file error */
+    ERR_OUT_OF_BOUNDS = -40,
     ERR_NOTFOUND = -30,
     ERR_DYN_NOTFOUND = -20,
     ERR_SEC_NOTFOUND = -15,
     ERR_SEG_NOTFOUND = -14,
-    ERR_TYPE = -13,
-    ERR_CLASS,
+    ERR_ELF_TYPE = -13,
+    ERR_ELF_CLASS,
     /* other error */
     ERR_ARGS,
     ERR_FILE_OPEN,

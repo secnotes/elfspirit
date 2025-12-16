@@ -20,9 +20,10 @@
 #define WHITE        "\033[1;37m"
 
 #define PRINT_WARNING(format, ...) printf (""YELLOW"[!] "format""NONE"", ##__VA_ARGS__)
-#define PRINT_ERROR(format, ...) printf (""RED"[-] "format""NONE"", ##__VA_ARGS__)
+// #define PRINT_ERROR(format, ...) printf (""RED"[-] "format""NONE"", ##__VA_ARGS__)
 #define PRINT_INFO(format, ...) printf (""GREEN"[+] "format""NONE"", ##__VA_ARGS__)
 #define PRINT_VERBOSE(format, ...) printf (""NONE"[*] "format""NONE"", ##__VA_ARGS__)
+#define PRINT_ERROR(...)  do{printf(RED "[-] %s#%d: " NONE, __FILE__,__LINE__); printf(RED __VA_ARGS__);printf(NONE);}while(0)
 
 #ifdef debug
     #define PRINT_DEBUG(...)  do{printf(YELLOW "[D] %s#%d: " NONE, __FILE__,__LINE__); printf(YELLOW __VA_ARGS__);printf(NONE);}while(0)
@@ -155,3 +156,13 @@ int c2i(char ch);
 
 // 函数用于检查整数是否包含特定的宏标志位
 int has_flag(int num, int flag);
+
+/**
+ * @brief 复制数据到目标地址
+ * Copy data to the destination address
+ * @param src source address
+ * @param dst destination address
+ * @param size size of data
+ * @return error code
+ */
+int copy_data(void *src, void *dst, size_t size);

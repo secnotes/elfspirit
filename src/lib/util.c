@@ -206,27 +206,6 @@ uint64_t align_to_4k(uint64_t address) {
 }
 
 /**
- * @brief 将命令行传入的shellcode，转化为内存实际值
- * convert the shellcode passed in from the command line to the actual value in memory
- * @param sc_str input shellcode string
- * @param sc_mem output shellcode memory
- */
-int cmdline_shellcode(char *sc_str, char *sc_mem) {
-    if (strlen(sc_str) % 4 != 0) 
-        return -1;
-    else {
-        printf("shellcode: ");
-        for (size_t i = 0; i < strlen(sc_str); i += 4) {
-            unsigned char value;
-            sscanf(&sc_str[i], "\\x%2hhx", &value);
-            *(sc_mem+i/4) = value;
-            printf("%02x ", value);
-        }
-        printf("\n");
-    }
-}
-
-/**
  * @description: 将字符转换为数值
  * char to int
  * @param {char} ch
@@ -248,4 +227,24 @@ int c2i(char ch) {
 // 函数用于检查整数是否包含特定的宏标志位
 int has_flag(int num, int flag) {
     return (num & flag) == flag;
+}
+
+/**
+ * @brief 复制数据到目标地址
+ * Copy data to the destination address
+ * @param src source address
+ * @param dst destination address
+ * @param size size of data
+ * @return error code
+ */
+int copy_data(void *src, void *dst, size_t size) {
+    void *m = malloc(size);
+    if (m == NULL) {
+        perror("copy_data");
+        return FALSE;
+    }
+    memcpy(m, src, size);
+    memcpy(dst, m, size);
+    free(m);
+    return TRUE;
 }

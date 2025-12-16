@@ -24,20 +24,25 @@ void print_error(enum ErrorCode code) {
         return ;
     }
     switch (code) {
+        case ERR_OUT_OF_BOUNDS:
+            PRINT_ERROR("error: some variables may overflow\n");
+            break;
         case ERR_NOTFOUND:
             PRINT_ERROR("error: unable to find specific object\n");
+            break;
         case ERR_DYN_NOTFOUND:
             PRINT_ERROR("error: cannot find dynamic section\n");
+            break;
         case ERR_SEC_NOTFOUND:
             PRINT_ERROR("error: cannot find section\n");
             break;
         case ERR_SEG_NOTFOUND:
             PRINT_ERROR("error: cannot find segment\n");
             break;
-        case ERR_TYPE:
+        case ERR_ELF_TYPE:
             PRINT_ERROR("error: ELF type error\n");
             break;
-        case ERR_CLASS:
+        case ERR_ELF_CLASS:
             PRINT_ERROR("error: ELF Class error\n");
             break;
         case ERR_ARGS:
@@ -227,7 +232,7 @@ int get_section_index_by_name(Elf *elf, char *name) {
         }
     }
     else { 
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
     return ret;
 }
@@ -250,7 +255,7 @@ int get_section_addr_by_name(Elf *elf, char *name) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.shdr[index].sh_addr;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -272,7 +277,7 @@ int get_section_offset_by_name(Elf *elf, char *name) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.shdr[index].sh_offset;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -294,7 +299,7 @@ int get_section_type_by_name(Elf *elf, char *name) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.shdr[index].sh_type;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -316,7 +321,7 @@ int get_section_size_by_name(Elf *elf, char *name) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.shdr[index].sh_size;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -338,7 +343,7 @@ int get_section_entsize_by_name(Elf *elf, char *name) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.shdr[index].sh_entsize;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -360,7 +365,7 @@ int get_section_addralign_by_name(Elf *elf, char *name) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.shdr[index].sh_addralign;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -382,7 +387,7 @@ int get_section_flags_by_name(Elf *elf, char *name) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.shdr[index].sh_flags;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -404,7 +409,7 @@ int get_section_link_by_name(Elf *elf, char *name) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.shdr[index].sh_link;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -426,7 +431,7 @@ int get_section_info_by_name(Elf *elf, char *name) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.shdr[index].sh_info;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -698,7 +703,7 @@ int get_segment_index_by_type(Elf *elf, int type, size_t *index) {
             }
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     return ERR_SEG_NOTFOUND;
@@ -717,7 +722,7 @@ int get_segment_align_by_index(Elf *elf, int index) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.phdr[index].p_align;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -734,7 +739,7 @@ int get_segment_filesz_by_index(Elf *elf, int index) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.phdr[index].p_filesz;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -751,7 +756,7 @@ int get_segment_flags_by_index(Elf *elf, int index) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.phdr[index].p_flags;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -768,7 +773,7 @@ int get_segment_memsz_by_index(Elf *elf, int index) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.phdr[index].p_memsz;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -785,7 +790,7 @@ int get_segment_offset_by_index(Elf *elf, int index) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.phdr[index].p_offset;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -802,7 +807,7 @@ int get_segment_paddr_by_index(Elf *elf, int index) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.phdr[index].p_paddr;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -819,7 +824,7 @@ int get_segment_type_by_index(Elf *elf, int index) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.phdr[index].p_type;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -836,7 +841,7 @@ int get_segment_vaddr_by_index(Elf *elf, int index) {
     } else if (elf->class == ELFCLASS64) {
         return elf->data.elf64.phdr[index].p_vaddr;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -863,7 +868,7 @@ int get_dynseg_index_by_tag(Elf *elf, int tag) {
             }
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     return ERR_DYN_NOTFOUND;
@@ -926,7 +931,7 @@ int set_dynseg_value_by_tag(Elf *elf, int tag, uint64_t value) {
     else if (elf->class == ELFCLASS64)
         elf->data.elf64.dyn[index].d_un.d_val = value;
     else
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     return TRUE;
 }
 /* dynamic segmentation */
@@ -981,7 +986,7 @@ int set_segment_flags_by_index(Elf *elf, int index, uint64_t flags) {
     } else if (elf->class == ELFCLASS64) {
         elf->data.elf64.phdr[index].p_flags = flags;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     return TRUE;
@@ -1157,7 +1162,7 @@ int is_isolated_section_by_index(Elf *elf, int index) {
             }
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     return FALSE;
@@ -1230,26 +1235,6 @@ int get_sym_index_by_name(Elf *elf, char *name) {
         }
     }
     return ret;
-}
-
-/**
- * @brief 复制数据到目标地址
- * Copy data to the destination address
- * @param src source address
- * @param dst destination address
- * @param size size of data
- * @return error code
- */
-static int copy_data(void *src, void *dst, size_t size) {
-    void *m = malloc(size);
-    if (m == NULL) {
-        perror("copy_data");
-        return FALSE;
-    }
-    memcpy(m, src, size);
-    memcpy(dst, m, size);
-    free(m);
-    return TRUE;
 }
 
 /**
@@ -1646,7 +1631,7 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
             }
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
     return TRUE;
 }
@@ -1685,7 +1670,7 @@ int add_dynstr_name(Elf *elf, char *name, uint64_t *name_offset) {
         set_dynseg_value_by_tag(elf, DT_STRSZ, elf->data.elf64.phdr[dst_index].p_filesz);
         *name_offset = src_size;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     return TRUE;
@@ -1766,7 +1751,7 @@ int add_shstr_name(Elf *elf, char *name, uint64_t *name_offset) {
             }
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
     return TRUE;
 }
@@ -1929,7 +1914,7 @@ int set_interpreter(Elf *elf, char *new_interpreter) {
         elf->data.elf64.shdr[sec_i].sh_size = elf->data.elf64.phdr[seg_added].p_filesz;
         return TRUE;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -2063,7 +2048,7 @@ static int mov_last_sections(Elf *elf, uint64_t expand_offset, size_t size) {
         }
         section_manager_destroy(manager);
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
     return TRUE;
     
@@ -2513,7 +2498,7 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
         }
     } else {
         free_mapping_list(mapping_list);
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     free_mapping_list(mapping_list);
@@ -2635,7 +2620,7 @@ int expand_segment_content(Elf *elf, uint64_t src_offset, size_t src_size, char 
         reinit(elf);
         return seg_i;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -2700,7 +2685,7 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, size_t *added_in
             actual_addr = align_page(start_addr);
             actual_offset = align_offset(start_offset, actual_addr);
         } else {
-            return ERR_TYPE;
+            return ERR_ELF_TYPE;
         }
 
         actual_size = align_page(size);
@@ -2829,7 +2814,7 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, size_t *added_in
             actual_addr = align_page(start_addr);
             actual_offset = align_offset(start_offset, actual_addr);
         } else {
-            return ERR_TYPE;
+            return ERR_ELF_TYPE;
         }
 
         actual_size = align_page(size);
@@ -2922,7 +2907,7 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, size_t *added_in
         elf->data.elf64.phdr[*added_index].p_align = ONE_PAGE;
         elf->data.elf64.phdr[*added_index].p_flags = PF_R | PF_W;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     reinit(elf);
@@ -2996,7 +2981,7 @@ int add_segment_auto(Elf *elf, size_t size, uint64_t *added_index) {
         PRINT_VERBOSE("not found PT_NOTE or PT_NULL segment, use difficult method to add segment\n");
         return add_segment_difficult(elf, size, added_index);
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -3095,7 +3080,7 @@ int add_dynseg_difficult(Elf *elf, int type, uint64_t value) {
         }
 
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
     reinit(elf);
     return TRUE;
@@ -3127,7 +3112,7 @@ int add_dynseg_auto(Elf *elf, int type, uint64_t value) {
         }
         
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
     return TRUE;
 }
@@ -3171,7 +3156,7 @@ int add_section_entry(Elf *elf, uint64_t *added_index) {
         *added_index = elf->data.elf64.ehdr->e_shnum - 1;
         return TRUE;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -3213,7 +3198,7 @@ int add_section_auto(Elf *elf, size_t size, const char *name, uint64_t *added_in
         elf->data.elf64.shdr[*added_index].sh_size = elf->data.elf64.phdr[added_seg_i].p_filesz;
         return TRUE;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -3268,7 +3253,7 @@ int add_dynsym_entry(Elf *elf, char *name, uint64_t value, size_t code_size) {
         seg_i = expand_segment_content(elf, old_offset, old_size, (void *)&sym, sizeof(Elf64_Sym));
         seg_addr = elf->data.elf64.phdr[seg_i].p_vaddr;
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
  
     if (seg_i < 0) {
@@ -3352,7 +3337,7 @@ static int add_a_gnuhash(Elf *elf, char *content, uint64_t size) {
         set_section_addr_by_name(elf, ".gnu.hash", elf->data.elf64.phdr[added_index].p_vaddr);
         set_dynseg_value_by_tag(elf, DT_GNU_HASH, elf->data.elf64.phdr[added_index].p_vaddr);
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     return TRUE;
@@ -3405,7 +3390,7 @@ int refresh_hash_table(Elf *elf) {
         }
     } else {
         free(src_gnuhash);
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
     
 
@@ -3596,7 +3581,7 @@ int get_file_type(Elf *elf) {
                 break;
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -3670,7 +3655,7 @@ int delete_section_by_index(Elf *elf, uint64_t index) {
         uint64_t shdr_offset = elf->data.elf64.ehdr->e_shoff + index * sizeof(Elf64_Shdr);
         delete_data(elf, shdr_offset, sizeof(Elf64_Shdr));
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
     return TRUE;
 }
@@ -3731,7 +3716,7 @@ int delete_all_shdr(Elf *elf) {
         elf->data.elf64.ehdr->e_shnum = 0;
         
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
     return TRUE;
 }
@@ -3758,7 +3743,7 @@ int strip(Elf *elf) {
             }
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
    return TRUE;
@@ -3971,7 +3956,7 @@ int add_elf_header(uint8_t *bin, uint8_t *arch, uint32_t class, uint8_t *endian,
         munmap(bin_map, st.st_size);
         free(new_bin_map);
         close(fd);
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     int err = mem_to_file(bin, new_bin_map, new_size, 1);
@@ -4070,7 +4055,7 @@ int hook_extern(Elf *elf, char *symbol, char *hookfile, uint64_t hook_offset) {
         }
     } else {
         free(string);
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
     
     free(string);
@@ -4149,7 +4134,7 @@ int edit_pointer(Elf *elf, uint64_t offset, uint64_t value) {
             return ERR_COPY;
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
     return TRUE;
 }
@@ -4367,7 +4352,7 @@ int get_sym_string_table(Elf *elf, char ***name, int *count) {
             *count = string_count;
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     *name = string;
@@ -4420,7 +4405,7 @@ int get_dyn_string_table(Elf *elf, char ***name, int *count) {
             *count = string_count;
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     *name = string;
@@ -4448,7 +4433,7 @@ int check_pie(Elf *elf, bool *result) {
             *result = false;
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
     return NO_ERR;
 }
@@ -4490,7 +4475,7 @@ static int is_dynamic(Elf *elf, bool *result) {
     } else if (elf->class == ELFCLASS64)
         *result = elf->data.elf64.dyn_count?true:false;
     else
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     return NO_ERR;
 }
 

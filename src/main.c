@@ -51,7 +51,8 @@ char ver[MAX_PATH_LEN];
 char ver_elfspirt[MAX_PATH_LEN];
 char elf_name[MAX_PATH_LEN];
 char function[MAX_PATH_LEN];
-char *g_shellcode;
+char *shellcode;
+
 int err;
 uint64_t base_addr;
 uint32_t size;
@@ -90,7 +91,7 @@ enum LONG_OPTION {
 /**
  * @description: initialize arguments
  */
-static void main_init() {
+static void init_main() {
     memset(section_name, 0, MAX_PATH_LEN);
     memset(string, 0, ONE_PAGE);
     memset(file, 0, ONE_PAGE);
@@ -103,6 +104,18 @@ static void main_init() {
     po.index = 0;
     memset(po.options, 0, sizeof(po.options));
 }
+static void init_shellcode() {
+    if (strlen(string)) {
+        shellcode = calloc(size, 1);
+        err = escaped_str_to_mem(string, shellcode);
+        if (err != TRUE) {
+            free(shellcode);
+            print_error(err);
+            exit(-1);
+        }
+    }
+}
+
 static const char *shortopts = "n:z:s:f:c:a:m:e:b:o:v:i:j:l:h::AHSPBDLRIG";
 
 static const struct option longopts[] = {
@@ -293,7 +306,7 @@ static void readcmdline(int argc, char *argv[]) {
         switch (opt) {
             // set section name
             case 'n':
-                memcpy(section_name, optarg, MAX_PATH_LEN);
+                memcpy(section_name, optarg, strlen(optarg));
                 break;
             
             // set section size
@@ -455,133 +468,129 @@ static void readcmdline(int argc, char *argv[]) {
 
     /* handle additional long parameters */
     Elf elf;
-    char *shellcode;
     if (optind == argc - 1) {
         memcpy(elf_name, argv[optind], strlen(argv[optind]));
+        init(elf_name, &elf);
         if (g_long_option) {
             switch (g_long_option)
             {
                 case EDIT_POINTER:
                     /* set pointer */
-                    init(elf_name, &elf);
                     err = edit_pointer(&elf, off, value);
                     print_error(err);
-                    finit(&elf);
                     break;
 
                 case EDIT_CONTENT:
                     /* set content */
-                    init(elf_name, &elf);
-                    shellcode = calloc(size, 1);
-                    err = escaped_str_to_mem(string, shellcode);
-                    if (err != TRUE) {
-                        free(shellcode);
-                        print_error(err);
-                        exit(-1);
-                    }
-
+                    init_shellcode();
                     err = edit_hex(&elf, off, shellcode, size);
-                    print_error(err);
-                    free(shellcode);
-                    finit(&elf);
-                    break;
-
-                case EDIT_EXTRACT:
-                    /* set contract */
-                    err = extract_fragment(elf_name, off, size, NULL);
                     print_error(err);
                     break;
 
                 case SET_INTERPRETER:
                     /* set new interpreter */
-	                init(elf_name, &elf);
                     err = set_interpreter(&elf, string);
                     print_error(err);
-                    finit(&elf);
                     break;
                 
                 case SET_RPATH:
                     /* set rpath */
-	                init(elf_name, &elf);
                     err = set_rpath(&elf, string);
                     print_error(err);
-                    finit(&elf);
                     break;
 
                 case SET_RUNPATH:
                     /* set runpath */
-	                init(elf_name, &elf);
                     err = set_runpath(&elf, string);
                     print_error(err);
-                    finit(&elf);
                     break;
 
                 case ADD_SEGMENT:
-                    init(elf_name, &elf);
                     uint64_t index = 0;
                     if (strlen(file) == 0)
                         err = add_segment_auto(&elf, size, &index);
                     else
                         err = add_segment_with_file(&elf, PT_LOAD, file);
                     print_error(err);
-                    finit(&elf);
                     break;
 
                 case ADD_SECTION:
-                    init(elf_name, &elf);
                     uint64_t index1 = 0;
                     err = add_section_auto(&elf, size, section_name, &index1);
                     print_error(err);
-                    finit(&elf);
                     break;
 
                 case REMOVE_SECTION:
-                    init(elf_name, &elf);
                     err = delete_section_by_name(&elf, section_name);
                     print_error(err);
-                    finit(&elf);
                     break;
 
                 case REMOVE_SHDR:
-                    init(elf_name, &elf);
                     err = delete_all_shdr(&elf);
                     print_error(err);
-                    finit(&elf);
                     break;
 
                 case REMOVE_STRIP:
-                    init(elf_name, &elf);
                     err = strip(&elf);
                     print_error(err);
-                    finit(&elf);
                     break;
 
                 case INJECT_HOOK:
                     /* hook */
-                    init(elf_name, &elf);
                     err = hook_extern(&elf, string, file, off);
                     print_error(err);
-                    finit(&elf);
                     break;
                 
                 case TO_EXE2SO:
                     /* convert exe to so */
-                    init(elf_name, &elf);
                     err = add_dynsym_entry(&elf, string, value, size);
                     print_error(err);
-                    finit(&elf);
+                    break;
+
+                case REFRESH_HASH:
+                    /* refresh gnu hash table */
+                    err = refresh_hash_table(&elf);
+                    print_error(err);
+                    break;
+
+                case INFECT_SILVIO:
+                    /* infect using silvio */
+                    init_shellcode();
+                    err = infect_silvio(&elf, shellcode, size);
+                    print_error(err);
+                    break;
+
+                case INFECT_SKEKSI:
+                    /* infect using skeksi plus */
+                    init_shellcode();
+                    infect_skeksi_pie(&elf, shellcode, size);
+                    print_error(err);
+                    break;
+
+                case INFECT_DATA:
+                    /* infect DATA segment */
+                    init_shellcode();
+                    err = infect_data(&elf, shellcode, size);
+                    print_error(err);
+                    break;
+                
+                default:
+                    break;
+            }
+
+            finit(&elf);
+
+            switch (g_long_option)
+            {
+                case EDIT_EXTRACT:
+                    /* set contract */
+                    err = extract_fragment(elf_name, off, size, NULL);
+                    print_error(err);
                     break;
 
                 case TO_HEX2BIN:
                     /* save escapsed string to file */
-                    shellcode = calloc(size, 1);
-                    err = escaped_str_to_mem(string, shellcode);
-                    if (err != TRUE) {
-                        free(shellcode);
-                        print_error(err);
-                        exit(-1);
-                    }
-
+                    init_shellcode();
                     err = mem_to_file(elf_name, shellcode, size, 0);
                     if (err != TRUE) {
                         free(shellcode);
@@ -589,7 +598,6 @@ static void readcmdline(int argc, char *argv[]) {
                         exit(-1);
                     }
                     PRINT_INFO("shellcode has been saved to %s\n", elf_name);
-                    free(shellcode);
                     break;
 
                 case TO_BIN2ELF:
@@ -607,46 +615,12 @@ static void readcmdline(int argc, char *argv[]) {
                     bin_to_cmd(elf_name);
                     bin_to_sh(elf_name);
                     break;
-
-                case REFRESH_HASH:
-                    /* refresh gnu hash table */
-                    init(elf_name, &elf);
-                    err = refresh_hash_table(&elf);
-                    print_error(err);
-                    finit(&elf);
-                    break;
-
-                case INFECT_SILVIO:
-                    /* infect using silvio */
-                    g_shellcode = malloc(size + 1);
-                    cmdline_shellcode(string, g_shellcode);
-                    g_shellcode[size] = '\0';
-                    infect_silvio(elf_name, g_shellcode, size + 1);
-                    free(g_shellcode);
-                    break;
-
-                case INFECT_SKEKSI:
-                    /* infect using skeksi plus */
-                    g_shellcode = malloc(size + 1);
-                    cmdline_shellcode(string, g_shellcode);
-                    g_shellcode[size] = '\0';
-                    infect_skeksi_pie(elf_name, g_shellcode, size + 1);
-                    free(g_shellcode);
-                    break;
-
-                case INFECT_DATA:
-                    /* infect DATA segment */
-                    g_shellcode = malloc(size + 1);
-                    cmdline_shellcode(string, g_shellcode);
-                    g_shellcode[size] = '\0';
-                    infect_data(elf_name, g_shellcode, size + 1);
-                    free(g_shellcode);
-                    break;
                 
                 default:
                     break;
             }
         }
+        if (shellcode) free(shellcode);
         exit(-1);
     }
 
@@ -659,30 +633,26 @@ static void readcmdline(int argc, char *argv[]) {
         memcpy(elf_name, argv[++optind], LENGTH);
     }
 
+    init(elf_name, &elf);
     /* ELF parser */
     if (!strcmp(function, "parse")) {
-        init(elf_name, &elf);
         parse(&elf, &po, length);
-        finit(&elf);
     }
 
     /* edit elf */
     if (!strcmp(function, "edit")) {
-        init(elf_name, &elf);
         edit(&elf, &po, row, column, value, section_name, string);
-        finit(&elf);
     }
 
     /* forensics */
     if (!strcmp(function, "checksec")) {
-        init(elf_name, &elf);
         err = checksec_t1(&elf);
-        finit(&elf);
     }
+    finit(&elf);
 }
 
 int main(int argc, char *argv[]) {
-    main_init();
+    init_main();
     readcmdline(argc, argv);
     return 0;
 }

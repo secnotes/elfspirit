@@ -80,7 +80,7 @@ int get_elf_type(Elf *elf) {
             return ELF_SHARED;
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -138,7 +138,7 @@ int check_hook(Elf *elf, uint64_t start, size_t size) {
             }
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     return FALSE;
@@ -181,7 +181,7 @@ int check_load_flags(Elf *elf) {
     } else if (count == 1) {
         return TRUE;
     } else if (count == 0) {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     } 
 }
 
@@ -229,7 +229,7 @@ int check_load_continuity(Elf *elf) {
             }
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     return TRUE;
@@ -306,7 +306,7 @@ int check_needed_continuity(Elf *elf) {
             }
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     if (last == 0)
@@ -337,7 +337,7 @@ int check_shdr(Elf *elf) {
             ret = 2;
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     return ret;
@@ -406,7 +406,7 @@ int check_dynstr(Elf *elf) {
             ret = 0;
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     return ret;

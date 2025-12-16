@@ -5659,7 +5659,7 @@ int parse(Elf *elf, parser_opt_t *po, uint32_t length) {
             display_hash64(elf);
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 
     return TRUE;

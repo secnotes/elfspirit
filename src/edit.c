@@ -73,7 +73,7 @@ int edit_dyn_name_value(Elf *elf, int index, char *name) {
             return TRUE;
         }
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
 
@@ -1019,6 +1019,6 @@ int edit(Elf *elf, parser_opt_t *po, int row, int column, int value, char *secti
     } else if (elf->class == ELFCLASS64) {
         return edit64(elf, po, row, column, value, section_name, dst_name);
     } else {
-        return ERR_CLASS;
+        return ERR_ELF_CLASS;
     }
 }
