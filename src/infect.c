@@ -234,7 +234,7 @@ int insert_data_t(Elf *elf, off_t offset, const void *data, size_t data_size) {
     }
 
     // 移动数据
-    if (copy_data(elf->mem + offset, elf->mem + offset + data_size, elf->size - offset) == TRUE) {
+    if (copy_data(elf->mem + offset, elf->mem + offset + data_size, elf->size - offset) == NO_ERR) {
         // 插入新数据
         memcpy(elf->mem + offset, data, data_size);
         return NO_ERR;

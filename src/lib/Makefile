@@ -1,7 +1,7 @@
 # abtain GCC main version
 GCC_VERSION := $(shell gcc -dumpversion | cut -d. -f1)
 
-DYNAMIC_LIB = libelfutil.so
+DYNAMIC_LIB = libelfspirit.so
 OUT_LIB=/usr/lib/
 LIB_SRCS = $(wildcard *.c)
 LIB_OBJS = $(LIB_SRCS:.c=.o)

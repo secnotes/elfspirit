@@ -60,12 +60,13 @@ void print_error(enum ErrorCode code) {
         case ERR_MOVE:
             PRINT_ERROR("error: memory move error\n");
             break;
-        case ERR_EXPANDSEG:
+        case ERR_EXPAND_SEG:
             PRINT_ERROR("error: expand segment error\n");
             break;
-        case ERR_ADDSEG:
+        case ERR_ADD_SEG:
             PRINT_ERROR("error: add segment error\n");
             break;
+        case NO_ERR:
         case TRUE:
             PRINT_INFO("success\n");
             break;
@@ -78,15 +79,17 @@ void print_error(enum ErrorCode code) {
 /**
  * @brief 初始化elf文件，将elf文件转化为elf结构体
  * initialize the elf file and convert it into an elf structure
- * @param elf elf file name
+ * @param elf_name elf file name
+ * @param elf elf file custom structure
+ * @param ro if modify elf
  * @return error code
  */
-int init(char *elf_name, Elf *elf) {
+int init(char *elf_name, Elf *elf, bool ro) {
     int fd = -1;
     struct stat st;
     uint8_t *elf_map = NULL;
 
-    fd = open(elf_name, O_RDWR);
+    fd = ro?open(elf_name, O_RDONLY): open(elf_name, O_RDWR);
     if (fd < 0) {
         return ERR_FILE_OPEN;
     }
@@ -95,8 +98,8 @@ int init(char *elf_name, Elf *elf) {
         close(fd);
         return ERR_FILE_STAT;
     }
-
-    elf_map = mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    elf_map = ro? mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0):
+                mmap(0, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (elf_map == MAP_FAILED) {
         close(fd);
         return ERR_MEM;
@@ -196,12 +199,13 @@ int init(char *elf_name, Elf *elf) {
 
     elf->type = get_file_type(elf);
 
-    return TRUE;
+    return NO_ERR;
 }
 
 int finit(Elf *elf) {
     close(elf->fd);
     munmap(elf->mem, elf->size);
+    return NO_ERR;
 }
 
 /**
@@ -932,7 +936,7 @@ int set_dynseg_value_by_tag(Elf *elf, int tag, uint64_t value) {
         elf->data.elf64.dyn[index].d_un.d_val = value;
     else
         return ERR_ELF_CLASS;
-    return TRUE;
+    return NO_ERR;
 }
 /* dynamic segmentation */
 /****************************************/
@@ -989,7 +993,7 @@ int set_segment_flags_by_index(Elf *elf, int index, uint64_t flags) {
         return ERR_ELF_CLASS;
     }
 
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -1126,11 +1130,24 @@ int get_section_index_in_segment(Elf *elf, char *name, int out_index[], int max_
  * Determine whether the section is an isolated section based on its name, that is, it does not belong to any segment.
  * @param elf Elf custom structure
  * @param name Elf section name
- * @return TRUE or FALSE
+ * @param result true or false
+ * @return error code
  */
-int is_isolated_section_by_name(Elf *elf, char *name) {
+int is_isolated_section_by_name(Elf *elf, char *name, bool *result) {
     int index = get_section_index_by_name(elf, name);
-    return is_isolated_section_by_index(elf, index);
+    if (index < 0) {
+        PRINT_ERROR("err: get_section_index_by_name\n");
+        return index;
+    }
+    bool flag;
+    int err = is_isolated_section_by_index(elf, index, &flag);
+    if (err != NO_ERR) {
+        PRINT_ERROR("err: is_isolated_section_by_index\n");
+        return err;
+    }
+
+    *result = flag;
+    return NO_ERR;
 }
 
 /**
@@ -1138,16 +1155,18 @@ int is_isolated_section_by_name(Elf *elf, char *name) {
  * Determine whether the section is an isolated section based on its index, that is, it does not belong to any segment.
  * @param elf Elf custom structure
  * @param index Elf section index
- * @return TRUE or FALSE
+ * @param result true or false
+ * @return error code
  */
-int is_isolated_section_by_index(Elf *elf, int index) {
+int is_isolated_section_by_index(Elf *elf, int index, bool *result) {
     if (elf->class == ELFCLASS32) {
         int addr = elf->data.elf32.shdr[index].sh_addr;
         int size = elf->data.elf32.shdr[index].sh_size;
         if (addr == 0) {
             for (int i = 0; i < elf->data.elf32.ehdr->e_phnum; i++) {
                 if (addr+size > elf->data.elf32.phdr[i].p_vaddr+elf->data.elf32.phdr[i].p_memsz) {
-                    return TRUE;
+                    *result = true;
+                    return NO_ERR;
                 }
             }
         }
@@ -1157,7 +1176,8 @@ int is_isolated_section_by_index(Elf *elf, int index) {
         if (addr == 0) {
             for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
                 if (addr+size > elf->data.elf64.phdr[i].p_vaddr+elf->data.elf64.phdr[i].p_memsz) {
-                    return TRUE;
+                    *result = true;
+                    return NO_ERR;
                 }
             }
         }
@@ -1165,7 +1185,8 @@ int is_isolated_section_by_index(Elf *elf, int index) {
         return ERR_ELF_CLASS;
     }
 
-    return FALSE;
+    *result = false;
+    return NO_ERR;
 }
 
 
@@ -1255,7 +1276,7 @@ static int change_file_size(Elf *elf, size_t new_size) {
         elf->size = new_size;
         reinit(elf);
     }
-    return TRUE;
+    return NO_ERR;
 }
 
 void reinit(Elf *elf) {
@@ -1371,7 +1392,7 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name) {
             char *section_name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[index].sh_name;
             memset(section_name, 0, strlen(section_name));
             strcpy(section_name, dst_name);
-            return TRUE;
+            return NO_ERR;
         } else {
             size_t src_len = elf->data.elf32.shstrtab->sh_size;
             size_t dst_len = src_len + strlen(dst_name) + 1;
@@ -1379,12 +1400,13 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name) {
             size_t expand_start = 0;
             int err = expand_segment_test(elf, dst_len, &expand_start);
             if (err != NO_ERR) {
-                return FALSE;
+                PRINT_ERROR("error: expand_segment_test");
+                return err;
             }
             void *src = (void *)elf->mem + elf->data.elf32.shstrtab->sh_offset;
             void *dst = (void *)elf->mem + expand_start;
 
-            if (copy_data(src, dst, src_len) == TRUE) {
+            if (copy_data(src, dst, src_len) == NO_ERR) {
                 // new section shstrtab
                 elf->data.elf32.shstrtab->sh_offset = expand_start;
                 elf->data.elf32.shstrtab->sh_size = dst_len;
@@ -1393,10 +1415,10 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name) {
                 strcpy(dst + src_len, dst_name);
                 // new section name offset
                 elf->data.elf32.shdr[index].sh_name = src_len;
-                return TRUE;
+                return NO_ERR;
             } else {
                 PRINT_ERROR("error: mov section\n");
-                return FALSE;
+                return ERR_MOVE;
             }
         }
     } else if (elf->class == ELFCLASS64) {
@@ -1404,7 +1426,7 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name) {
             char *section_name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[index].sh_name;
             memset(section_name, 0, strlen(section_name));
             strcpy(section_name, dst_name);
-            return TRUE;
+            return NO_ERR;
         } else {
             size_t src_len = elf->data.elf64.shstrtab->sh_size;
             size_t dst_len = src_len + strlen(dst_name) + 1;
@@ -1412,12 +1434,13 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name) {
             size_t expand_start = 0;
             int err = expand_segment_test(elf, dst_len, &expand_start);
             if (err != NO_ERR) {
-                return FALSE;
+                PRINT_ERROR("error: expand_segment_test");
+                return err;
             }
             void *src = (void *)elf->mem + elf->data.elf64.shstrtab->sh_offset;
             void *dst = (void *)elf->mem + expand_start;
 
-            if (copy_data(src, dst, src_len) == TRUE) {
+            if (copy_data(src, dst, src_len) == NO_ERR) {
                 // new section shstrtab
                 elf->data.elf64.shstrtab->sh_offset = expand_start;
                 elf->data.elf64.shstrtab->sh_size = dst_len;
@@ -1426,10 +1449,10 @@ int set_section_name_t(Elf *elf, char *src_name, char *dst_name) {
                 strcpy(dst + src_len, dst_name);
                 // new section name offset
                 elf->data.elf64.shdr[index].sh_name = src_len;
-                return TRUE;
+                return NO_ERR;
             } else {
                 PRINT_ERROR("error: mov section\n");
-                return FALSE;
+                return ERR_MOVE;
             }
         }
     }
@@ -1505,7 +1528,7 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
             char *name = elf->mem + elf->data.elf32.dynstrtab->sh_offset + elf->data.elf32.dynsym_entry[sym_i].st_name;
             memset(name, 0, strlen(name));
             strcpy(name, dst_name);
-            return TRUE;
+            return NO_ERR;
         } else {
             /* Determine whether dynstr is within an independent PT_LOAD segment */
             /* 判断dynstr是否在一个独立的PT_LOAD段内 */
@@ -1522,23 +1545,23 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
                     elf->data.elf32.dynsym_entry[sym_i].st_name = elf->data.elf32.dynstrtab->sh_size;
                     elf->data.elf32.dynstrtab->sh_size += strlen(dst_name) + 1;
                     elf->data.elf32.dyn[strsz_i].d_un.d_val += strlen(dst_name) + 1;
-                } else if (expand_segment_load(elf, seg_i, strlen(dst_name) + 1, &offset, &addr) == TRUE) {
+                } else if (expand_segment_load(elf, seg_i, strlen(dst_name) + 1, &offset, &addr) == NO_ERR) {
                     memset((void *)elf->mem + elf->data.elf32.dynstrtab->sh_offset + elf->data.elf32.dynstrtab->sh_size, 0, strlen(dst_name) + 1);
                     strcpy((char *)elf->mem + elf->data.elf32.dynstrtab->sh_offset + elf->data.elf32.dynstrtab->sh_size, dst_name);
                     elf->data.elf32.dyn[strsz_i].d_un.d_val += strlen(dst_name) + 1;
                     elf->data.elf32.dynstrtab->sh_size += strlen(dst_name) + 1;
                     elf->data.elf32.dynsym_entry[sym_i].st_name = elf->data.elf32.dynstrtab->sh_size - (strlen(dst_name) + 1);
                 } else {
-                    return ERR_EXPANDSEG;
+                    return ERR_EXPAND_SEG;
                 }
 
-                return TRUE;
+                return NO_ERR;
             }
             PRINT_VERBOSE("dynstr is not in an isolated PT_LOAD segment, add a new segment\n");
             size_t src_len = elf->data.elf32.dynstrtab->sh_size;
             size_t dst_len = src_len + strlen(dst_name) + 1;
-            if (add_segment_easy(elf, dst_len, &seg_i) != TRUE) {
-                return ERR_ADDSEG;
+            if (add_segment_easy(elf, dst_len, &seg_i) != NO_ERR) {
+                return ERR_ADD_SEG;
             }
 
             uint32_t dst_offset = elf->data.elf32.phdr[seg_i].p_offset;
@@ -1546,7 +1569,7 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
             void *src = (void *)elf->mem + elf->data.elf32.dynstrtab->sh_offset;
             void *dst = (void *)elf->mem + dst_offset;
 
-            if (copy_data(src, dst, src_len) == TRUE) {
+            if (copy_data(src, dst, src_len) == NO_ERR) {
                 // new section dynstr table
                 elf->data.elf32.dynstrtab->sh_offset = dst_offset;
                 elf->data.elf32.dynstrtab->sh_addr = dst_addr;
@@ -1560,7 +1583,7 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
                 strcpy(dst + src_len, dst_name);
                 // new section name offset
                 elf->data.elf32.dynsym_entry[sym_i].st_name = src_len;
-                return TRUE;
+                return NO_ERR;
             } else {
                 return ERR_COPY;
             }
@@ -1570,7 +1593,7 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
             char *name = elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dynsym_entry[sym_i].st_name;
             memset(name, 0, strlen(name));
             strcpy(name, dst_name);
-            return TRUE;
+            return NO_ERR;
         } else {
             /* Determine whether dynstr is within an independent PT_LOAD segment */
             /* 判断dynstr是否在一个独立的PT_LOAD段内 */
@@ -1587,23 +1610,23 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
                     elf->data.elf64.dynsym_entry[sym_i].st_name = elf->data.elf64.dynstrtab->sh_size;
                     elf->data.elf64.dynstrtab->sh_size += strlen(dst_name) + 1;
                     elf->data.elf64.dyn[strsz_i].d_un.d_val += strlen(dst_name) + 1;
-                } else if (expand_segment_load(elf, seg_i, strlen(dst_name) + 1, &offset, &addr) == TRUE) {
+                } else if (expand_segment_load(elf, seg_i, strlen(dst_name) + 1, &offset, &addr) == NO_ERR) {
                     memset((void *)elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dynstrtab->sh_size, 0, strlen(dst_name) + 1);
                     strcpy((char *)elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dynstrtab->sh_size, dst_name);
                     elf->data.elf64.dyn[strsz_i].d_un.d_val += strlen(dst_name) + 1;
                     elf->data.elf64.dynstrtab->sh_size += strlen(dst_name) + 1;
                     elf->data.elf64.dynsym_entry[sym_i].st_name = elf->data.elf64.dynstrtab->sh_size - (strlen(dst_name) + 1);
                 } else {
-                    return ERR_EXPANDSEG;
+                    return ERR_EXPAND_SEG;
                 }
 
-                return TRUE;
+                return NO_ERR;
             }
             PRINT_VERBOSE("dynstr is not in an isolated PT_LOAD segment, add a new segment\n");
             size_t src_len = elf->data.elf64.dynstrtab->sh_size;
             size_t dst_len = src_len + strlen(dst_name) + 1;
-            if (add_segment_easy(elf, dst_len, &seg_i) != TRUE) {
-                return ERR_ADDSEG;
+            if (add_segment_easy(elf, dst_len, &seg_i) != NO_ERR) {
+                return ERR_ADD_SEG;
             }
 
             uint64_t dst_offset = elf->data.elf64.phdr[seg_i].p_offset;
@@ -1611,7 +1634,7 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
             void *src = (void *)elf->mem + elf->data.elf64.dynstrtab->sh_offset;
             void *dst = (void *)elf->mem + dst_offset;
 
-            if (copy_data(src, dst, src_len) == TRUE) {
+            if (copy_data(src, dst, src_len) == NO_ERR) {
                 // new section dynstr table
                 elf->data.elf64.dynstrtab->sh_offset = dst_offset;
                 elf->data.elf64.dynstrtab->sh_addr = dst_addr;
@@ -1625,7 +1648,7 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
                 strcpy(dst + src_len, dst_name);
                 // new section name offset
                 elf->data.elf64.dynsym_entry[sym_i].st_name = src_len;
-                return TRUE;
+                return NO_ERR;
             } else {
                 return ERR_COPY;
             }
@@ -1633,7 +1656,7 @@ int set_dynstr_name(Elf *elf, char *src_name, char *dst_name) {
     } else {
         return ERR_ELF_CLASS;
     }
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -1648,6 +1671,7 @@ int add_dynstr_name(Elf *elf, char *name, uint64_t *name_offset) {
     uint64_t src_offset = get_section_offset_by_name(elf, ".dynstr");
     uint64_t src_size = get_section_size_by_name(elf, ".dynstr");
     int dst_index = 0;
+    int err = 0;
     if (index == FALSE) {
         return ERR_SEC_NOTFOUND;
     }
@@ -1657,8 +1681,16 @@ int add_dynstr_name(Elf *elf, char *name, uint64_t *name_offset) {
             PRINT_ERROR("expand_segment_content error: %d\n", dst_index);
             return dst_index;
         }
-        set_dynseg_value_by_tag(elf, DT_STRTAB, elf->data.elf32.phdr[dst_index].p_vaddr);
-        set_dynseg_value_by_tag(elf, DT_STRSZ, elf->data.elf32.phdr[dst_index].p_filesz);
+        err = set_dynseg_value_by_tag(elf, DT_STRTAB, elf->data.elf32.phdr[dst_index].p_vaddr);
+        if (err != NO_ERR) {
+            PRINT_ERROR("set DT_STRTAB error\n");
+            return err;
+        }
+        err = set_dynseg_value_by_tag(elf, DT_STRSZ, elf->data.elf32.phdr[dst_index].p_filesz);
+        if (err != NO_ERR) {
+            PRINT_ERROR("set DT_STRSZ error\n");
+            return err;
+        }
         *name_offset = src_size;
     } else if (elf->class == ELFCLASS64) { 
         dst_index = expand_segment_content(elf, src_offset, src_size, name, strlen(name) + 1);
@@ -1666,14 +1698,22 @@ int add_dynstr_name(Elf *elf, char *name, uint64_t *name_offset) {
             PRINT_ERROR("expand_segment_content error: %d\n", dst_index);
             return dst_index;
         }
-        set_dynseg_value_by_tag(elf, DT_STRTAB, elf->data.elf64.phdr[dst_index].p_vaddr);
-        set_dynseg_value_by_tag(elf, DT_STRSZ, elf->data.elf64.phdr[dst_index].p_filesz);
+        err = set_dynseg_value_by_tag(elf, DT_STRTAB, elf->data.elf64.phdr[dst_index].p_vaddr);
+        if (err != NO_ERR) {
+            PRINT_ERROR("set DT_STRTAB error\n");
+            return err;
+        }
+        err = set_dynseg_value_by_tag(elf, DT_STRSZ, elf->data.elf64.phdr[dst_index].p_filesz);
+        if (err != NO_ERR) {
+            PRINT_ERROR("set DT_STRSZ error\n");
+            return err;
+        }
         *name_offset = src_size;
     } else {
         return ERR_ELF_CLASS;
     }
 
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -1713,22 +1753,22 @@ int add_shstr_name(Elf *elf, char *name, uint64_t *name_offset) {
                 memset((void *)elf->mem + elf->data.elf64.shdr[shstr_sec_i].sh_offset + elf->data.elf64.shdr[shstr_sec_i].sh_size, 0, strlen(name) + 1);
                 strcpy((char *)elf->mem + elf->data.elf64.shdr[shstr_sec_i].sh_offset + elf->data.elf64.shdr[shstr_sec_i].sh_size, name);
                 elf->data.elf64.shdr[shstr_sec_i].sh_size += strlen(name) + 1;
-            } else if (expand_segment_load(elf, seg_i, strlen(name) + 1, &offset, &addr) == TRUE) {
+            } else if (expand_segment_load(elf, seg_i, strlen(name) + 1, &offset, &addr) == NO_ERR) {
                 *name_offset = elf->data.elf64.shdr[shstr_sec_i].sh_size;
                 memset((void *)elf->mem + elf->data.elf64.shdr[shstr_sec_i].sh_offset + elf->data.elf64.shdr[shstr_sec_i].sh_size, 0, strlen(name) + 1);
                 strcpy((char *)elf->mem + elf->data.elf64.shdr[shstr_sec_i].sh_offset + elf->data.elf64.shdr[shstr_sec_i].sh_size, name);
                 elf->data.elf64.shdr[shstr_sec_i].sh_size += strlen(name) + 1;
             } else {
-                return ERR_EXPANDSEG;
+                return ERR_EXPAND_SEG;
             }
 
-            return TRUE;
+            return NO_ERR;
         } else {
             PRINT_VERBOSE("dynstr is not in an isolated PT_LOAD segment, add a new segment\n");
             size_t src_len = elf->data.elf64.shdr[shstr_sec_i].sh_size;
             size_t dst_len = src_len + strlen(name) + 1;
-            if (add_segment_auto(elf, dst_len, &seg_i) != TRUE) {
-                return ERR_ADDSEG;
+            if (add_segment_auto(elf, dst_len, &seg_i) != NO_ERR) {
+                return ERR_ADD_SEG;
             }
 
             uint64_t dst_offset = elf->data.elf64.phdr[seg_i].p_offset;
@@ -1736,7 +1776,7 @@ int add_shstr_name(Elf *elf, char *name, uint64_t *name_offset) {
             void *src = (void *)elf->mem + elf->data.elf64.shdr[shstr_sec_i].sh_offset;
             void *dst = (void *)elf->mem + dst_offset;
 
-            if (copy_data(src, dst, src_len) == TRUE) {
+            if (copy_data(src, dst, src_len) == NO_ERR) {
                 // new section shdr table
                 elf->data.elf64.shdr[shstr_sec_i].sh_offset = dst_offset;
                 // elf->data.elf64.shdr[shstr_sec_i].sh_addr = dst_addr;
@@ -1745,7 +1785,7 @@ int add_shstr_name(Elf *elf, char *name, uint64_t *name_offset) {
                 strcpy(dst + src_len, name);
                 // new section name offset
                 *name_offset = src_len;
-                return TRUE;
+                return NO_ERR;
             } else {
                 return ERR_COPY;
             }
@@ -1753,7 +1793,7 @@ int add_shstr_name(Elf *elf, char *name, uint64_t *name_offset) {
     } else {
         return ERR_ELF_CLASS;
     }
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -1768,7 +1808,7 @@ int set_sym_name_t(Elf *elf, char *src_name, char *dst_name) {
     int index = get_sym_index_by_name(elf, src_name);
     if (index == FALSE) {
         printf("%s section not found!\n", src_name);
-        return FALSE;
+        return ERR_SEC_NOTFOUND;
     }
     if (elf->class == ELFCLASS32) {
         size_t src_len = elf->data.elf32.dynstrtab->sh_size;
@@ -1777,12 +1817,12 @@ int set_sym_name_t(Elf *elf, char *src_name, char *dst_name) {
         size_t expand_start = 0;
         int err = expand_segment_test(elf, dst_len, &expand_start);
         if (err != NO_ERR) {
-            return FALSE;
+            return ERR_EXPAND_SEG;
         }
         void *src = (void *)elf->mem + elf->data.elf32.dynstrtab->sh_offset;
         void *dst = (void *)elf->mem + expand_start;
 
-        if (copy_data(src, dst, src_len) == TRUE) {
+        if (copy_data(src, dst, src_len) == NO_ERR) {
             // new section dynstr table
             elf->data.elf32.dynstrtab->sh_offset = expand_start;
             elf->data.elf32.dynstrtab->sh_size = dst_len;
@@ -1796,17 +1836,17 @@ int set_sym_name_t(Elf *elf, char *src_name, char *dst_name) {
             strcpy(dst + src_len, dst_name);
             // new section name offset
             elf->data.elf32.dynsym_entry[index].st_name = src_len;
-            return TRUE;
+            return NO_ERR;
         } else {
             printf("error: mov section\n");
-            return FALSE;
+            return ERR_MOVE;
         }
     } else if (elf->class == ELFCLASS64) {
         if (strlen(dst_name) <= strlen(src_name)) {
             char *name = elf->mem + elf->data.elf64.strtab->sh_offset + elf->data.elf64.sym_entry[index].st_name;
             memset(name, 0, strlen(name));
             strcpy(name, dst_name);
-            return TRUE;
+            return NO_ERR;
         } else {
             size_t src_len = elf->data.elf64.strtab->sh_size;
             size_t dst_len = src_len + strlen(dst_name) + 1;
@@ -1814,12 +1854,12 @@ int set_sym_name_t(Elf *elf, char *src_name, char *dst_name) {
             size_t expand_start = 0;
             int err = expand_segment_test(elf, dst_len, &expand_start);
             if (err != NO_ERR) {
-                return FALSE;
+                return err;
             }
             void *src = (void *)elf->mem + elf->data.elf64.strtab->sh_offset;
             void *dst = (void *)elf->mem + expand_start;
 
-            if (copy_data(src, dst, src_len) == TRUE) {
+            if (copy_data(src, dst, src_len) == NO_ERR) {
                 // new section dynstr table
                 elf->data.elf64.strtab->sh_offset = expand_start;
                 elf->data.elf64.strtab->sh_size = dst_len;
@@ -1828,10 +1868,10 @@ int set_sym_name_t(Elf *elf, char *src_name, char *dst_name) {
                 strcpy(dst + src_len, dst_name);
                 // new section name offset
                 elf->data.elf64.sym_entry[index].st_name = src_len;
-                return TRUE;
+                return NO_ERR;
             } else {
                 printf("error: mov section\n");
-                return FALSE;
+                return ERR_MOVE;
             }
         }
     }
@@ -1853,7 +1893,7 @@ int set_interpreter(Elf *elf, char *new_interpreter) {
     if (strlen(new_interpreter) + 1 <= size) {
         PRINT_VERBOSE("don't need to add a segment\n");
         memcpy((void *)elf->mem + offset, new_interpreter, strlen(new_interpreter) + 1);
-        return TRUE;
+        return NO_ERR;
     }
     if (elf->class == ELFCLASS32) {
         PRINT_VERBOSE("need to add a segment\n");
@@ -1861,7 +1901,7 @@ int set_interpreter(Elf *elf, char *new_interpreter) {
         // add a new load segment to store the new interpreter string
         size_t seg_added = 0;
         int err = add_segment_easy(elf, strlen(new_interpreter) + 1, &seg_added);
-        if (err != TRUE) {
+        if (err != NO_ERR) {
             return err;
         }
         
@@ -1883,14 +1923,14 @@ int set_interpreter(Elf *elf, char *new_interpreter) {
         elf->data.elf32.shdr[sec_i].sh_offset = elf->data.elf32.phdr[seg_added].p_offset;
         elf->data.elf32.shdr[sec_i].sh_addr = elf->data.elf32.phdr[seg_added].p_vaddr;
         elf->data.elf32.shdr[sec_i].sh_size = elf->data.elf32.phdr[seg_added].p_filesz;
-        return TRUE;
+        return NO_ERR;
     } else if (elf->class == ELFCLASS64){
         PRINT_VERBOSE("need to add a segment\n");
         // 添加一个新的load段，存放新的interpreter字符串
         // add a new load segment to store the new interpreter string
         size_t seg_added = 0;
         int err = add_segment_easy(elf, strlen(new_interpreter) + 1, &seg_added);
-        if (err != TRUE) {
+        if (err != NO_ERR) {
             return err;
         }
         
@@ -1912,7 +1952,7 @@ int set_interpreter(Elf *elf, char *new_interpreter) {
         elf->data.elf64.shdr[sec_i].sh_offset = elf->data.elf64.phdr[seg_added].p_offset;
         elf->data.elf64.shdr[sec_i].sh_addr = elf->data.elf64.phdr[seg_added].p_vaddr;
         elf->data.elf64.shdr[sec_i].sh_size = elf->data.elf64.phdr[seg_added].p_filesz;
-        return TRUE;
+        return NO_ERR;
     } else {
         return ERR_ELF_CLASS;
     }
@@ -1929,7 +1969,8 @@ int set_rpath(Elf *elf, char *rpath) {
     // 1. store rpath string in .dynstr
     uint64_t path_offset = 0;
     int err = add_dynstr_name(elf, rpath, &path_offset);
-    if (err != TRUE) {
+    if (err != NO_ERR) {
+        PRINT_ERROR("add dynstr name error :%d\n", err);
         return err;
     }
     // 2. add DT_RPATH entry in .dynamic
@@ -1947,7 +1988,8 @@ int set_runpath(Elf *elf, char *runpath) {
     // 1. store runpath string in .dynstr
     uint64_t path_offset = 0;
     int err = add_dynstr_name(elf, runpath, &path_offset);
-    if (err != TRUE) {
+    if (err != NO_ERR) {
+        PRINT_ERROR("add dynstr name error :%d\n", err);
         return err;
     }
     // 2. add DT_RUNPATH entry in .dynamic
@@ -1960,12 +2002,12 @@ static int mov_last_sections(Elf *elf, uint64_t expand_offset, size_t size) {
         void *src = (void *)elf->mem + elf->data.elf32.ehdr->e_shoff;
         void *dst = (void *)elf->mem + elf->data.elf32.ehdr->e_shoff + size;
         size_t src_len = elf->data.elf32.ehdr->e_shnum * elf->data.elf32.ehdr->e_shentsize;
-        if (copy_data(src, dst, src_len) == TRUE) {
+        if (copy_data(src, dst, src_len) == NO_ERR) {
             elf->data.elf32.ehdr->e_shoff += size;
             reinit(elf);
         } else {
             printf("error: mov section header\n");
-            return FALSE;
+            return ERR_MOVE;
         }
 
         /* 按节偏移降序排序 */
@@ -1973,7 +2015,7 @@ static int mov_last_sections(Elf *elf, uint64_t expand_offset, size_t size) {
         SectionManager *manager = section_manager_create();
         if (!manager) {
             printf("Failed to create section manager\n");
-            return FALSE;
+            return ERR_MEM;
         }
 
         for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
@@ -1991,11 +2033,11 @@ static int mov_last_sections(Elf *elf, uint64_t expand_offset, size_t size) {
         while (cur_sec) {
             void *src = (void *)elf->mem + cur_sec->shdr32->sh_offset;
             void *dst = (void *)elf->mem + cur_sec->shdr32->sh_offset + size;
-            if (copy_data(src, dst, cur_sec->shdr32->sh_size) == TRUE) {
+            if (copy_data(src, dst, cur_sec->shdr32->sh_size) == NO_ERR) {
                 cur_sec->shdr32->sh_offset += size;
             } else {
                 PRINT_ERROR("error: mov section\n");
-                return FALSE;
+                return ERR_MOVE;
             }  
             cur_sec = cur_sec->next;
             link_index++;
@@ -2006,12 +2048,12 @@ static int mov_last_sections(Elf *elf, uint64_t expand_offset, size_t size) {
         void *src = (void *)elf->mem + elf->data.elf64.ehdr->e_shoff;
         void *dst = (void *)elf->mem + elf->data.elf64.ehdr->e_shoff + size;
         size_t src_len = elf->data.elf64.ehdr->e_shnum * elf->data.elf64.ehdr->e_shentsize;
-        if (copy_data(src, dst, src_len) == TRUE) {
+        if (copy_data(src, dst, src_len) == NO_ERR) {
             elf->data.elf64.ehdr->e_shoff += size;
             reinit(elf);
         } else {
             printf("error: mov section header\n");
-            return FALSE;
+            return ERR_MEM;
         }
 
         /* 按节偏移降序排序 */
@@ -2019,7 +2061,7 @@ static int mov_last_sections(Elf *elf, uint64_t expand_offset, size_t size) {
         SectionManager *manager = section_manager_create();
         if (!manager) {
             printf("Failed to create section manager\n");
-            return FALSE;
+            return ERR_MEM;
         }
 
         for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
@@ -2037,11 +2079,11 @@ static int mov_last_sections(Elf *elf, uint64_t expand_offset, size_t size) {
         while (cur_sec) {
             void *src = (void *)elf->mem + cur_sec->shdr64->sh_offset;
             void *dst = (void *)elf->mem + cur_sec->shdr64->sh_offset + size;
-            if (copy_data(src, dst, cur_sec->shdr64->sh_size) == TRUE) {
+            if (copy_data(src, dst, cur_sec->shdr64->sh_size) == NO_ERR) {
                 cur_sec->shdr64->sh_offset += size;
             } else {
                 PRINT_ERROR("error: mov section\n");
-                return FALSE;
+                return ERR_MOVE;
             }  
             cur_sec = cur_sec->next;
             link_index++;
@@ -2050,7 +2092,7 @@ static int mov_last_sections(Elf *elf, uint64_t expand_offset, size_t size) {
     } else {
         return ERR_ELF_CLASS;
     }
-    return TRUE;
+    return NO_ERR;
     
 }
 
@@ -2111,7 +2153,7 @@ int expand_segment_test(Elf *elf, size_t size, size_t *start) {
         ftruncate(elf->fd, new_size);
         void* new_map = mremap(elf->mem, elf->size, new_size, MREMAP_MAYMOVE);
         if (new_map == MAP_FAILED) {
-            PRINT_DEBUG("mremap");
+            PRINT_ERROR("mremap");
             return ERR_MEM;
         } else {
             // reinit custom elf structure
@@ -2125,12 +2167,12 @@ int expand_segment_test(Elf *elf, size_t size, size_t *start) {
             void *src = (void *)elf->mem + elf->data.elf32.ehdr->e_shoff;
             void *dst = (void *)elf->mem + elf->data.elf32.ehdr->e_shoff + size;
             size_t src_len = elf->data.elf32.ehdr->e_shnum * elf->data.elf32.ehdr->e_shentsize;
-            if (copy_data(src, dst, src_len) == TRUE) {
+            if (copy_data(src, dst, src_len) == NO_ERR) {
                 elf->data.elf32.ehdr->e_shoff += size;
                 // reinit custom elf structure after move!
                 reinit(elf);
             } else {
-                PRINT_DEBUG("error: mov section header\n");
+                PRINT_ERROR("error: mov section header\n");
                 return ERR_MOVE;
             }
         }
@@ -2139,8 +2181,8 @@ int expand_segment_test(Elf *elf, size_t size, size_t *start) {
         /* Sort by section offset in descending order */
         SectionManager *manager = section_manager_create();
         if (!manager) {
-            PRINT_DEBUG("error: failed to create section manager\n");
-            return ERROR;
+            PRINT_ERROR("error: failed to create section manager\n");
+            return ERR_MEM;
         }
 
         for (int i = 0; i < elf->data.elf32.ehdr->e_shnum; i++) {
@@ -2158,10 +2200,10 @@ int expand_segment_test(Elf *elf, size_t size, size_t *start) {
         while (current) {
             void *src = (void *)elf->mem + current->shdr32->sh_offset;
             void *dst = (void *)elf->mem + current->shdr32->sh_offset + size;
-            if (copy_data(src, dst, current->shdr32->sh_size) == TRUE) {
+            if (copy_data(src, dst, current->shdr32->sh_size) == NO_ERR) {
                 current->shdr32->sh_offset += size;
             } else {
-                PRINT_DEBUG("error: mov section\n");
+                PRINT_ERROR("error: mov section\n");
                 return ERR_MOVE;
             }  
             current = current->next;
@@ -2185,7 +2227,7 @@ int expand_segment_test(Elf *elf, size_t size, size_t *start) {
         ftruncate(elf->fd, new_size);
         void* new_map = mremap(elf->mem, elf->size, new_size, MREMAP_MAYMOVE);
         if (new_map == MAP_FAILED) {
-            PRINT_DEBUG("mremap");
+            PRINT_ERROR("mremap");
             return ERR_MEM;
         } else {
             // reinit custom elf structure
@@ -2199,12 +2241,12 @@ int expand_segment_test(Elf *elf, size_t size, size_t *start) {
             void *src = (void *)elf->mem + elf->data.elf64.ehdr->e_shoff;
             void *dst = (void *)elf->mem + elf->data.elf64.ehdr->e_shoff + size;
             size_t src_len = elf->data.elf64.ehdr->e_shnum * elf->data.elf64.ehdr->e_shentsize;
-            if (copy_data(src, dst, src_len) == TRUE) {
+            if (copy_data(src, dst, src_len) == NO_ERR) {
                 elf->data.elf64.ehdr->e_shoff += size;
                 // reinit custom elf structure after move!
                 reinit(elf);
             } else {
-                PRINT_DEBUG("error: mov section header\n");
+                PRINT_ERROR("error: mov section header\n");
                 return ERR_MOVE;
             }
         }
@@ -2213,8 +2255,8 @@ int expand_segment_test(Elf *elf, size_t size, size_t *start) {
         /* Sort by section offset in descending order */
         SectionManager *manager = section_manager_create();
         if (!manager) {
-            PRINT_DEBUG("error: failed to create section manager\n");
-            return ERROR;
+            PRINT_ERROR("error: failed to create section manager\n");
+            return ERR_MEM;
         }
 
         for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
@@ -2232,10 +2274,10 @@ int expand_segment_test(Elf *elf, size_t size, size_t *start) {
         while (current) {
             void *src = (void *)elf->mem + current->shdr64->sh_offset;
             void *dst = (void *)elf->mem + current->shdr64->sh_offset + size;
-            if (copy_data(src, dst, current->shdr64->sh_size) == TRUE) {
+            if (copy_data(src, dst, current->shdr64->sh_size) == NO_ERR) {
                 current->shdr64->sh_offset += size;
             } else {
-                PRINT_DEBUG("error: mov section\n");
+                PRINT_ERROR("error: mov section\n");
                 return ERR_MOVE;
             }  
             current = current->next;
@@ -2269,7 +2311,8 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
     IndexMapping* found = find_mapping(mapping_list, index);
     if (found == NULL) {
         free_mapping_list(mapping_list);
-        return FALSE;
+        PRINT_ERROR("err: mapping_list\n");
+        return ERR_MEM;
     }
 
     if (elf->class == ELFCLASS32) {
@@ -2320,7 +2363,7 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
                 if (elf->data.elf32.phdr[i].p_type == PT_LOAD) {
                     void *src = (void *)elf->mem + elf->data.elf32.phdr[i].p_offset;
                     void *dst = src + added_size;
-                    if (copy_data(src, dst, elf->data.elf32.phdr[i].p_filesz) == TRUE) {
+                    if (copy_data(src, dst, elf->data.elf32.phdr[i].p_filesz) == NO_ERR) {
                         elf->data.elf32.phdr[i].p_offset += added_size;
                         elf->data.elf32.phdr[i].p_vaddr += added_size;
                         elf->data.elf32.phdr[i].p_paddr += added_size;
@@ -2432,7 +2475,7 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
                 if (elf->data.elf64.phdr[i].p_type == PT_LOAD) {
                     void *src = (void *)elf->mem + elf->data.elf64.phdr[i].p_offset;
                     void *dst = src + added_size;
-                    if (copy_data(src, dst, elf->data.elf64.phdr[i].p_filesz) == TRUE) {
+                    if (copy_data(src, dst, elf->data.elf64.phdr[i].p_filesz) == NO_ERR) {
                         elf->data.elf64.phdr[i].p_offset += added_size;
                         elf->data.elf64.phdr[i].p_vaddr += added_size;
                         elf->data.elf64.phdr[i].p_paddr += added_size;
@@ -2502,7 +2545,7 @@ int expand_segment_load(Elf *elf, uint64_t index, size_t size, uint64_t *added_o
     }
 
     free_mapping_list(mapping_list);
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -2543,23 +2586,23 @@ int expand_segment_content(Elf *elf, uint64_t src_offset, size_t src_size, char 
                 PRINT_VERBOSE("enough space in the segment, just resize it\n");
                 memcpy((char *)elf->mem + src_offset + src_size, add_content, content_size);
                 return seg_i;
-            } else if (expand_segment_load(elf, seg_i, content_size, &offset, &addr) == TRUE) {
+            } else if (expand_segment_load(elf, seg_i, content_size, &offset, &addr) == NO_ERR) {
                 PRINT_VERBOSE("not enough space in the segment, expand the segment\n");
                 memcpy((char *)elf->mem + offset, add_content, content_size);
             } else {
-                return ERR_EXPANDSEG;
+                return ERR_EXPAND_SEG;
             }
         } else {
             PRINT_VERBOSE("object is not in an isolated PT_LOAD segment, add a new segment\n");
-            if (add_segment_auto(elf, src_size + content_size, &seg_i) != TRUE) {
-                return ERR_ADDSEG;
+            if (add_segment_auto(elf, src_size + content_size, &seg_i) != NO_ERR) {
+                return ERR_ADD_SEG;
             }
 
             uint32_t dst_offset = elf->data.elf32.phdr[seg_i].p_offset;
             void *src = (void *)elf->mem + src_offset;
             void *dst = (void *)elf->mem + dst_offset;
 
-            if (copy_data(src, dst, src_size) == TRUE) {
+            if (copy_data(src, dst, src_size) == NO_ERR) {
                 memcpy((char *)dst + src_size, add_content, content_size);
             } else {
                 return ERR_COPY;
@@ -2591,23 +2634,23 @@ int expand_segment_content(Elf *elf, uint64_t src_offset, size_t src_size, char 
                 PRINT_VERBOSE("enough space in the segment, just resize it\n");
                 memcpy((char *)elf->mem + src_offset + src_size, add_content, content_size);
                 return seg_i;
-            } else if (expand_segment_load(elf, seg_i, content_size, &offset, &addr) == TRUE) {
+            } else if (expand_segment_load(elf, seg_i, content_size, &offset, &addr) == NO_ERR) {
                 PRINT_VERBOSE("not enough space in the segment, expand the segment\n");
                 memcpy((char *)elf->mem + offset, add_content, content_size);
             } else {
-                return ERR_EXPANDSEG;
+                return ERR_EXPAND_SEG;
             }
         } else {
             PRINT_VERBOSE("object is not in an isolated PT_LOAD segment, add a new segment\n");
-            if (add_segment_auto(elf, src_size + content_size, &seg_i) != TRUE) {
-                return ERR_ADDSEG;
+            if (add_segment_auto(elf, src_size + content_size, &seg_i) != NO_ERR) {
+                return ERR_ADD_SEG;
             }
 
             uint64_t dst_offset = elf->data.elf64.phdr[seg_i].p_offset;
             void *src = (void *)elf->mem + src_offset;
             void *dst = (void *)elf->mem + dst_offset;
 
-            if (copy_data(src, dst, src_size) == TRUE) {
+            if (copy_data(src, dst, src_size) == NO_ERR) {
                 memcpy((char *)dst + src_size, add_content, content_size);
             } else {
                 return ERR_COPY;
@@ -2749,7 +2792,7 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, size_t *added_in
         if (mov_pht) {
             void *src = elf->mem + elf->data.elf32.ehdr->e_phoff;
             void *dst = elf->mem + pht_offset;
-            if (copy_data(src, dst, pht_src_size) == TRUE) {
+            if (copy_data(src, dst, pht_src_size) == NO_ERR) {
                 elf->data.elf32.ehdr->e_phnum++;
                 elf->data.elf32.ehdr->e_phoff = pht_offset;
                 reinit(elf);
@@ -2878,7 +2921,7 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, size_t *added_in
         if (mov_pht) {
             void *src = elf->mem + elf->data.elf64.ehdr->e_phoff;
             void *dst = elf->mem + pht_offset;
-            if (copy_data(src, dst, pht_src_size) == TRUE) {
+            if (copy_data(src, dst, pht_src_size) == NO_ERR) {
                 elf->data.elf64.ehdr->e_phnum++;
                 elf->data.elf64.ehdr->e_phoff = pht_offset;
                 reinit(elf);
@@ -2911,7 +2954,7 @@ int add_segment_common(Elf *elf, size_t size, uint64_t mov_pht, size_t *added_in
     }
 
     reinit(elf);
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -3006,7 +3049,7 @@ int add_segment_with_file(Elf *elf, int type, char *file) {
     }
 
     err = add_segment_auto(elf, file_size, &i);
-    if (err != TRUE) {
+    if (err != NO_ERR) {
         PRINT_DEBUG("add segment error: %d\n", err);
         goto ERR_EXIT;
     }
@@ -3025,7 +3068,7 @@ int add_segment_with_file(Elf *elf, int type, char *file) {
 
 ERR_EXIT:
     free(buffer);
-    return ERR_ADDSEG;
+    return ERR_ADD_SEG;
 }
 
 /**
@@ -3055,7 +3098,8 @@ int add_dynseg_difficult(Elf *elf, int type, uint64_t value) {
 
         uint64_t added_i = 0;
         int err = add_segment_auto(elf, new_size, &added_i);
-        if (err != TRUE) {
+        if (err != NO_ERR) {
+            PRINT_ERROR("add segment error: %d\n", err);
             return err;
         }
 
@@ -3083,7 +3127,7 @@ int add_dynseg_difficult(Elf *elf, int type, uint64_t value) {
         return ERR_ELF_CLASS;
     }
     reinit(elf);
-    return TRUE;
+    return NO_ERR;
 }
 /**
  * @brief 增加一个段，自动选择增加方式
@@ -3114,7 +3158,7 @@ int add_dynseg_auto(Elf *elf, int type, uint64_t value) {
     } else {
         return ERR_ELF_CLASS;
     }
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -3139,7 +3183,7 @@ int add_section_entry(Elf *elf, uint64_t *added_index) {
         }
         elf->data.elf32.ehdr->e_shnum++;
         *added_index = elf->data.elf32.ehdr->e_shnum - 1;
-        return TRUE;
+        return NO_ERR;
     } else if (elf->class == ELFCLASS64) {
         size_t new_size = elf->size + elf->data.elf64.ehdr->e_shentsize;
         ftruncate(elf->fd, new_size);
@@ -3154,7 +3198,7 @@ int add_section_entry(Elf *elf, uint64_t *added_index) {
         }
         elf->data.elf64.ehdr->e_shnum++;
         *added_index = elf->data.elf64.ehdr->e_shnum - 1;
-        return TRUE;
+        return NO_ERR;
     } else {
         return ERR_ELF_CLASS;
     }
@@ -3172,18 +3216,19 @@ int add_section_entry(Elf *elf, uint64_t *added_index) {
 int add_section_auto(Elf *elf, size_t size, const char *name, uint64_t *added_index) {
     uint64_t added_seg_i = 0;
     int err = add_segment_auto(elf, size, &added_seg_i);
-    if (err != TRUE) {
+    if (err != NO_ERR) {
+        PRINT_ERROR("add segment error: %d\n", err);
         return err;
     }
 
     err = add_section_entry(elf, added_index);
-    if (err != TRUE) {
+    if (err != NO_ERR) {
         return err;
     }
 
     uint64_t name_offset = 0;
     err = add_shstr_name(elf, name, &name_offset);;
-    if (err != TRUE) {
+    if (err != NO_ERR) {
         return err;
     }
 
@@ -3191,12 +3236,12 @@ int add_section_auto(Elf *elf, size_t size, const char *name, uint64_t *added_in
         elf->data.elf32.shdr[*added_index].sh_name = name_offset;
         elf->data.elf32.shdr[*added_index].sh_offset = elf->data.elf32.phdr[added_seg_i].p_offset;
         elf->data.elf32.shdr[*added_index].sh_size = elf->data.elf32.phdr[added_seg_i].p_filesz;
-        return TRUE;
+        return NO_ERR;
     } else if (elf->class == ELFCLASS64) {
         elf->data.elf64.shdr[*added_index].sh_name = name_offset;
         elf->data.elf64.shdr[*added_index].sh_offset = elf->data.elf64.phdr[added_seg_i].p_offset;
         elf->data.elf64.shdr[*added_index].sh_size = elf->data.elf64.phdr[added_seg_i].p_filesz;
-        return TRUE;
+        return NO_ERR;
     } else {
         return ERR_ELF_CLASS;
     }
@@ -3224,7 +3269,8 @@ int add_dynsym_entry(Elf *elf, char *name, uint64_t value, size_t code_size) {
     dynstr_size = get_section_size_by_name(elf, ".dynstr");
     uint64_t name_offset = 0;
     err = add_dynstr_name(elf, name, &name_offset);
-    if (err != TRUE) {
+    if (err != NO_ERR) {
+        PRINT_ERROR("add dynstr name error :%d\n", err);
         return err;
     }
 
@@ -3264,7 +3310,7 @@ int add_dynsym_entry(Elf *elf, char *name, uint64_t value, size_t code_size) {
     // 3. set phdr
     PRINT_INFO("3. set phdr for DT_SYMTAB segment\n");
     err = set_dynseg_value_by_tag(elf, DT_SYMTAB, seg_addr);
-    if (err != TRUE) {
+    if (err != NO_ERR) {
         PRINT_ERROR("set DT_SYMTAB error\n");
         return err;
     }
@@ -3272,7 +3318,7 @@ int add_dynsym_entry(Elf *elf, char *name, uint64_t value, size_t code_size) {
     // 4. compute hash table
     PRINT_INFO("4. compute hash table\n");
     err =  refresh_hash_table(elf);
-    if (err != TRUE) {
+    if (err != NO_ERR) {
         PRINT_ERROR("set hash table error\n");
         return err;
     }
@@ -3280,7 +3326,7 @@ int add_dynsym_entry(Elf *elf, char *name, uint64_t value, size_t code_size) {
     // 5. change exe file to dynamic library
     PRINT_INFO("5. change exe file to dynamic library\n");
     err = set_dynseg_value_by_tag(elf, DT_FLAGS_1, DF_1_NOW);
-    if (err != TRUE) {
+    if (err != NO_ERR) {
         PRINT_ERROR("set DT_FLAGS_1 error\n");
         return err;
     }
@@ -3312,7 +3358,7 @@ static int add_a_gnuhash(Elf *elf, char *content, uint64_t size) {
     int err = 0;
     if (elf->class == ELFCLASS32) {
         err = add_segment_auto(elf, size, &added_index);
-        if (err != TRUE) {
+        if (err != NO_ERR) {
             PRINT_ERROR("add segment error: %d\n", err);
             return err;
         }
@@ -3322,10 +3368,14 @@ static int add_a_gnuhash(Elf *elf, char *content, uint64_t size) {
         set_section_offset_by_name(elf, ".gnu.hash", elf->data.elf32.phdr[added_index].p_offset);
         set_section_size_by_name(elf, ".gnu.hash", elf->data.elf32.phdr[added_index].p_filesz);
         set_section_addr_by_name(elf, ".gnu.hash", elf->data.elf32.phdr[added_index].p_vaddr);
-        set_dynseg_value_by_tag(elf, DT_GNU_HASH, elf->data.elf32.phdr[added_index].p_vaddr);
+        err = set_dynseg_value_by_tag(elf, DT_GNU_HASH, elf->data.elf32.phdr[added_index].p_vaddr);
+        if (err != NO_ERR) {
+            PRINT_ERROR("set DT_GNU_HASH error\n");
+            return err;
+        }
     } else if (elf->class == ELFCLASS64) { 
         err = add_segment_auto(elf, size, &added_index);
-        if (err != TRUE) {
+        if (err != NO_ERR) {
             PRINT_ERROR("add segment error: %d\n", err);
             return err;
         }
@@ -3335,12 +3385,16 @@ static int add_a_gnuhash(Elf *elf, char *content, uint64_t size) {
         set_section_offset_by_name(elf, ".gnu.hash", elf->data.elf64.phdr[added_index].p_offset);
         set_section_size_by_name(elf, ".gnu.hash", elf->data.elf64.phdr[added_index].p_filesz);
         set_section_addr_by_name(elf, ".gnu.hash", elf->data.elf64.phdr[added_index].p_vaddr);
-        set_dynseg_value_by_tag(elf, DT_GNU_HASH, elf->data.elf64.phdr[added_index].p_vaddr);
+        err = set_dynseg_value_by_tag(elf, DT_GNU_HASH, elf->data.elf64.phdr[added_index].p_vaddr);
+        if (err != NO_ERR) {
+            PRINT_ERROR("set DT_GNU_HASH error\n");
+            return err;
+        }
     } else {
         return ERR_ELF_CLASS;
     }
 
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -3367,7 +3421,7 @@ int refresh_hash_table(Elf *elf) {
 
     if (src_size < sizeof(gnuhash_t)) {
         PRINT_ERROR(".gnu.hash section size is too small\n");
-        return ERROR;
+        return ERR_OUT_OF_BOUNDS;
     }
 
     gnuhash_t *src_gnuhash = malloc(sizeof(gnuhash_t));
@@ -3423,7 +3477,7 @@ int refresh_hash_table(Elf *elf) {
         free(string);
         free(src_gnuhash);
         free(raw_gnuhash);
-        return ERROR;
+        return ERR_MEM;
     }
     memset(bloom_filters, 0, bloom_size);
     if (elf->class == ELFCLASS32) {
@@ -3478,7 +3532,7 @@ int refresh_hash_table(Elf *elf) {
         if (bucket < previous_bucket) {
             PRINT_ERROR("Previous bucket is greater than the current one (%s < %s)",
                     bucket, previous_bucket);
-            return ERROR;
+            return ERR_OUT_OF_BOUNDS;
         }
 
         if (bucket != previous_bucket) {
@@ -3518,7 +3572,7 @@ int refresh_hash_table(Elf *elf) {
     free(bloom_filters);
     free(raw_gnuhash);
     free(src_gnuhash);
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -3602,7 +3656,7 @@ static int delete_data(Elf *elf, uint64_t offset, size_t size) {
     void *dst = elf->mem + offset;
     void *src = elf->mem + offset + size;
     uint64_t move_size = elf->size - offset - size;
-    if (copy_data(src, dst, move_size) == FALSE) {
+    if (copy_data(src, dst, move_size) != NO_ERR) {
         return ERR_COPY;
     }
     size_t new_size = elf->size - size;
@@ -3617,7 +3671,7 @@ static int delete_data(Elf *elf, uint64_t offset, size_t size) {
         reinit(elf);
     }
 
-    return 0;
+    return NO_ERR;
 }
 
 /**
@@ -3657,7 +3711,7 @@ int delete_section_by_index(Elf *elf, uint64_t index) {
     } else {
         return ERR_ELF_CLASS;
     }
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -3687,14 +3741,14 @@ int delete_all_shdr(Elf *elf) {
     if (elf->class == ELFCLASS32) {
         // delete .shstrtab section
         err = delete_section_by_name(elf, ".shstrtab");
-        if (err != TRUE) {
+        if (err != NO_ERR) {
             return err;
         }
         elf->data.elf32.ehdr->e_shstrndx = 0;
         
         // delete all section header table
         err = delete_data(elf, elf->data.elf32.ehdr->e_shoff, elf->data.elf32.ehdr->e_shnum * sizeof(Elf32_Shdr));
-        if (err != TRUE) {
+        if (err != NO_ERR) {
             return err;
         }
         elf->data.elf32.ehdr->e_shoff = 0;
@@ -3702,14 +3756,14 @@ int delete_all_shdr(Elf *elf) {
     } else if (elf->class == ELFCLASS64) {
         // delete .shstrtab section
         err = delete_section_by_name(elf, ".shstrtab");
-        if (err != TRUE) {
+        if (err != NO_ERR) {
             return err;
         }
         elf->data.elf64.ehdr->e_shstrndx = 0;
         
         // delete all section header table
         err = delete_data(elf, elf->data.elf64.ehdr->e_shoff, elf->data.elf64.ehdr->e_shnum * sizeof(Elf64_Shdr));
-        if (err != TRUE) {
+        if (err != NO_ERR) {
             return err;
         }
         elf->data.elf64.ehdr->e_shoff = 0;
@@ -3718,7 +3772,7 @@ int delete_all_shdr(Elf *elf) {
     } else {
         return ERR_ELF_CLASS;
     }
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -3728,16 +3782,28 @@ int delete_all_shdr(Elf *elf) {
  * @return int error code {-1:error,0:sucess}
  */
 int strip(Elf *elf) {
+    int err = 0;
+    bool flag = false;
     if (elf->class == ELFCLASS32) {
         for( int i = elf->data.elf32.ehdr->e_shnum - 1; i >= 0; i--) {
-            if (is_isolated_section_by_index(elf, i) == TRUE && elf->data.elf32.shdr[i].sh_type != SHT_NULL && strcmp(get_section_name(elf, i), ".shstrtab") != 0) {
+            err = is_isolated_section_by_index(elf, i, &flag);
+            if (err != NO_ERR) {
+                PRINT_ERROR("err: is_isolated_section_by_index\n");
+                return err;
+            }
+            if (flag && elf->data.elf32.shdr[i].sh_type != SHT_NULL && strcmp(get_section_name(elf, i), ".shstrtab") != 0) {
                 PRINT_VERBOSE("delete: %d %s\n", i, get_section_name(elf, i));
                 delete_section_by_index(elf, i);
             }
         }
     } else if (elf->class == ELFCLASS64) {
         for (int i = elf->data.elf64.ehdr->e_shnum - 1; i >= 0; i--) {
-            if (is_isolated_section_by_index(elf, i) == TRUE && elf->data.elf64.shdr[i].sh_type != SHT_NULL && strcmp(get_section_name(elf, i), ".shstrtab") != 0) {
+            err = is_isolated_section_by_index(elf, i, &flag);
+            if (err != NO_ERR) {
+                PRINT_ERROR("err: is_isolated_section_by_index\n");
+                return err;
+            }
+            if (flag && elf->data.elf64.shdr[i].sh_type != SHT_NULL && strcmp(get_section_name(elf, i), ".shstrtab") != 0) {
                 PRINT_VERBOSE("delete: %d %s\n", i, get_section_name(elf, i));
                 delete_section_by_index(elf, i);
             }
@@ -3746,7 +3812,7 @@ int strip(Elf *elf) {
         return ERR_ELF_CLASS;
     }
 
-   return TRUE;
+   return NO_ERR;
 }
 
 /**
@@ -3985,7 +4051,7 @@ int hook_extern(Elf *elf, char *symbol, char *hookfile, uint64_t hook_offset) {
     }
 
     err = set_segment_flags_by_index(elf, seg_i, 7);
-    if (err != TRUE) {
+    if (err != NO_ERR) {
         PRINT_ERROR("set segment flags error: %d\n", err);
         return err;
     }
@@ -4030,7 +4096,7 @@ int hook_extern(Elf *elf, char *symbol, char *hookfile, uint64_t hook_offset) {
                 uint32_t *p = (uint32_t *)(elf->mem + offset);
                 *p = elf->data.elf32.phdr[seg_i].p_vaddr + hook_offset;
                 free(string);
-                return TRUE;
+                return NO_ERR;
             }
         }
     } else if (elf->class == ELFCLASS64) {
@@ -4050,7 +4116,7 @@ int hook_extern(Elf *elf, char *symbol, char *hookfile, uint64_t hook_offset) {
                 uint64_t *p = (uint64_t *)(elf->mem + offset);
                 *p = elf->data.elf64.phdr[seg_i].p_vaddr + hook_offset;
                 free(string);
-                return TRUE;
+                return NO_ERR;
             }
         }
     } else {
@@ -4082,7 +4148,7 @@ int escaped_str_to_mem(char *sc_str, char *sc_mem) {
         }
         printf("\n");
     }
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -4104,7 +4170,7 @@ int edit_hex(Elf *elf, uint64_t offset, uint8_t *data, size_t size) {
         return ERR_COPY;
     }
 
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -4136,7 +4202,7 @@ int edit_pointer(Elf *elf, uint64_t offset, uint64_t value) {
     } else {
         return ERR_ELF_CLASS;
     }
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -4172,9 +4238,10 @@ int extract_fragment(const char *file_name, long offset, size_t size, char *outp
     if (output)
         memcpy(output, buffer, size);
 
-    mem_to_file(file_name, buffer, size, 1);
+    int err = mem_to_file(file_name, buffer, size, 1);
     free(buffer);
     fclose(input_fp);
+    return err;
 }
 
 /**

@@ -643,15 +643,15 @@ Set* create_set() {
 int contains_element(Set *set, int value) {
     for (int i = 0; i < set->size; i++) {
         if (set->data[i] == value) {
-            return TRUE; // 找到
+            return true; // 找到
         }
     }
-    return FALSE; // 未找到
+    return false; // 未找到
 }
 
 // 增加元素
 void add_element(Set *set, int value) {
-    if (contains_element(set, value) == TRUE) {
+    if (contains_element(set, value)) {
         return; // 元素已存在
     }
     if (set->size >= set->capacity) {

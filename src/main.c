@@ -37,7 +37,7 @@
 #include "infect.h"
 #include "forensic.h"
 
-#define VERSION "1.10.2"
+#define VERSION "2.0.0.beta"
 #define CONTENT_LENGTH 1024 * 1024
 #define LENGTH 64
 
@@ -47,7 +47,6 @@ char file[ONE_PAGE];
 char config_name[ONE_PAGE];
 char arch[MAX_PATH_LEN];
 char endian[MAX_PATH_LEN];
-char ver[MAX_PATH_LEN];
 char ver_elfspirt[MAX_PATH_LEN];
 char elf_name[MAX_PATH_LEN];
 char function[MAX_PATH_LEN];
@@ -89,6 +88,24 @@ enum LONG_OPTION {
 };
 
 /**
+ * @description: obtain tool version
+ */
+static int get_version(char *ver, size_t len) {
+    int fd;
+    int err;
+
+    fd = open("./VERSION", O_RDONLY);
+    if (fd < 0) {
+        strcpy(ver, VERSION);
+        return true;
+    }
+
+    err = read(fd, ver, len);
+    close(fd);
+    return err>0?true:false;
+}
+
+/**
  * @description: initialize arguments
  */
 static void init_main() {
@@ -101,6 +118,7 @@ static void init_main() {
     size = 0;
     off = 0;
     err = 0;
+    get_version(ver_elfspirt, LENGTH);
     po.index = 0;
     memset(po.options, 0, sizeof(po.options));
 }
@@ -108,7 +126,7 @@ static void init_shellcode() {
     if (strlen(string)) {
         shellcode = calloc(size, 1);
         err = escaped_str_to_mem(string, shellcode);
-        if (err != TRUE) {
+        if (err != NO_ERR) {
             free(shellcode);
             print_error(err);
             exit(-1);
@@ -123,14 +141,12 @@ static const struct option longopts[] = {
     {"section-size", required_argument, NULL, 'z'},
     {"string", required_argument, NULL, 's'},
     {"file-name", required_argument, NULL, 'f'},
-    {"configure-name", required_argument, NULL, 'c'},
     {"architcture", required_argument, NULL, 'a'},
     {"class", required_argument, NULL, 'm'},
     {"value", required_argument, NULL, 'm'},
     {"endian", required_argument, NULL, 'e'},
     {"base", required_argument, NULL, 'b'},
     {"offset", required_argument, NULL, 'o'},
-    {"lib-version", required_argument, NULL, 'v'},
     {"help", optional_argument, NULL, 'h'},
     {"index", required_argument, NULL, 'i'},
     {"row", required_argument, NULL, 'i'},
@@ -170,7 +186,7 @@ static const char *help =
     "  shellcode    Extract binary fragments and convert shellcode. [extract, hex2bin]\n"
     "  firmware     Add ELF info to firmware or join mutli bin file. [bin2elf, joinelf]\n"
     "  patch        Patch ELF. [--set-interpreter, --set-rpath, --set-runpath]\n"
-    "  confuse      Obfuscate ELF symbols. [--rm-section, --rm-shdr, --rm-strip, confuse]\n"
+    "  confuse      Obfuscate ELF symbols. [--rm-section, --rm-shdr, --rm-strip]\n"
     "  infect       Infect ELF like virus. [--infect-silvio, --infect-skeksi, --infect-data, exe2so]\n"
     "  forensic     Analyze the Legitimacy of ELF File Structure. [checksec]\n"
     "Currently defined options:\n"
@@ -178,17 +194,15 @@ static const char *help =
     "  -z, --section-size=<section size>         Set section size\n"
     "  -f, --file-name=<file name>               File containing code(e.g. so, etc.)\n"
     "  -s, --string-name=<string name>           String value\n"
-    "  -c, --configure-name=<file name>          File containing configure(e.g. json, etc.)\n"
-    "  -a, --architecture=<ELF architecture>     ELF architecture\n"
     "  -m, --class=<ELF machine>                 ELF class(e.g. 32bit, 64bit, etc.)\n"
     "      --value=<math value>                  Reserve value(e.g. 7=111=rwx)\n"
+    "  -a, --architecture=<ELF architecture>     ELF architecture\n"
     "  -e, --endian=<ELF endian>                 ELF endian(e.g. little, big, etc.)\n"
     "  -b, --base=<ELF base address>             ELF base address\n"
     "  -o, --offset=<injection offset>           Offset of injection point\n"
     "  -i, --row=<object index>                  Index of the object to be read or written\n"
     "  -j, --column=<vertical axis>              The vertical axis of the object to be read or written\n"
     "  -l, --length=<string length>              Display the maximum length of the string\n"
-    "  -v, --version-libc=<libc version>         Libc.so or ld.so version\n"
     "  -h, --help[={none|English|Chinese}]       Display this output\n"
     "  -A, (no argument)                         Display all ELF file infomation\n"
     "  -H, (no argument)                         Display | Edit ELF file header\n"
@@ -214,7 +228,6 @@ static const char *help =
     "  elfspirit --add-segment [-z]<size> ELF\n"
     "                          [-f]<segment file> ELF\n"
     "  elfspirit --rm-section  [-n]<section name> ELF\n"
-    "                          [-c]<multi section name> ELF\n"
     "  elfspirit --rm-shdr ELF\n"
     "  elfspirit --rm-strip ELF\n"
     "  elfspirit --inject-hook [-s]<hook symbol> [-f]<new function bin> [-o]<new function start offset> ELF\n"
@@ -235,7 +248,7 @@ static const char *help_chinese =
     "  shellcode    从目标文件中提取二进制片段，将shellcode转化为二进制. [extract, hex2bin]\n"
     "  firmware     用于IOT固件，比如将二进制转换为elf文件，连接多个bin文件. [bin2elf, joinelf]\n"
     "  patch        修补ELF. [--set-interpreter, --set-rpath, --set-runpath]\n"
-    "  confuse      删除节、过滤符号表、删除节头表，混淆ELF符号. [--rm-section, --rm-shdr, --rm-strip, confuse]\n"
+    "  confuse      删除节、过滤符号表、删除节头表，混淆ELF符号. [--rm-section, --rm-shdr, --rm-strip]\n"
     "  infect       ELF文件感染. [--infect-silvio, --infect-skeksi, --infect-data, exe2so]\n"
     "  forensic     分析ELF文件结构的合法性. [checksec]\n"
     "支持的选项:\n"
@@ -243,17 +256,15 @@ static const char *help_chinese =
     "  -z, --section-size=<section size>         设置节大小\n"
     "  -f, --file-name=<file name>               包含代码的文件名称(如某个so库)\n"
     "  -s, --string-name=<string name>           传入字符串值\n"
-    "  -c, --configure-name=<file name>          配置文件(如json)\n"
-    "  -a, --architecture=<ELF architecture>     ELF文件的架构(预留选项，非必须)\n"
     "  -m, --class=<ELF machine>                 设置ELF字长(32bit, 64bit)\n"
     "      --value=<math value>                  预留的参数，可以用于传递数值(e.g. 7=111=rwx)\n"
+    "  -a, --architecture=<ELF architecture>     ELF文件的架构(预留选项，非必须)\n"
     "  -e, --endian=<ELF endian>                 设置ELF大小端(little, big)\n"
     "  -b, --base=<ELF base address>             设置ELF入口地址\n"
     "  -o, --offset=<injection offset>           注入点的偏移位置(预留选项，非必须)\n"
     "  -i, --row=<object index>                  待读出或者写入的对象的下标\n"
     "  -j, --column=<vertical axis>              待读出或者写入的对象的纵坐标\n"
     "  -l, --length=<string length>              解析ELF文件时，显示字符串的最大长度\n"
-    "  -v, --version-libc=<libc version>         libc或者ld的版本\n"
     "  -h, --help[={none|English|Chinese}]       帮助\n"
     "  -A, 不需要参数                    显示ELF解析器解析的所有信息\n"
     "  -H, 不需要参数                    显示|编辑ELF: ELF头\n"
@@ -279,7 +290,6 @@ static const char *help_chinese =
     "  elfspirit --add-segment [-z]<size> ELF\n"
     "                          [-f]<segment file> ELF\n"
     "  elfspirit --rm-section  [-n]<节的名字> ELF\n"
-    "                          [-c]<多个节的名字> ELF\n"
     "  elfspirit --rm-shdr ELF\n"
     "  elfspirit --rm-strip ELF\n"
     "  elfspirit --inject-hook [-s]<hook函数名> [-f]<新的函数二进制> [-o]<新函数偏移> ELF\n"
@@ -329,11 +339,6 @@ static void readcmdline(int argc, char *argv[]) {
                 memcpy(file, optarg, strlen(optarg));
                 break;
 
-            // configure
-            case 'c':
-                memcpy(config_name, optarg, MAX_PATH_LEN);
-                break;
-
             /***** add elf info to firmware for IDA - STRT*****/
             // set architecture
             case 'a':
@@ -375,11 +380,6 @@ static void readcmdline(int argc, char *argv[]) {
                 else{
                     off = atoi(optarg);
                 }                
-                break;
-
-            // set libc version
-            case 'v':
-                memcpy(ver, optarg, MAX_PATH_LEN);
                 break;
             
             case 'h':
@@ -470,7 +470,7 @@ static void readcmdline(int argc, char *argv[]) {
     Elf elf;
     if (optind == argc - 1) {
         memcpy(elf_name, argv[optind], strlen(argv[optind]));
-        init(elf_name, &elf);
+        init(elf_name, &elf, false);
         if (g_long_option) {
             switch (g_long_option)
             {
@@ -592,7 +592,7 @@ static void readcmdline(int argc, char *argv[]) {
                     /* save escapsed string to file */
                     init_shellcode();
                     err = mem_to_file(elf_name, shellcode, size, 0);
-                    if (err != TRUE) {
+                    if (err != NO_ERR) {
                         free(shellcode);
                         print_error(err);
                         exit(-1);
@@ -604,7 +604,7 @@ static void readcmdline(int argc, char *argv[]) {
                     /* convert bin to elf */
                     /* add elf info to firmware for IDA */
                     err = add_elf_header(elf_name, arch, class, endian, base_addr);
-                    if (err != TRUE) {
+                    if (err != NO_ERR) {
                         print_error(err);
                         exit(-1);
                     }
@@ -633,20 +633,22 @@ static void readcmdline(int argc, char *argv[]) {
         memcpy(elf_name, argv[++optind], LENGTH);
     }
 
-    init(elf_name, &elf);
+    init(elf_name, &elf, true);     /* true: elf read only */
     /* ELF parser */
     if (!strcmp(function, "parse")) {
         parse(&elf, &po, length);
     }
 
-    /* edit elf */
-    if (!strcmp(function, "edit")) {
-        edit(&elf, &po, row, column, value, section_name, string);
-    }
-
     /* forensics */
     if (!strcmp(function, "checksec")) {
         err = checksec_t1(&elf);
+    }
+    finit(&elf);
+
+    init(elf_name, &elf, false);   /* false: elf read and write */
+    /* edit elf */
+    if (!strcmp(function, "edit")) {
+        edit(&elf, &po, row, column, value, section_name, string);
     }
     finit(&elf);
 }

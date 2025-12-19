@@ -85,7 +85,7 @@ int mem_to_file(char *file_name, char *map, uint32_t map_size, uint32_t is_new) 
     write(fd_new, map, map_size);  
     close(fd_new);
     printf("[+] Create file: %s\n", new_name);
-    return TRUE;
+    return NO_ERR;
 }
 
 /**
@@ -240,11 +240,10 @@ int has_flag(int num, int flag) {
 int copy_data(void *src, void *dst, size_t size) {
     void *m = malloc(size);
     if (m == NULL) {
-        perror("copy_data");
-        return FALSE;
+        return ERR_COPY;
     }
     memcpy(m, src, size);
     memcpy(dst, m, size);
     free(m);
-    return TRUE;
+    return NO_ERR;
 }

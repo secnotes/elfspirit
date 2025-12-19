@@ -117,7 +117,7 @@ int check_hook(Elf *elf, uint64_t start, size_t size) {
             uint32_t *p = (uint32_t *)(elf->mem + offset);
             PRINT_DEBUG("0x%x, 0x%x\n", offset, *p);
             if (*p < start || *p >= start + size) {
-                return TRUE;
+                return false;
             }
         }
     } else if (elf->class == ELFCLASS64) {
@@ -134,14 +134,14 @@ int check_hook(Elf *elf, uint64_t start, size_t size) {
             uint64_t *p = (uint64_t *)(elf->mem + offset);
             PRINT_DEBUG("0x%x, 0x%x\n", offset, *p);
             if (*p < start || *p >= start + size) {
-                return TRUE;
+                return false;
             }
         }
     } else {
         return ERR_ELF_CLASS;
     }
 
-    return FALSE;
+    return true;
 }
 
 /**
@@ -177,9 +177,9 @@ int check_load_flags(Elf *elf) {
 
     PRINT_DEBUG("executable segment count: %d\n", count);
     if (count > 1) {
-        return FALSE;
+        return false;
     } else if (count == 1) {
-        return TRUE;
+        return true;
     } else if (count == 0) {
         return ERR_ELF_CLASS;
     } 
@@ -207,7 +207,7 @@ int check_load_continuity(Elf *elf) {
                 
                 current = i;
                 if (current - last != 1) {
-                    return FALSE;
+                    return false;
                 }
                 last = i;
             }
@@ -223,7 +223,7 @@ int check_load_continuity(Elf *elf) {
                 
                 current = i;
                 if (current - last != 1) {
-                    return FALSE;
+                    return false;
                 }
                 last = i;
             }
@@ -232,7 +232,7 @@ int check_load_continuity(Elf *elf) {
         return ERR_ELF_CLASS;
     }
 
-    return TRUE;
+    return true;
 }
 
 /**
@@ -245,22 +245,13 @@ int check_needed_continuity(Elf *elf) {
     int last = 0;
     int current = 0;
     int has_first = 0;
-    int ret = 0;
+    int err = true;
 
     if (elf->class == ELFCLASS32) {
-        Elf32_Dyn *dyn = NULL;
-        uint32_t dyn_c;
-        for (int i = 0; i < elf->data.elf32.ehdr->e_phnum; i++) {
-            if (elf->data.elf32.phdr[i].p_type == PT_DYNAMIC) {
-                dyn = (Elf32_Dyn *)(elf->mem + elf->data.elf32.phdr[i].p_offset);
-                dyn_c = elf->data.elf32.phdr[i].p_filesz / sizeof(Elf32_Dyn);
-                break;
-            }
-        }
-        if (!dyn) ret = -1;
+        if (!elf->data.elf32.dyn_count) err = ERR_DYN_NOTFOUND;
         else {
-            for (int i = 0; i < dyn_c; i++) {
-                if (dyn[i].d_tag == DT_NEEDED) {
+            for (int i = 0; i < elf->data.elf32.dyn_count; i++) {
+                if (elf->data.elf32.dyn[i].d_tag == DT_NEEDED) {
                     if (!has_first) {
                         has_first = 1;
                         last = i;
@@ -269,7 +260,7 @@ int check_needed_continuity(Elf *elf) {
                     
                     current = i;
                     if (current - last != 1) {
-                        ret = 1;
+                        err = false;
                         break;
                     }
                     last = i;
@@ -277,19 +268,10 @@ int check_needed_continuity(Elf *elf) {
             }
         }
     } if (elf->class == ELFCLASS64) {
-        Elf64_Dyn *dyn = NULL;
-        uint64_t dyn_c;
-        for (int i = 0; i < elf->data.elf64.ehdr->e_phnum; i++) {
-            if (elf->data.elf64.phdr[i].p_type == PT_DYNAMIC) {
-                dyn = (Elf64_Dyn *)(elf->mem + elf->data.elf64.phdr[i].p_offset);
-                dyn_c = elf->data.elf64.phdr[i].p_filesz / sizeof(Elf64_Dyn);
-                break;
-            }
-        }
-        if (!dyn) ret = -1;
+        if (!elf->data.elf64.dyn_count) err = ERR_DYN_NOTFOUND;
         else {
-            for (int i = 0; i < dyn_c; i++) {
-                if (dyn[i].d_tag == DT_NEEDED) {
+            for (int i = 0; i < elf->data.elf64.dyn_count; i++) {
+                if (elf->data.elf64.dyn[i].d_tag == DT_NEEDED) {
                     if (!has_first) {
                         has_first = 1;
                         last = i;
@@ -298,7 +280,7 @@ int check_needed_continuity(Elf *elf) {
                     
                     current = i;
                     if (current - last != 1) {
-                        ret = 1;
+                        err = false;
                         break;
                     }
                     last = i;
@@ -309,10 +291,7 @@ int check_needed_continuity(Elf *elf) {
         return ERR_ELF_CLASS;
     }
 
-    if (last == 0)
-        return TRUE;
-    else
-        return FALSE;
+    return err;
 }
 
 /**
@@ -351,7 +330,7 @@ int check_shdr(Elf *elf) {
  */
 int check_dynstr(Elf *elf) {
     char *name;
-    int ret = 0;
+    int ret = true;
     int dynsym_i = 0, dynstr_i = 0;
     char *tmp;
     size_t tmp_size = 1;
@@ -360,14 +339,14 @@ int check_dynstr(Elf *elf) {
             name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
             if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
                 PRINT_ERROR("Corrupt file format\n");
-                ret = -1;
+                ret = ERR_OUT_OF_BOUNDS;
             }
             if (!strcmp(name, ".dynsym")) dynsym_i = i;
             if (!strcmp(name, ".dynstr")) dynstr_i = i;
         }
         /* check if the dynstr segments are continuous */
-        if (elf->data.elf32.shdr[dynsym_i].sh_offset + elf->data.elf32.shdr[dynsym_i].sh_size != elf->data.elf32.shdr[dynstr_i].sh_offset)
-            ret = 1;
+        // if (elf->data.elf32.shdr[dynsym_i].sh_offset + elf->data.elf32.shdr[dynsym_i].sh_size != elf->data.elf32.shdr[dynstr_i].sh_offset)
+        //     ret = false;
         /* check if the string length is less than original one */
         tmp = elf->mem + elf->data.elf32.shdr[dynstr_i].sh_offset + 1;
         while (tmp_size < elf->data.elf32.shdr[dynstr_i].sh_size) {
@@ -375,10 +354,9 @@ int check_dynstr(Elf *elf) {
             PRINT_DEBUG("%s 0x%x\n", tmp, tmp_size);
             tmp += strlen(tmp) + 1;
             if (tmp_size != elf->data.elf32.shdr[dynstr_i].sh_size && strlen(tmp) == 0) {
-                ret = 1;
+                ret = false;
                 break;
             }
-            ret = 0;
         }
     } else if (elf->class == ELFCLASS64) {
         for (int i = 0; i < elf->data.elf64.ehdr->e_shnum; i++) {
@@ -391,8 +369,8 @@ int check_dynstr(Elf *elf) {
             if (!strcmp(name, ".dynstr")) dynstr_i = i;
         }
         /* check if the dynstr segments are continuous */
-        if (elf->data.elf64.shdr[dynsym_i].sh_offset + elf->data.elf64.shdr[dynsym_i].sh_size != elf->data.elf64.shdr[dynstr_i].sh_offset)
-            ret = 1;
+        // if (elf->data.elf64.shdr[dynsym_i].sh_offset + elf->data.elf64.shdr[dynsym_i].sh_size != elf->data.elf64.shdr[dynstr_i].sh_offset)
+        //     ret = false;
         /* check if the string length is less than original one */
         tmp = elf->mem + elf->data.elf64.shdr[dynstr_i].sh_offset + 1;
         while (tmp_size < elf->data.elf64.shdr[dynstr_i].sh_size) {
@@ -400,10 +378,9 @@ int check_dynstr(Elf *elf) {
             PRINT_DEBUG("%s 0x%x\n", tmp, tmp_size);
             tmp += strlen(tmp) + 1;
             if (tmp_size != elf->data.elf64.shdr[dynstr_i].sh_size && strlen(tmp) == 0) {
-                ret = 1;
+                ret = false;
                 break;
             }
-            ret = 0;
         }
     } else {
         return ERR_ELF_CLASS;
@@ -420,7 +397,7 @@ int check_dynstr(Elf *elf) {
  */
 int check_interpreter(Elf *elf) {
     char *name;
-    int ret = 0;
+    int ret = true;
     int interp_i = -1;
     char *tmp;
     size_t tmp_size = 1;
@@ -429,7 +406,7 @@ int check_interpreter(Elf *elf) {
             name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[i].sh_name;
             if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
                 PRINT_ERROR("Corrupt file format\n");
-                ret = -1;
+                ret = ERR_OUT_OF_BOUNDS;
             }
             if (!strcmp(name, ".interp")) interp_i = i;
         }
@@ -438,14 +415,14 @@ int check_interpreter(Elf *elf) {
         if (interp_i == -1) {
             return ERR_SEC_NOTFOUND;
         }
-        else if (interp_i > 2) {
-            return 1;
-        }
+        // else if (interp_i > 2) {
+        //     return false;
+        // }
         
         /* check if the string length is less than original one */
         name = elf->mem + elf->data.elf32.shdr[interp_i].sh_offset;
         if (strlen(name) != elf->data.elf32.shdr[interp_i].sh_size - 1) {
-            ret = 1;
+            ret = false;
         }
     }
     else if (elf->class == ELFCLASS64) {
@@ -453,7 +430,7 @@ int check_interpreter(Elf *elf) {
             name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[i].sh_name;
             if (validated_offset((uintptr_t)name, (uintptr_t)elf->mem, (uintptr_t)elf->mem + elf->size)) {
                 PRINT_ERROR("Corrupt file format\n");
-                ret = -1;
+                ret = ERR_OUT_OF_BOUNDS;
             }
             if (!strcmp(name, ".interp")) interp_i = i;
         }
@@ -462,14 +439,14 @@ int check_interpreter(Elf *elf) {
         if (interp_i == -1) {
             return ERR_SEC_NOTFOUND;
         }
-        else if (interp_i > 2) {
-            return 1;
-        }
+        // else if (interp_i > 2) {
+        //     return false;
+        // }
         
         /* check if the string length is less than original one */
         name = elf->mem + elf->data.elf64.shdr[interp_i].sh_offset;
         if (strlen(name) != elf->data.elf64.shdr[interp_i].sh_size - 1) {
-            ret = 1;
+            ret = false;
         }
     }
 
@@ -543,11 +520,11 @@ int checksec_t0(Elf *elf) {
         err = check_hook(elf, addr, size);
         switch (err)
         {
-            case 0:
+            case true:
                 CHECK_COMMON("|%-20s|%1s| %-50s|\n", TAG, "✓", "normal");
                 break;
 
-            case 1:
+            case false:
                 CHECK_ERROR("|%-20s|%1s| %-50s|\n", TAG, "✗", ".got.plt hook is detected");
                 break;
 
@@ -563,11 +540,11 @@ int checksec_t0(Elf *elf) {
     err = check_load_flags(elf);
     switch (err)
     {
-        case TRUE:
+        case true:
             CHECK_COMMON("|%-20s|%1s| %-50s|\n", TAG, "✓", "normal");
             break;
 
-        case FALSE:
+        case false:
             CHECK_ERROR("|%-20s|%1s| %-50s|\n", TAG, "✗", "more than one executable segment");
             break;
 
@@ -581,11 +558,11 @@ int checksec_t0(Elf *elf) {
     err = check_load_continuity(elf);
     switch (err)
     {
-        case TRUE:
+        case true:
             CHECK_COMMON("|%-20s|%1s| %-50s|\n", TAG, "✓", "normal");
             break;
 
-        case FALSE:
+        case false:
             CHECK_ERROR("|%-20s|%1s| %-50s|\n", TAG, "✗", "load segments are NOT continuous");
             break;
 
@@ -599,11 +576,11 @@ int checksec_t0(Elf *elf) {
     err = check_needed_continuity(elf);
     switch (err)
     {
-        case TRUE:
+        case true:
             CHECK_COMMON("|%-20s|%1s| %-50s|\n", TAG, "✓", "normal");
             break;
 
-        case FALSE:
+        case false:
             CHECK_ERROR("|%-20s|%1s| %-50s|\n", TAG, "✗", "DT_NEEDED libraries are NOT continuous");
             break;
 
@@ -639,11 +616,11 @@ int checksec_t0(Elf *elf) {
     err = check_dynstr(elf);
     switch (err)
     {
-        case 0:
+        case true:
             CHECK_COMMON("|%-20s|%1s| %-50s|\n", TAG, "✓", "normal");
             break;
         
-        case 1:
+        case false:
             CHECK_ERROR("|%-20s|%1s| %-50s|\n", TAG, "✗", "modified symbol is detected");
             break;
         
@@ -657,11 +634,11 @@ int checksec_t0(Elf *elf) {
     err = check_interpreter(elf);
     switch (err)
     {
-        case 0:
+        case true:
             CHECK_COMMON("|%-20s|%1s| %-50s|\n", TAG, "✓", "normal");
             break;
         
-        case 1:
+        case false:
             CHECK_ERROR("|%-20s|%1s| %-50s|\n", TAG, "✗", "modified interpreter is detected");
             break;
         

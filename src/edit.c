@@ -40,18 +40,18 @@ int edit_dyn_name_value(Elf *elf, int index, char *name) {
         if (strlen(name) <= strlen(origin_name)) {
             memset(origin_name, 0, strlen(origin_name) + 1);
             strcpy(origin_name, name);
-            return TRUE;
+            return NO_ERR;
         } 
         // 2. if new name length > origin_name
         else {
             uint64_t offset = 0;
             int err = add_dynstr_name(elf, name, &offset);
-            if (err != TRUE) {
+            if (err != NO_ERR) {
                 PRINT_ERROR("add dynstr name error :%d\n", err);
                 return err;
             }
             elf->data.elf32.dyn[index].d_un.d_val = offset;
-            return TRUE;
+            return NO_ERR;
         }
     } if (elf->class == ELFCLASS64) {
         char *origin_name = elf->mem + elf->data.elf64.dynstrtab->sh_offset + elf->data.elf64.dyn[index].d_un.d_val;
@@ -59,18 +59,18 @@ int edit_dyn_name_value(Elf *elf, int index, char *name) {
         if (strlen(name) <= strlen(origin_name)) {
             memset(origin_name, 0, strlen(origin_name) + 1);
             strcpy(origin_name, name);
-            return TRUE;
+            return NO_ERR;
         } 
         // 2. if new name length > origin_name
         else {
             uint64_t offset = 0;
             int err = add_dynstr_name(elf, name, &offset);
-            if (err != TRUE) {
+            if (err != NO_ERR) {
                 PRINT_ERROR("add dynstr name error :%d\n", err);
                 return err;
             }
             elf->data.elf64.dyn[index].d_un.d_val = offset;
-            return TRUE;
+            return NO_ERR;
         }
     } else {
         return ERR_ELF_CLASS;
@@ -170,7 +170,7 @@ int edit64(Elf *elf, parser_opt_t *po, int row, int column, int value, char *sec
                     src_string = (char *)malloc(strlen(sec_name) + 1);
                     strcpy(src_string, sec_name);
                     err = set_section_name_t(elf, sec_name, dst_name);
-                    if (err == TRUE)
+                    if (err == NO_ERR)
                         goto PRINT_STRING;
                     else
                         goto OUT_OF_BOUNDS;
@@ -327,7 +327,7 @@ int edit64(Elf *elf, parser_opt_t *po, int row, int column, int value, char *sec
                     src_string = (char *)malloc(strlen(name) + 1);
                     strcpy(src_string, name);
                     err = set_dynstr_name(elf, name, dst_name);
-                    if (err == TRUE)
+                    if (err == NO_ERR)
                         goto PRINT_STRING;
                     else
                         goto OUT_OF_BOUNDS;
@@ -388,7 +388,7 @@ int edit64(Elf *elf, parser_opt_t *po, int row, int column, int value, char *sec
                     src_string = (char *)malloc(strlen(name) + 1);
                     strcpy(src_string, name);
                     err = set_sym_name_t(elf, name, dst_name);
-                    if (err == TRUE)
+                    if (err == NO_ERR)
                         goto PRINT_STRING;
                     else
                         goto OUT_OF_BOUNDS;
@@ -486,7 +486,7 @@ int edit64(Elf *elf, parser_opt_t *po, int row, int column, int value, char *sec
                     src_string = (char *)malloc(strlen(name) + 1);
                     strcpy(src_string, name);
                     err = edit_dyn_name_value(elf, row, dst_name);
-                    if (err == TRUE)
+                    if (err == NO_ERR)
                         goto PRINT_STRING;
                     else
                         goto OUT_OF_BOUNDS;
@@ -632,7 +632,7 @@ int edit32(Elf *elf, parser_opt_t *po, int row, int column, int value, char *sec
                     src_string = (char *)malloc(strlen(sec_name) + 1);
                     strcpy(src_string, sec_name);
                     err = set_section_name_t(elf, sec_name, dst_name);
-                    if (err == TRUE)
+                    if (err == NO_ERR)
                         goto PRINT_STRING;
                     else
                         goto OUT_OF_BOUNDS;
@@ -789,7 +789,7 @@ int edit32(Elf *elf, parser_opt_t *po, int row, int column, int value, char *sec
                     src_string = (char *)malloc(strlen(name) + 1);
                     strcpy(src_string, name);
                     err = set_dynstr_name(elf, name, dst_name);
-                    if (err == TRUE)
+                    if (err == NO_ERR)
                         goto PRINT_STRING;
                     else
                         goto OUT_OF_BOUNDS;
@@ -850,7 +850,7 @@ int edit32(Elf *elf, parser_opt_t *po, int row, int column, int value, char *sec
                     src_string = (char *)malloc(strlen(name) + 1);
                     strcpy(src_string, name);
                     err = set_sym_name_t(elf, name, dst_name);
-                    if (err == TRUE)
+                    if (err == NO_ERR)
                         goto PRINT_STRING;
                     else
                         goto OUT_OF_BOUNDS;
@@ -948,7 +948,7 @@ int edit32(Elf *elf, parser_opt_t *po, int row, int column, int value, char *sec
                     src_string = (char *)malloc(strlen(name) + 1);
                     strcpy(src_string, name);
                     err = edit_dyn_name_value(elf, row, dst_name);
-                    if (err == TRUE)
+                    if (err == NO_ERR)
                         goto PRINT_STRING;
                     else
                         goto OUT_OF_BOUNDS;

@@ -18,8 +18,8 @@ enum ErrorCode {
     ERR_MEM,
     ERR_COPY,
     ERR_MOVE,
-    ERR_EXPANDSEG,
-    ERR_ADDSEG,
+    ERR_EXPAND_SEG,
+    ERR_ADD_SEG,
     ERROR = -3,
     NO_ERR,
     FALSE,
@@ -95,10 +95,12 @@ void print_error(enum ErrorCode code);
 /**
  * @brief 初始化elf文件，将elf文件转化为elf结构体
  * initialize the elf file and convert it into an elf structure
- * @param elf elf file name
+ * @param elf_name elf file name
+ * @param elf elf file custom structure
+ * @param ro if modify elf
  * @return error code
  */
-int init(char *elf_name, Elf *elf);
+int init(char *elf_name, Elf *elf, bool ro);
 int finit(Elf *elf);
 void reinit(Elf *elf);
 
@@ -224,10 +226,20 @@ int get_section_index_in_segment(Elf *elf, char *name, int out_index[], int max_
  * Determine whether the section is an isolated section based on its name, that is, it does not belong to any segment.
  * @param elf Elf custom structure
  * @param name Elf section name
- * @return TRUE or FALSE
+ * @param result true or false
+ * @return error code
  */
-int is_isolated_section_by_name(Elf *elf, char *name);
-int is_isolated_section_by_index(Elf *elf, int index);
+int is_isolated_section_by_name(Elf *elf, char *name, bool *result);
+
+/**
+ * @brief 根据节的下标，判断该节是否是一个孤立节，即不属于任何段
+ * Determine whether the section is an isolated section based on its index, that is, it does not belong to any segment.
+ * @param elf Elf custom structure
+ * @param index Elf section index
+ * @param result true or false
+ * @return error code
+ */
+int is_isolated_section_by_index(Elf *elf, int index, bool *result);
 
 
 /****************************************/

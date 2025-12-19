@@ -2054,7 +2054,7 @@ void display_segment32(Elf *elf) {
     printf("   ");
     for (int j = 0; j < elf->data.elf32.ehdr->e_shnum; j++) {
         name = elf->mem + elf->data.elf32.shstrtab->sh_offset + elf->data.elf32.shdr[j].sh_name;
-        if (contains_element(set, j) == FALSE) {
+        if (contains_element(set, j) == false) {
             printf(" [%d]%s", j, name);
         }
     }
@@ -2192,7 +2192,7 @@ void display_segment64(Elf *elf) {
     printf("   ");
     for (int j = 0; j < elf->data.elf64.ehdr->e_shnum; j++) {
         name = elf->mem + elf->data.elf64.shstrtab->sh_offset + elf->data.elf64.shdr[j].sh_name;
-        if (contains_element(set, j) == FALSE) {
+        if (contains_element(set, j) == false) {
             printf(" [%d]%s", j, name);
         }
     }
@@ -4558,22 +4558,23 @@ static int display_rela32(Elf *elf, char *section_name) {
             break;
         }
 
+        char tmp_name[MAX_PATH_LEN] = {0};
         if (strlen(dyn_string[str_index]) == 0) {
             /* .rela.dyn */
             if (str_index == 0) {
-                snprintf(name, MAX_PATH_LEN, "%x", rela_dyn[i].r_addend);
+                snprintf(tmp_name, MAX_PATH_LEN, "%x", rela_dyn[i].r_addend);
             } 
             /* .o file .rela.text */
             else {
-                snprintf(name, MAX_PATH_LEN, "%s %d", sym_string[str_index], rela_dyn[i].r_addend);
+                snprintf(tmp_name, MAX_PATH_LEN, "%s %d", sym_string[str_index], rela_dyn[i].r_addend);
             }
         }
         /* .rela.plt */
         else if (rela_dyn[i].r_addend >= 0)
-            snprintf(name, MAX_PATH_LEN, "%s + %d", dyn_string[str_index], rela_dyn[i].r_addend);
+            snprintf(tmp_name, MAX_PATH_LEN, "%s + %d", dyn_string[str_index], rela_dyn[i].r_addend);
         else
-            snprintf(name, MAX_PATH_LEN, "%s %d", dyn_string[str_index], rela_dyn[i].r_addend);
-        PRINT_RELA(i, rela_dyn[i].r_offset, rela_dyn[i].r_info, type, str_index, name);
+            snprintf(tmp_name, MAX_PATH_LEN, "%s %d", dyn_string[str_index], rela_dyn[i].r_addend);
+        PRINT_RELA(i, rela_dyn[i].r_offset, rela_dyn[i].r_info, type, str_index, tmp_name);
     }
     if (dyn_string) free(dyn_string);
     if (sym_string) free(sym_string);
@@ -5197,24 +5198,24 @@ static int display_rela64(Elf *elf, char *section_name) {
             PRINT_WARNING("Unknown file format or too many strings\n");
             break;
         }
-
+        char tmp_name[MAX_PATH_LEN] = {0};
         if (strlen(dyn_string[str_index]) == 0) {
             /* .rela.dyn */
             if (str_index == 0) {
-                snprintf(name, MAX_PATH_LEN, "%x", rela_dyn[i].r_addend);
+                snprintf(tmp_name, MAX_PATH_LEN, "%x", rela_dyn[i].r_addend);
             } 
             /* .o file .rela.text */
             else {
-                snprintf(name, MAX_PATH_LEN, "%s %d", sym_string[str_index], rela_dyn[i].r_addend);
+                snprintf(tmp_name, MAX_PATH_LEN, "%s %d", sym_string[str_index], rela_dyn[i].r_addend);
             }
         }
         /* .rela.plt */
         else if (rela_dyn[i].r_addend >= 0)
-            snprintf(name, MAX_PATH_LEN, "%s + %d", dyn_string[str_index], rela_dyn[i].r_addend);
+            snprintf(tmp_name, MAX_PATH_LEN, "%s + %d", dyn_string[str_index], rela_dyn[i].r_addend);
         else
-            snprintf(name, MAX_PATH_LEN, "%s %d", dyn_string[str_index], rela_dyn[i].r_addend);
+            snprintf(tmp_name, MAX_PATH_LEN, "%s %d", dyn_string[str_index], rela_dyn[i].r_addend);
 
-        PRINT_RELA(i, rela_dyn[i].r_offset, rela_dyn[i].r_info, type, str_index, name);
+        PRINT_RELA(i, rela_dyn[i].r_offset, rela_dyn[i].r_info, type, str_index, tmp_name);
     }
 
     if (dyn_string) free(dyn_string);
@@ -5662,5 +5663,5 @@ int parse(Elf *elf, parser_opt_t *po, uint32_t length) {
         return ERR_ELF_CLASS;
     }
 
-    return TRUE;
+    return NO_ERR;
 }
